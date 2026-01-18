@@ -15,7 +15,8 @@ import structlog
 from heracles_api.config import settings
 from heracles_api.api.v1 import router as api_v1_router
 from heracles_api.core.logging import setup_logging
-from heracles_api.services import init_ldap_service, close_ldap_service
+from heracles_api.services import init_ldap_service, close_ldap_service, get_ldap_service
+from heracles_api.plugins.loader import load_enabled_plugins, unload_all_plugins
 
 logger = structlog.get_logger(__name__)
 
@@ -34,10 +35,41 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.error("ldap_service_init_failed", error=str(e))
     
+    # Load plugins
+    try:
+        ldap_service = get_ldap_service()
+        plugins_config = {
+            "plugins": {
+                "enabled": settings.PLUGINS_ENABLED,
+                "config": {
+                    "posix": {
+                        "uid_min": settings.POSIX_UID_MIN,
+                        "uid_max": settings.POSIX_UID_MAX,
+                        "gid_min": settings.POSIX_GID_MIN,
+                        "gid_max": settings.POSIX_GID_MAX,
+                        "default_shell": settings.POSIX_DEFAULT_SHELL,
+                        "default_home_base": settings.POSIX_DEFAULT_HOME_BASE,
+                    }
+                },
+            },
+        }
+        loaded_plugins = load_enabled_plugins(plugins_config, ldap_service)
+        logger.info("plugins_loaded", count=len(loaded_plugins))
+        
+        # Register plugin routes
+        from heracles_api.plugins.registry import plugin_registry
+        for plugin in loaded_plugins:
+            for route in plugin.routes():
+                app.include_router(route, prefix="/api/v1")
+                
+    except Exception as e:
+        logger.warning("plugins_load_failed", error=str(e))
+    
     yield
     
     # Shutdown
     logger.info("shutting_down_heracles_api")
+    unload_all_plugins()
     await close_ldap_service()
 
 

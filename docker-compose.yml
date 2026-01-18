@@ -121,6 +121,7 @@ services:
     volumes:
       - ./heracles-api:/app
       - ./heracles-core:/heracles-core:ro
+      - ./heracles_plugins:/heracles_plugins
     ports:
       - "8000:8000"
     depends_on:

@@ -47,6 +47,17 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = "INFO"
     
+    # Plugins
+    PLUGINS_ENABLED: List[str] = ["posix"]
+    
+    # POSIX Plugin Settings
+    POSIX_UID_MIN: int = 10000
+    POSIX_UID_MAX: int = 60000
+    POSIX_GID_MIN: int = 10000
+    POSIX_GID_MAX: int = 60000
+    POSIX_DEFAULT_SHELL: str = "/bin/bash"
+    POSIX_DEFAULT_HOME_BASE: str = "/home"
+    
     class Config:
         env_file = ".env"
         case_sensitive = True

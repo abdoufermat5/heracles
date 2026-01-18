@@ -95,21 +95,6 @@ export function GroupCreatePage() {
                   </FormItem>
                 )}
               />
-
-              <FormField
-                control={form.control}
-                name="gidNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>GID Number</FormLabel>
-                    <FormControl>
-                      <Input type="number" placeholder="Auto-generated" {...field} />
-                    </FormControl>
-                    <FormDescription>Leave empty for auto-generation</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
             </CardContent>
           </Card>
 

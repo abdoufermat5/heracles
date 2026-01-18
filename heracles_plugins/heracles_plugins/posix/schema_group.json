@@ -1,0 +1,65 @@
+{
+  "$schema": "https://heracles.example.com/schemas/form-schema-v1.json",
+  "id": "posix-group",
+  "version": "1.0.0",
+  "title": "POSIX Group",
+  "description": "POSIX/Unix group settings",
+  "icon": "users",
+
+  "activation": {
+    "label": "Enable POSIX group",
+    "description": "Add POSIX attributes to enable Unix/Linux group functionality"
+  },
+
+  "sections": [
+    {
+      "id": "main",
+      "title": "Group Settings",
+      "description": "POSIX group configuration",
+      "fields": [
+        {
+          "name": "gidNumber",
+          "type": "number",
+          "label": "GID Number",
+          "description": "Unix group ID (auto-allocated if empty)",
+          "required": false,
+          "readonlyAfterCreate": true,
+          "min": 1000,
+          "max": 65534,
+          "placeholder": "Auto",
+          "helpText": "Leave empty to auto-allocate the next available GID"
+        }
+      ]
+    },
+    {
+      "id": "members",
+      "title": "POSIX Members",
+      "description": "Unix group membership via memberUid",
+      "fields": [
+        {
+          "name": "memberUid",
+          "type": "user_select",
+          "label": "Unix Members",
+          "description": "Users who are members of this Unix group (by uid)",
+          "required": false,
+          "multiple": true,
+          "filter": "(objectClass=posixAccount)",
+          "displayField": "uid",
+          "valueField": "uid",
+          "helpText": "Select users to add as Unix group members"
+        }
+      ]
+    }
+  ],
+
+  "validation": {
+    "rules": [
+      {
+        "type": "unique",
+        "field": "gidNumber",
+        "scope": "global",
+        "message": "This GID is already in use"
+      }
+    ]
+  }
+}

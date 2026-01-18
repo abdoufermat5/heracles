@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Form,
   FormControl,
@@ -26,6 +27,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { PageHeader, LoadingPage, ErrorDisplay, LoadingSpinner, ConfirmDialog } from '@/components/common'
+import { PosixUserTab } from '@/components/plugins/posix'
 import { useUser, useUpdateUser, useDeleteUser, useSetUserPassword, useUserLockStatus, useLockUser, useUnlockUser } from '@/hooks'
 import { userUpdateSchema, setPasswordSchema, type UserUpdateFormData, type SetPasswordFormData } from '@/lib/schemas'
 import { ROUTES } from '@/config/constants'
@@ -53,10 +55,6 @@ export function UserDetailPage() {
       telephoneNumber: user.telephoneNumber || '',
       title: user.title || '',
       description: user.description || '',
-      uidNumber: user.uidNumber,
-      gidNumber: user.gidNumber,
-      homeDirectory: user.homeDirectory || '',
-      loginShell: user.loginShell || '',
     } : undefined,
   })
 
@@ -187,175 +185,157 @@ export function UserDetailPage() {
         }
       />
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Basic Information</CardTitle>
-                </CardHeader>
-                <CardContent className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <Label>Username</Label>
-                    <Input value={user.uid} disabled className="mt-2" />
+      <Tabs defaultValue="general" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="posix">Unix Account</TabsTrigger>
+          <TabsTrigger value="groups">Groups</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="general">
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Basic Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid gap-4 md:grid-cols-2">
+                      <div>
+                        <Label>Username</Label>
+                        <Input value={user.uid} disabled className="mt-2" />
+                      </div>
+
+                      <FormField
+                        control={form.control}
+                        name="mail"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <Input type="email" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="givenName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>First Name *</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="sn"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Last Name *</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="telephoneNumber"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Phone</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="title"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Job Title</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </CardContent>
+                  </Card>
+
+                  <div className="flex justify-end">
+                    <Button type="submit" disabled={updateMutation.isPending}>
+                      {updateMutation.isPending ? (
+                        <>
+                          <LoadingSpinner size="sm" className="mr-2" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="mr-2 h-4 w-4" />
+                          Save Changes
+                        </>
+                      )}
+                    </Button>
                   </div>
+                </form>
+              </Form>
+            </div>
 
-                  <FormField
-                    control={form.control}
-                    name="mail"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input type="email" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="givenName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>First Name *</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="sn"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Last Name *</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="telephoneNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="title"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Job Title</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-
+            <div className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>POSIX Attributes</CardTitle>
+                  <CardTitle>LDAP Details</CardTitle>
                 </CardHeader>
-                <CardContent className="grid gap-4 md:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="uidNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>UID Number</FormLabel>
-                        <FormControl>
-                          <Input type="number" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="gidNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>GID Number</FormLabel>
-                        <FormControl>
-                          <Input type="number" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="homeDirectory"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Home Directory</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="loginShell"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Login Shell</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                <CardContent className="space-y-2 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">DN:</span>
+                    <p className="font-mono text-xs break-all">{user.dn}</p>
+                  </div>
+                  {user.objectClass && user.objectClass.length > 0 && (
+                    <div>
+                      <span className="text-muted-foreground">Object Classes:</span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {user.objectClass.map((oc) => (
+                          <Badge key={oc} variant="outline" className="text-xs">
+                            {oc}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
+            </div>
+          </div>
+        </TabsContent>
 
-              <div className="flex justify-end">
-                <Button type="submit" disabled={updateMutation.isPending}>
-                  {updateMutation.isPending ? (
-                    <>
-                      <LoadingSpinner size="sm" className="mr-2" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="mr-2 h-4 w-4" />
-                      Save Changes
-                    </>
-                  )}
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </div>
+        <TabsContent value="posix">
+          <div className="max-w-3xl">
+            <PosixUserTab 
+              uid={user.uid} 
+              displayName={user.displayName || `${user.givenName} ${user.sn}`} 
+            />
+          </div>
+        </TabsContent>
 
-        <div className="space-y-6">
+        <TabsContent value="groups">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -385,32 +365,8 @@ export function UserDetailPage() {
               )}
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>LDAP Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <div>
-                <span className="text-muted-foreground">DN:</span>
-                <p className="font-mono text-xs break-all">{user.dn}</p>
-              </div>
-              {user.objectClass && user.objectClass.length > 0 && (
-                <div>
-                  <span className="text-muted-foreground">Object Classes:</span>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {user.objectClass.map((oc) => (
-                      <Badge key={oc} variant="outline" className="text-xs">
-                        {oc}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Set Password Dialog */}
       <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>

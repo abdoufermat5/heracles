@@ -36,9 +36,15 @@ WORKDIR /app
 # Copy application code
 COPY heracles-api /app
 
+# Copy plugins package
+COPY heracles_plugins /heracles_plugins
+
+# Install plugins package
+RUN pip install -e /heracles_plugins
+
 # Create non-root user
 RUN useradd -m -u 1000 heracles
-RUN chown -R heracles:heracles /app
+RUN chown -R heracles:heracles /app /heracles_plugins
 USER heracles
 
 # Expose port

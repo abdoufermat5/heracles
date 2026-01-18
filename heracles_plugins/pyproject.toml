@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "heracles_plugins"
+version = "0.1.0"
+description = "Official plugins for Heracles Identity Management"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Heracles Team"}
+]
+requires-python = ">=3.11"
+
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["heracles_plugins*"]
+
+[tool.setuptools.package-data]
+"heracles_plugins.posix" = ["*.json"]

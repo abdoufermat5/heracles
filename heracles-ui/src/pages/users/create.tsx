@@ -36,12 +36,12 @@ export function UserCreatePage() {
       description: '',
       password: '',
       confirmPassword: '',
-      loginShell: '/bin/bash',
     },
   })
 
   const onSubmit = async (data: UserCreateFormData) => {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { confirmPassword, ...userData } = data
       await createMutation.mutateAsync(userData)
       toast.success(`User "${data.uid}" created successfully`)
@@ -192,72 +192,6 @@ export function UserCreatePage() {
                     <FormLabel>Confirm Password *</FormLabel>
                     <FormControl>
                       <Input type="password" placeholder="••••••••" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>POSIX Attributes</CardTitle>
-              <CardDescription>Unix/Linux system attributes (optional)</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="uidNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>UID Number</FormLabel>
-                    <FormControl>
-                      <Input type="number" placeholder="Auto-generated" {...field} />
-                    </FormControl>
-                    <FormDescription>Leave empty for auto-generation</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="gidNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>GID Number</FormLabel>
-                    <FormControl>
-                      <Input type="number" placeholder="Auto-generated" {...field} />
-                    </FormControl>
-                    <FormDescription>Primary group ID</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="homeDirectory"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Home Directory</FormLabel>
-                    <FormControl>
-                      <Input placeholder="/home/jdoe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="loginShell"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Login Shell</FormLabel>
-                    <FormControl>
-                      <Input placeholder="/bin/bash" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -17,10 +17,6 @@ export const userSchema = z.object({
   telephoneNumber: z.string().optional(),
   title: z.string().optional(),
   description: z.string().optional(),
-  uidNumber: z.number().int().positive().optional(),
-  gidNumber: z.number().int().positive().optional(),
-  homeDirectory: z.string().optional(),
-  loginShell: z.string().optional(),
 })
 
 export const userCreateSchema = userSchema.extend({
@@ -41,7 +37,6 @@ export type UserUpdateFormData = z.infer<typeof userUpdateSchema>
 export const groupSchema = z.object({
   cn: z.string().min(1, 'Group name is required').regex(/^[a-zA-Z][a-zA-Z0-9._-]*$/, 'Invalid group name format'),
   description: z.string().optional(),
-  gidNumber: z.number().int().positive().optional(),
 })
 
 export const groupCreateSchema = groupSchema

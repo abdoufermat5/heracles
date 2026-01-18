@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Form,
   FormControl,
@@ -26,6 +27,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { PageHeader, LoadingPage, ErrorDisplay, LoadingSpinner, ConfirmDialog } from '@/components/common'
+import { PosixGroupTab } from '@/components/plugins/posix'
 import { useGroup, useUpdateGroup, useDeleteGroup, useAddGroupMember, useRemoveGroupMember } from '@/hooks'
 import { groupUpdateSchema, type GroupUpdateFormData } from '@/lib/schemas'
 import { ROUTES } from '@/config/constants'
@@ -48,7 +50,6 @@ export function GroupDetailPage() {
     resolver: zodResolver(groupUpdateSchema),
     values: group ? {
       description: group.description || '',
-      gidNumber: group.gidNumber,
     } : undefined,
   })
 
@@ -127,70 +128,92 @@ export function GroupDetailPage() {
         }
       />
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <Tabs defaultValue="general" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="members">Members</TabsTrigger>
+          <TabsTrigger value="posix">POSIX</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="general">
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Group Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <Label>Group Name</Label>
+                        <Input value={group.cn} disabled className="mt-2" />
+                      </div>
+
+                      <FormField
+                        control={form.control}
+                        name="description"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Description</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </CardContent>
+                  </Card>
+
+                  <div className="flex justify-end">
+                    <Button type="submit" disabled={updateMutation.isPending}>
+                      {updateMutation.isPending ? (
+                        <>
+                          <LoadingSpinner size="sm" className="mr-2" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="mr-2 h-4 w-4" />
+                          Save Changes
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </div>
+
+            <div className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Group Information</CardTitle>
+                  <CardTitle>LDAP Details</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-2 text-sm">
                   <div>
-                    <Label>Group Name</Label>
-                    <Input value={group.cn} disabled className="mt-2" />
+                    <span className="text-muted-foreground">DN:</span>
+                    <p className="font-mono text-xs break-all">{group.dn}</p>
                   </div>
-
-                  <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="gidNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>GID Number</FormLabel>
-                        <FormControl>
-                          <Input type="number" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {group.objectClass && group.objectClass.length > 0 && (
+                    <div>
+                      <span className="text-muted-foreground">Object Classes:</span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {group.objectClass.map((oc) => (
+                          <Badge key={oc} variant="outline" className="text-xs">
+                            {oc}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
+            </div>
+          </div>
+        </TabsContent>
 
-              <div className="flex justify-end">
-                <Button type="submit" disabled={updateMutation.isPending}>
-                  {updateMutation.isPending ? (
-                    <>
-                      <LoadingSpinner size="sm" className="mr-2" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="mr-2 h-4 w-4" />
-                      Save Changes
-                    </>
-                  )}
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </div>
-
-        <div className="space-y-6">
+        <TabsContent value="members">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -201,7 +224,7 @@ export function GroupDetailPage() {
                 </CardTitle>
                 <Button size="sm" onClick={() => setShowAddMemberDialog(true)}>
                   <UserPlus className="mr-1 h-4 w-4" />
-                  Add
+                  Add Member
                 </Button>
               </div>
               <CardDescription>Users in this group</CardDescription>
@@ -240,36 +263,18 @@ export function GroupDetailPage() {
                   })}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">No members in this group</p>
+                <p className="text-sm text-muted-foreground py-8 text-center">No members in this group</p>
               )}
             </CardContent>
           </Card>
+        </TabsContent>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>LDAP Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <div>
-                <span className="text-muted-foreground">DN:</span>
-                <p className="font-mono text-xs break-all">{group.dn}</p>
-              </div>
-              {group.objectClass && group.objectClass.length > 0 && (
-                <div>
-                  <span className="text-muted-foreground">Object Classes:</span>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {group.objectClass.map((oc) => (
-                      <Badge key={oc} variant="outline" className="text-xs">
-                        {oc}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+        <TabsContent value="posix">
+          <div className="max-w-3xl">
+            <PosixGroupTab cn={group.cn} />
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Add Member Dialog */}
       <Dialog open={showAddMemberDialog} onOpenChange={setShowAddMemberDialog}>
