@@ -1,197 +1,248 @@
 """
-User Management Endpoints
-=========================
+Users Endpoints
+===============
 
-CRUD operations for LDAP users.
+User management endpoints (CRUD operations).
 """
 
-from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Query, status
-from pydantic import BaseModel, EmailStr
+from typing import Optional
 
+from fastapi import APIRouter, HTTPException, status, Query
+
+from heracles_api.core.dependencies import CurrentUser, UserRepoDep, GroupRepoDep
+from heracles_api.schemas import (
+    UserCreate,
+    UserUpdate,
+    UserResponse,
+    UserListResponse,
+    SetPasswordRequest,
+)
+from heracles_api.services import LdapOperationError
+
+import structlog
+
+logger = structlog.get_logger(__name__)
 router = APIRouter()
 
 
-# ===========================================
-# Pydantic Models
-# ===========================================
+def _entry_to_response(entry, groups: list[str] = None) -> UserResponse:
+    """Convert LDAP entry to UserResponse."""
+    return UserResponse(
+        dn=entry.dn,
+        uid=entry.get_first("uid", ""),
+        cn=entry.get_first("cn", ""),
+        sn=entry.get_first("sn", ""),
+        givenName=entry.get_first("givenName"),
+        mail=entry.get_first("mail"),
+        telephoneNumber=entry.get_first("telephoneNumber"),
+        title=entry.get_first("title"),
+        description=entry.get_first("description"),
+        memberOf=groups or [],
+    )
 
-class UserBase(BaseModel):
-    """Base user model."""
-    uid: str
-    cn: str
-    sn: str
-    given_name: Optional[str] = None
-    mail: Optional[EmailStr] = None
-    telephone_number: Optional[str] = None
-    title: Optional[str] = None
-    description: Optional[str] = None
-
-
-class UserCreate(UserBase):
-    """User creation model."""
-    password: str
-    uid_number: Optional[int] = None  # Auto-generated if not provided
-    gid_number: int
-    home_directory: Optional[str] = None  # Auto-generated if not provided
-    login_shell: str = "/bin/bash"
-
-
-class UserUpdate(BaseModel):
-    """User update model (all fields optional)."""
-    cn: Optional[str] = None
-    sn: Optional[str] = None
-    given_name: Optional[str] = None
-    mail: Optional[EmailStr] = None
-    telephone_number: Optional[str] = None
-    title: Optional[str] = None
-    description: Optional[str] = None
-    login_shell: Optional[str] = None
-
-
-class UserResponse(UserBase):
-    """User response model."""
-    dn: str
-    uid_number: int
-    gid_number: int
-    home_directory: str
-    login_shell: str
-    object_classes: List[str]
-
-
-class UserListResponse(BaseModel):
-    """Paginated user list response."""
-    items: List[UserResponse]
-    total: int
-    page: int
-    page_size: int
-
-
-class PasswordChange(BaseModel):
-    """Password change request."""
-    current_password: str
-    new_password: str
-
-
-# ===========================================
-# Endpoints
-# ===========================================
 
 @router.get("", response_model=UserListResponse)
 async def list_users(
+    current_user: CurrentUser,
+    user_repo: UserRepoDep,
     page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=100),
-    search: Optional[str] = None,
-    filter_by: Optional[str] = None,
+    page_size: int = Query(50, ge=1, le=200),
+    search: Optional[str] = Query(None, description="Search in uid, cn, mail"),
+    ou: Optional[str] = Query(None, description="Filter by organizational unit"),
 ):
     """
     List all users with pagination.
-    
-    - **page**: Page number (1-indexed)
-    - **page_size**: Items per page (max 100)
-    - **search**: Search in cn, uid, mail
-    - **filter_by**: LDAP filter to apply
     """
-    # TODO: Implement LDAP search
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="User listing not yet implemented"
-    )
+    try:
+        result = await user_repo.search(search_term=search, ou=ou)
+        
+        total = result.total
+        
+        # Apply pagination
+        start = (page - 1) * page_size
+        end = start + page_size
+        page_entries = result.users[start:end]
+        
+        # Get group memberships for each user
+        users = []
+        for entry in page_entries:
+            groups = await user_repo.get_groups(entry.dn)
+            users.append(_entry_to_response(entry, groups))
+        
+        return UserListResponse(
+            users=users,
+            total=total,
+            page=page,
+            page_size=page_size,
+            has_more=end < total,
+        )
+        
+    except LdapOperationError as e:
+        logger.error("list_users_failed", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to list users",
+        )
 
 
 @router.get("/{uid}", response_model=UserResponse)
-async def get_user(uid: str):
+async def get_user(
+    uid: str,
+    current_user: CurrentUser,
+    user_repo: UserRepoDep,
+):
     """
-    Get a single user by UID.
+    Get user by UID.
     """
-    # TODO: Implement LDAP search for single user
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="User retrieval not yet implemented"
-    )
+    try:
+        entry = await user_repo.find_by_uid(uid)
+        
+        if not entry:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User '{uid}' not found",
+            )
+        
+        groups = await user_repo.get_groups(entry.dn)
+        return _entry_to_response(entry, groups)
+        
+    except LdapOperationError as e:
+        logger.error("get_user_failed", uid=uid, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get user",
+        )
 
 
 @router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def create_user(user: UserCreate):
+async def create_user(
+    user: UserCreate,
+    current_user: CurrentUser,
+    user_repo: UserRepoDep,
+):
     """
     Create a new user.
+    """
+    # Check if user already exists
+    if await user_repo.exists(user.uid):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"User '{user.uid}' already exists",
+        )
     
-    Creates an inetOrgPerson with posixAccount attributes.
-    """
-    # TODO: Implement LDAP add
-    # 1. Validate user data
-    # 2. Auto-generate uidNumber if not provided
-    # 3. Auto-generate homeDirectory if not provided
-    # 4. Hash password
-    # 5. Add to LDAP
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="User creation not yet implemented"
-    )
+    try:
+        entry = await user_repo.create(user)
+        
+        logger.info("user_created", uid=user.uid, by=current_user.uid)
+        
+        return _entry_to_response(entry, [])
+        
+    except LdapOperationError as e:
+        logger.error("create_user_failed", uid=user.uid, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create user: {e}",
+        )
 
 
-@router.put("/{uid}", response_model=UserResponse)
-async def update_user(uid: str, user: UserUpdate):
+@router.patch("/{uid}", response_model=UserResponse)
+async def update_user(
+    uid: str,
+    updates: UserUpdate,
+    current_user: CurrentUser,
+    user_repo: UserRepoDep,
+):
     """
-    Update an existing user.
+    Update user attributes.
     """
-    # TODO: Implement LDAP modify
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="User update not yet implemented"
-    )
+    try:
+        entry = await user_repo.update(uid, updates)
+        
+        if not entry:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User '{uid}' not found",
+            )
+        
+        logger.info("user_updated", uid=uid, by=current_user.uid)
+        
+        groups = await user_repo.get_groups(entry.dn)
+        return _entry_to_response(entry, groups)
+        
+    except LdapOperationError as e:
+        logger.error("update_user_failed", uid=uid, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update user: {e}",
+        )
 
 
 @router.delete("/{uid}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_user(uid: str):
+async def delete_user(
+    uid: str,
+    current_user: CurrentUser,
+    user_repo: UserRepoDep,
+    group_repo: GroupRepoDep,
+):
     """
     Delete a user.
     """
-    # TODO: Implement LDAP delete
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="User deletion not yet implemented"
-    )
-
-
-@router.post("/{uid}/password")
-async def change_password(uid: str, password_change: PasswordChange):
-    """
-    Change user password.
+    # Prevent self-deletion
+    if uid == current_user.uid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete your own account",
+        )
     
-    Requires current password for verification.
-    """
-    # TODO: Implement password change
-    # 1. Verify current password
-    # 2. Hash new password
-    # 3. Update LDAP
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Password change not yet implemented"
-    )
-
-
-@router.post("/{uid}/password/admin")
-async def admin_reset_password(uid: str, new_password: str):
-    """
-    Admin password reset (no current password required).
+    # Find user
+    entry = await user_repo.find_by_uid(uid)
+    if not entry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User '{uid}' not found",
+        )
     
-    Requires admin privileges.
-    """
-    # TODO: Implement admin password reset
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Admin password reset not yet implemented"
-    )
+    try:
+        # Remove user from all groups first
+        await group_repo.remove_user_from_all_groups(entry.dn)
+        
+        # Delete user
+        await user_repo.delete(uid)
+        
+        logger.info("user_deleted", uid=uid, by=current_user.uid)
+        
+    except LdapOperationError as e:
+        logger.error("delete_user_failed", uid=uid, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete user: {e}",
+        )
 
 
-@router.get("/{uid}/groups", response_model=List[str])
-async def get_user_groups(uid: str):
+@router.post("/{uid}/password", status_code=status.HTTP_204_NO_CONTENT)
+async def set_user_password(
+    uid: str,
+    request: SetPasswordRequest,
+    current_user: CurrentUser,
+    user_repo: UserRepoDep,
+):
     """
-    Get groups that a user belongs to.
+    Set user password (admin operation).
     """
-    # TODO: Implement group membership lookup
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="User groups not yet implemented"
-    )
+    if not await user_repo.exists(uid):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User '{uid}' not found",
+        )
+    
+    try:
+        await user_repo.set_password(uid, request.password)
+        
+        logger.info("user_password_set", uid=uid, by=current_user.uid)
+        
+    except LdapOperationError as e:
+        logger.error("set_password_failed", uid=uid, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to set password: {e}",
+        )

@@ -1,7 +1,7 @@
 # Heracles Development Makefile
 # =============================
 
-.PHONY: help dev dev-infra stop clean test test-rust test-api lint format build
+.PHONY: help dev dev-infra stop clean test test-rust test-api lint format build bootstrap
 
 # Default target
 help:
@@ -11,6 +11,7 @@ help:
 	@echo "Infrastructure:"
 	@echo "  make dev-infra     - Start LDAP, PostgreSQL, Redis (minimal setup)"
 	@echo "  make dev           - Start full development environment"
+	@echo "  make bootstrap     - Initialize LDAP with base structure"
 	@echo "  make stop          - Stop all services"
 	@echo "  make clean         - Stop and remove all volumes"
 	@echo ""
@@ -36,6 +37,9 @@ help:
 dev-infra:
 	docker compose up -d ldap postgres redis phpldapadmin
 	@echo ""
+	@echo "⏳ Waiting for services to be ready..."
+	@sleep 5
+	@echo ""
 	@echo "Infrastructure started!"
 	@echo "  - LDAP:          ldap://localhost:389"
 	@echo "  - phpLDAPadmin:  http://localhost:8080"
@@ -43,6 +47,12 @@ dev-infra:
 	@echo "  - Redis:         localhost:6379"
 	@echo ""
 	@echo "LDAP Admin: cn=admin,dc=heracles,dc=local / admin_secret"
+	@echo ""
+	@echo "💡 Run 'make bootstrap' to initialize LDAP structure"
+
+# Initialize LDAP with base structure
+bootstrap:
+	@./scripts/ldap-bootstrap.sh
 
 # Start full development environment
 dev:
@@ -77,7 +87,7 @@ test-rust:
 test-api:
 	cd heracles-api && python -m pytest tests/ -v
 
-# ===========================================
+# =========================================== 
 # Code Quality
 # ===========================================
 

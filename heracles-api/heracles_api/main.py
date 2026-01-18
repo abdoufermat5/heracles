@@ -10,10 +10,14 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import structlog
 
 from heracles_api.config import settings
 from heracles_api.api.v1 import router as api_v1_router
 from heracles_api.core.logging import setup_logging
+from heracles_api.services import init_ldap_service, close_ldap_service
+
+logger = structlog.get_logger(__name__)
 
 
 @asynccontextmanager
@@ -21,12 +25,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan context manager."""
     # Startup
     setup_logging()
-    # TODO: Initialize LDAP connection pool
-    # TODO: Initialize database connection
-    # TODO: Initialize Redis connection
+    logger.info("starting_heracles_api", version="0.1.0")
+    
+    # Initialize LDAP connection
+    try:
+        await init_ldap_service()
+        logger.info("ldap_service_initialized")
+    except Exception as e:
+        logger.error("ldap_service_init_failed", error=str(e))
+    
     yield
+    
     # Shutdown
-    # TODO: Cleanup connections
+    logger.info("shutting_down_heracles_api")
+    await close_ldap_service()
 
 
 app = FastAPI(

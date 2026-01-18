@@ -15,26 +15,27 @@ class Settings(BaseSettings):
     # API
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
-    DEBUG: bool = False
-    SECRET_KEY: str = "change-me-in-production"
+    DEBUG: bool = True
+    SECRET_KEY: str = "heracles-dev-secret-change-in-production"
     
     # CORS
     CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000"]
     
-    # LDAP
+    # LDAP (defaults for docker-compose)
     LDAP_URI: str = "ldap://localhost:389"
-    LDAP_BASE_DN: str = "dc=example,dc=com"
-    LDAP_BIND_DN: str = "cn=admin,dc=example,dc=com"
-    LDAP_BIND_PASSWORD: str = ""
+    LDAP_BASE_DN: str = "dc=heracles,dc=local"
+    LDAP_BIND_DN: str = "cn=admin,dc=heracles,dc=local"
+    LDAP_BIND_PASSWORD: str = "admin_secret"
     LDAP_USE_TLS: bool = False
     LDAP_POOL_SIZE: int = 10
     LDAP_TIMEOUT: int = 30
     
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://heracles:heracles@localhost:5432/heracles"
+    DATABASE_URL: str = "postgresql+asyncpg://heracles:heracles_secret@localhost:5432/heracles"
     
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_PASSWORD: str = "redis_secret"
     
     # Session
     SESSION_TIMEOUT: int = 3600  # 1 hour
