@@ -2,7 +2,7 @@
 
 > **Référence**: Ce document définit le planning de développement d'Heracles.
 > **Mise à jour**: 18 Janvier 2026
-> **Statut**: Phase 1 Sprint 3-4 ✅ TERMINÉ | Sprint 5-6 ✅ TERMINÉ
+> **Statut**: Phase 1 ✅ TERMINÉ | Phase 2 Sprint 7-8 🔄 EN COURS
 
 ---
 
@@ -111,40 +111,40 @@ Version: v0.1.0-alpha
 
 **Durée**: 12 semaines
 
-### 3.1 Sprint 7-8: User Management (4 semaines)
+### 3.1 Sprint 7-8: User Management (4 semaines) 🔄 EN COURS
 
-| Tâche | Priorité | Estimation | Critères d'acceptation |
-|-------|----------|------------|------------------------|
-| Plugin `core` (backend) | P0 | 3j | Structure plugin, registration |
-| `GET /users` | P0 | 2j | Liste paginée, filtrable |
-| `GET /users/{uid}` | P0 | 1j | Détail utilisateur |
-| `POST /users` | P0 | 3j | Création avec validation |
-| `PUT /users/{uid}` | P0 | 2j | Modification |
-| `DELETE /users/{uid}` | P0 | 1j | Suppression |
-| `PUT /users/{uid}/password` | P0 | 2j | Changement mot de passe |
-| Lock/Unlock endpoints | P1 | 2j | Verrouillage compte |
-| UI: Liste utilisateurs | P0 | 3j | DataTable, recherche |
-| UI: Formulaire utilisateur | P0 | 4j | Create/Edit, validation |
-| Tests E2E users | P0 | 2j | Cypress/Playwright |
+| Tâche | Priorité | Estimation | Statut |
+|-------|----------|------------|--------|
+| Plugin `core` (backend) | P0 | 3j | ✅ Terminé (via repositories) |
+| `GET /users` | P0 | 2j | ✅ Terminé |
+| `GET /users/{uid}` | P0 | 1j | ✅ Terminé |
+| `POST /users` | P0 | 3j | ✅ Terminé |
+| `PUT /users/{uid}` | P0 | 2j | ✅ Terminé |
+| `DELETE /users/{uid}` | P0 | 1j | ✅ Terminé |
+| `PUT /users/{uid}/password` | P0 | 2j | ✅ Terminé |
+| Lock/Unlock endpoints | P1 | 2j | ✅ Terminé (API + UI) |
+| UI: Liste utilisateurs | P0 | 3j | ✅ Terminé |
+| UI: Formulaire utilisateur | P0 | 4j | ✅ Terminé |
+| Tests E2E users | P0 | 2j | 🔲 À faire |
 
-**Livrable**: CRUD utilisateurs complet
+**Livrable**: CRUD utilisateurs complet ✅
 
-### 3.2 Sprint 9-10: Groups & ACL (4 semaines)
+### 3.2 Sprint 9-10: Groups & ACL (4 semaines) 🔲 À VENIR
 
-| Tâche | Priorité | Estimation | Critères d'acceptation |
-|-------|----------|------------|------------------------|
-| `GET/POST/PUT/DELETE /groups` | P0 | 4j | CRUD groupes |
-| Gestion membres groupes | P0 | 2j | Add/remove members |
-| Service ACL | P0 | 5j | Vérification permissions |
-| Lecture ACL depuis LDAP | P0 | 3j | Compatible FD gosaAcl |
-| Endpoint `/acl/check` | P0 | 2j | Vérification permission |
-| UI: Liste groupes | P0 | 2j | DataTable |
-| UI: Formulaire groupe | P0 | 3j | Membres sélectionnables |
-| Intégration ACL dans UI | P1 | 3j | Masquage selon droits |
+| Tâche | Priorité | Estimation | Statut |
+|-------|----------|------------|--------|
+| `GET/POST/PUT/DELETE /groups` | P0 | 4j | ✅ Terminé |
+| Gestion membres groupes | P0 | 2j | ✅ Terminé |
+| Service ACL | P0 | 5j | 🔲 À faire |
+| Lecture ACL depuis LDAP | P0 | 3j | 🔲 À faire |
+| Endpoint `/acl/check` | P0 | 2j | 🔲 À faire |
+| UI: Liste groupes | P0 | 2j | ✅ Terminé |
+| UI: Formulaire groupe | P0 | 3j | ✅ Terminé |
+| Intégration ACL dans UI | P1 | 3j | 🔲 À faire |
 
 **Livrable**: Gestion groupes + ACL fonctionnels
 
-### 3.3 Sprint 11-12: POSIX Plugin (4 semaines)
+### 3.3 Sprint 11-12: POSIX Plugin (4 semaines) 🔲 À VENIR
 
 | Tâche | Priorité | Estimation | Critères d'acceptation |
 |-------|----------|------------|------------------------|
