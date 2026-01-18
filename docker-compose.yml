@@ -1,0 +1,177 @@
+# Docker Compose for Heracles Development
+# ===========================================
+# This setup provides all required services for local development
+
+services:
+  # ===========================================
+  # OpenLDAP Server (FusionDirectory compatible)
+  # ===========================================
+  ldap:
+    image: osixia/openldap:1.5.0
+    container_name: heracles-ldap
+    hostname: ldap.heracles.local
+    environment:
+      LDAP_ORGANISATION: "Heracles"
+      LDAP_DOMAIN: "heracles.local"
+      LDAP_BASE_DN: "dc=heracles,dc=local"
+      LDAP_ADMIN_PASSWORD: "admin_secret"
+      LDAP_CONFIG_PASSWORD: "config_secret"
+      LDAP_TLS: "false"
+      LDAP_TLS_VERIFY_CLIENT: "never"
+      LDAP_REPLICATION: "false"
+    volumes:
+      - ldap_data:/var/lib/ldap
+      - ldap_config:/etc/ldap/slapd.d
+      - ./docker/ldap/schemas:/container/service/slapd/assets/config/bootstrap/schema/custom
+      - ./docker/ldap/ldif:/container/service/slapd/assets/config/bootstrap/ldif/custom
+    ports:
+      - "389:389"
+      - "636:636"
+    networks:
+      - heracles-net
+    healthcheck:
+      test: ["CMD", "ldapsearch", "-x", "-H", "ldap://localhost", "-b", "dc=heracles,dc=local", "-D", "cn=admin,dc=heracles,dc=local", "-w", "admin_secret"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
+  # phpLDAPadmin for LDAP management
+  phpldapadmin:
+    image: osixia/phpldapadmin:0.9.0
+    container_name: heracles-phpldapadmin
+    environment:
+      PHPLDAPADMIN_LDAP_HOSTS: "ldap"
+      PHPLDAPADMIN_HTTPS: "false"
+    ports:
+      - "8080:80"
+    depends_on:
+      - ldap
+    networks:
+      - heracles-net
+
+  # ===========================================
+  # PostgreSQL Database
+  # ===========================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: heracles-postgres
+    environment:
+      POSTGRES_DB: heracles
+      POSTGRES_USER: heracles
+      POSTGRES_PASSWORD: heracles_secret
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - heracles-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U heracles"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # Redis Cache/Sessions
+  # ===========================================
+  redis:
+    image: redis:7-alpine
+    container_name: heracles-redis
+    command: redis-server --appendonly yes --requirepass redis_secret
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - heracles-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis_secret", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # Heracles API (FastAPI) - Development
+  # ===========================================
+  api:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    container_name: heracles-api
+    environment:
+      # LDAP
+      LDAP_URI: "ldap://ldap:389"
+      LDAP_BASE_DN: "dc=heracles,dc=local"
+      LDAP_BIND_DN: "cn=admin,dc=heracles,dc=local"
+      LDAP_BIND_PASSWORD: "admin_secret"
+      LDAP_USE_TLS: "false"
+      LDAP_POOL_SIZE: "10"
+      # PostgreSQL
+      DATABASE_URL: "postgresql://heracles:heracles_secret@postgres:5432/heracles"
+      # Redis
+      REDIS_URL: "redis://:redis_secret@redis:6379/0"
+      # API
+      API_HOST: "0.0.0.0"
+      API_PORT: "8000"
+      DEBUG: "true"
+      SECRET_KEY: "dev-secret-key-change-in-production"
+      # Logging
+      LOG_LEVEL: "DEBUG"
+    volumes:
+      - ./heracles-api:/app
+      - ./heracles-core:/heracles-core:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      ldap:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - heracles-net
+    command: ["uvicorn", "heracles_api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    profiles:
+      - full
+
+  # ===========================================
+  # Heracles UI (React) - Development
+  # ===========================================
+  ui:
+    build:
+      context: .
+      dockerfile: docker/ui/Dockerfile
+    container_name: heracles-ui
+    environment:
+      VITE_API_URL: "http://localhost:8000"
+    volumes:
+      - ./heracles-ui:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+    networks:
+      - heracles-net
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+    profiles:
+      - full
+
+# ===========================================
+# Networks
+# ===========================================
+networks:
+  heracles-net:
+    driver: bridge
+
+# ===========================================
+# Volumes
+# ===========================================
+volumes:
+  ldap_data:
+  ldap_config:
+  postgres_data:
+  redis_data:

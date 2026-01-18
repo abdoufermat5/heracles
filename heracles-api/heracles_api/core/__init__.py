@@ -1,0 +1,4 @@
+"""
+Heracles API Core Package
+=========================
+"""

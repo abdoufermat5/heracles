@@ -1,0 +1,73 @@
+[package]
+name = "heracles-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["Heracles Team"]
+description = "Core library for Heracles LDAP identity management - LDAP operations, password hashing, schema validation"
+license = "GPL-2.0"
+repository = "https://github.com/your-org/heracles"
+keywords = ["ldap", "identity", "authentication", "password"]
+categories = ["authentication", "cryptography"]
+
+[lib]
+name = "heracles_core"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# LDAP
+ldap3 = { version = "0.11", default-features = false, features = ["tls-rustls"] }
+
+# Async runtime
+tokio = { version = "1.35", features = ["full"] }
+
+# Password hashing
+argon2 = "0.5"
+bcrypt = "0.15"
+sha2 = "0.10"
+sha1 = "0.10"
+md-5 = "0.10"
+base64 = "0.22"
+rand = "0.8"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Python bindings
+pyo3 = { version = "0.20", features = ["extension-module", "abi3-py311"], optional = true }
+
+# Connection pooling
+deadpool = { version = "0.10", features = ["managed"] }
+async-trait = "0.1"
+
+# Configuration
+config = "0.14"
+dotenvy = "0.15"
+
+[dev-dependencies]
+tokio-test = "0.4"
+mockall = "0.12"
+pretty_assertions = "1.4"
+rstest = "0.18"
+wiremock = "0.5"
+
+[features]
+default = ["python"]
+python = ["pyo3"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true
