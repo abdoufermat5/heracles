@@ -2,7 +2,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
-import { Save, ArrowLeft, Key, Trash2, UsersRound } from 'lucide-react'
+import { Save, ArrowLeft, Key, Trash2, UsersRound, Lock, Unlock } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,7 +26,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { PageHeader, LoadingPage, ErrorDisplay, LoadingSpinner, ConfirmDialog } from '@/components/common'
-import { useUser, useUpdateUser, useDeleteUser, useSetUserPassword } from '@/hooks'
+import { useUser, useUpdateUser, useDeleteUser, useSetUserPassword, useUserLockStatus, useLockUser, useUnlockUser } from '@/hooks'
 import { userUpdateSchema, setPasswordSchema, type UserUpdateFormData, type SetPasswordFormData } from '@/lib/schemas'
 import { ROUTES } from '@/config/constants'
 
@@ -37,9 +37,12 @@ export function UserDetailPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   const { data: user, isLoading, error, refetch } = useUser(uid!)
+  const { data: lockStatus } = useUserLockStatus(uid!)
   const updateMutation = useUpdateUser(uid!)
   const deleteMutation = useDeleteUser()
   const setPasswordMutation = useSetUserPassword(uid!)
+  const lockMutation = useLockUser(uid!)
+  const unlockMutation = useUnlockUser(uid!)
 
   const form = useForm<UserUpdateFormData>({
     resolver: zodResolver(userUpdateSchema),
@@ -100,10 +103,40 @@ export function UserDetailPage() {
     }
   }
 
+  const onLockUser = async () => {
+    try {
+      await lockMutation.mutateAsync()
+      toast.success(`User "${uid}" has been locked`)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to lock user')
+    }
+  }
+
+  const onUnlockUser = async () => {
+    try {
+      await unlockMutation.mutateAsync()
+      toast.success(`User "${uid}" has been unlocked`)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to unlock user')
+    }
+  }
+
+  const isLocked = lockStatus?.locked ?? false
+
   return (
     <div>
       <PageHeader
-        title={user.displayName || `${user.givenName} ${user.sn}`}
+        title={
+          <span className="flex items-center gap-2">
+            {user.displayName || `${user.givenName} ${user.sn}`}
+            {isLocked && (
+              <Badge variant="destructive" className="ml-2">
+                <Lock className="h-3 w-3 mr-1" />
+                Locked
+              </Badge>
+            )}
+          </span>
+        }
         description={`@${user.uid}`}
         breadcrumbs={[
           { label: 'Users', href: ROUTES.USERS },
@@ -115,6 +148,33 @@ export function UserDetailPage() {
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back
             </Button>
+            {isLocked ? (
+              <Button 
+                variant="outline" 
+                onClick={onUnlockUser}
+                disabled={unlockMutation.isPending}
+              >
+                {unlockMutation.isPending ? (
+                  <LoadingSpinner size="sm" className="mr-2" />
+                ) : (
+                  <Unlock className="mr-2 h-4 w-4" />
+                )}
+                Unlock
+              </Button>
+            ) : (
+              <Button 
+                variant="outline" 
+                onClick={onLockUser}
+                disabled={lockMutation.isPending}
+              >
+                {lockMutation.isPending ? (
+                  <LoadingSpinner size="sm" className="mr-2" />
+                ) : (
+                  <Lock className="mr-2 h-4 w-4" />
+                )}
+                Lock
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setShowPasswordDialog(true)}>
               <Key className="mr-2 h-4 w-4" />
               Set Password

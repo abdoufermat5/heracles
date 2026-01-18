@@ -9,6 +9,7 @@ export const userKeys = {
   details: () => [...userKeys.all, 'detail'] as const,
   detail: (uid: string) => [...userKeys.details(), uid] as const,
   groups: (uid: string) => [...userKeys.detail(uid), 'groups'] as const,
+  lockStatus: (uid: string) => [...userKeys.detail(uid), 'lock'] as const,
 }
 
 export function useUsers(params?: PaginationParams) {
@@ -32,6 +33,38 @@ export function useUserGroups(uid: string) {
     queryFn: () => usersApi.getGroups(uid),
     enabled: !!uid,
     retry: false, // Don't retry if endpoint doesn't exist
+  })
+}
+
+export function useUserLockStatus(uid: string) {
+  return useQuery({
+    queryKey: userKeys.lockStatus(uid),
+    queryFn: () => usersApi.getLockStatus(uid),
+    enabled: !!uid,
+  })
+}
+
+export function useLockUser(uid: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () => usersApi.lock(uid),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: userKeys.lockStatus(uid) })
+      queryClient.invalidateQueries({ queryKey: userKeys.detail(uid) })
+    },
+  })
+}
+
+export function useUnlockUser(uid: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () => usersApi.unlock(uid),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: userKeys.lockStatus(uid) })
+      queryClient.invalidateQueries({ queryKey: userKeys.detail(uid) })
+    },
   })
 }
 

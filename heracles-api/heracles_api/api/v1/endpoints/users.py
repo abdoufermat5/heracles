@@ -246,3 +246,84 @@ async def set_user_password(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to set password: {e}",
         )
+
+
+@router.post("/{uid}/lock", status_code=status.HTTP_204_NO_CONTENT)
+async def lock_user(
+    uid: str,
+    current_user: CurrentUser,
+    user_repo: UserRepoDep,
+):
+    """
+    Lock a user account (prevent login).
+    """
+    # Prevent self-locking
+    if uid == current_user.uid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot lock your own account",
+        )
+    
+    if not await user_repo.exists(uid):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User '{uid}' not found",
+        )
+    
+    try:
+        await user_repo.lock(uid)
+        logger.info("user_locked", uid=uid, by=current_user.uid)
+        
+    except LdapOperationError as e:
+        logger.error("lock_user_failed", uid=uid, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to lock user: {e}",
+        )
+
+
+@router.post("/{uid}/unlock", status_code=status.HTTP_204_NO_CONTENT)
+async def unlock_user(
+    uid: str,
+    current_user: CurrentUser,
+    user_repo: UserRepoDep,
+):
+    """
+    Unlock a user account.
+    """
+    if not await user_repo.exists(uid):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User '{uid}' not found",
+        )
+    
+    try:
+        await user_repo.unlock(uid)
+        logger.info("user_unlocked", uid=uid, by=current_user.uid)
+        
+    except LdapOperationError as e:
+        logger.error("unlock_user_failed", uid=uid, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to unlock user: {e}",
+        )
+
+
+@router.get("/{uid}/locked")
+async def get_user_lock_status(
+    uid: str,
+    current_user: CurrentUser,
+    user_repo: UserRepoDep,
+):
+    """
+    Get user lock status.
+    """
+    is_locked = await user_repo.is_locked(uid)
+    
+    if is_locked is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User '{uid}' not found",
+        )
+    
+    return {"uid": uid, "locked": is_locked}

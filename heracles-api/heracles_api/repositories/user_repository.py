@@ -37,8 +37,11 @@ class UserRepository:
     USER_ATTRIBUTES = [
         "uid", "cn", "sn", "givenName", "mail", 
         "telephoneNumber", "title", "description",
-        "userPassword", "createTimestamp", "modifyTimestamp"
+        "createTimestamp", "modifyTimestamp",
     ]
+    # Include userPassword for lock status checks
+    USER_ATTRIBUTES_WITH_PASSWORD = USER_ATTRIBUTES + ["userPassword"]
+    LOCK_PREFIX = "{LOCKED}"  # Password prefix for locked accounts
     
     def __init__(self, ldap: LdapService):
         self.ldap = ldap
@@ -67,6 +70,14 @@ class UserRepository:
         entries = await self.ldap.search(
             search_filter=f"(&(objectClass=inetOrgPerson)(uid={self.ldap._escape_filter(uid)}))",
             attributes=self.USER_ATTRIBUTES,
+        )
+        return entries[0] if entries else None
+    
+    async def find_by_uid_with_password(self, uid: str) -> Optional[LdapEntry]:
+        """Find user by UID including password attribute (for lock checks)."""
+        entries = await self.ldap.search(
+            search_filter=f"(&(objectClass=inetOrgPerson)(uid={self.ldap._escape_filter(uid)}))",
+            attributes=self.USER_ATTRIBUTES_WITH_PASSWORD,
         )
         return entries[0] if entries else None
     
@@ -289,3 +300,94 @@ class UserRepository:
             return [g.get_first("cn") for g in group_entries if g.get_first("cn")]
         except LdapOperationError:
             return []
+
+    async def is_locked(self, uid: str) -> Optional[bool]:
+        """
+        Check if user account is locked.
+        
+        Args:
+            uid: User UID
+            
+        Returns:
+            True if locked, False if not, None if user not found
+        """
+        entry = await self.find_by_uid_with_password(uid)
+        if not entry:
+            return None
+        
+        # Check password prefix (simplest method, works everywhere)
+        password = entry.get_first("userPassword")
+        if password:
+            # Handle both str and bytes
+            password_str = password.decode() if isinstance(password, bytes) else str(password)
+            if password_str.startswith(self.LOCK_PREFIX):
+                return True
+        
+        return False
+
+    async def lock(self, uid: str) -> bool:
+        """
+        Lock a user account by prefixing the password hash.
+        
+        Args:
+            uid: User UID
+            
+        Returns:
+            True if successful, False if user not found or already locked
+        """
+        entry = await self.find_by_uid_with_password(uid)
+        if not entry:
+            return False
+        
+        # Check if already locked
+        password = entry.get_first("userPassword")
+        if not password:
+            logger.warning("user_has_no_password", uid=uid)
+            return False
+        
+        # Handle both str and bytes
+        password_str = password.decode() if isinstance(password, bytes) else str(password)
+        if password_str.startswith(self.LOCK_PREFIX):
+            return True  # Already locked
+        
+        # Prefix password with {LOCKED}
+        locked_password = f"{self.LOCK_PREFIX}{password_str}"
+        changes = {
+            "userPassword": [(MODIFY_REPLACE, [locked_password])]
+        }
+        await self.ldap.modify(entry.dn, changes)
+        logger.info("user_locked", uid=uid)
+        return True
+
+    async def unlock(self, uid: str) -> bool:
+        """
+        Unlock a user account by removing the password prefix.
+        
+        Args:
+            uid: User UID
+            
+        Returns:
+            True if successful, False if user not found or not locked
+        """
+        entry = await self.find_by_uid_with_password(uid)
+        if not entry:
+            return False
+        
+        # Check if locked
+        password = entry.get_first("userPassword")
+        if not password:
+            return True  # No password = not locked
+        
+        # Handle both str and bytes
+        password_str = password.decode() if isinstance(password, bytes) else str(password)
+        if not password_str.startswith(self.LOCK_PREFIX):
+            return True  # Already unlocked
+        
+        # Remove {LOCKED} prefix
+        unlocked_password = password_str[len(self.LOCK_PREFIX):]
+        changes = {
+            "userPassword": [(MODIFY_REPLACE, [unlocked_password])]
+        }
+        await self.ldap.modify(entry.dn, changes)
+        logger.info("user_unlocked", uid=uid)
+        return True
