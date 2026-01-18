@@ -31,6 +31,7 @@ export function useUserGroups(uid: string) {
     queryKey: userKeys.groups(uid),
     queryFn: () => usersApi.getGroups(uid),
     enabled: !!uid,
+    retry: false, // Don't retry if endpoint doesn't exist
   })
 }
 

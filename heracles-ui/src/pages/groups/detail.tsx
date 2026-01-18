@@ -16,6 +16,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
+import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
@@ -25,7 +26,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { PageHeader, LoadingPage, ErrorDisplay, LoadingSpinner, ConfirmDialog } from '@/components/common'
-import { useGroup, useUpdateGroup, useDeleteGroup, useGroupMembers, useAddGroupMember, useRemoveGroupMember } from '@/hooks'
+import { useGroup, useUpdateGroup, useDeleteGroup, useAddGroupMember, useRemoveGroupMember } from '@/hooks'
 import { groupUpdateSchema, type GroupUpdateFormData } from '@/lib/schemas'
 import { ROUTES } from '@/config/constants'
 
@@ -38,7 +39,6 @@ export function GroupDetailPage() {
   const [newMemberUid, setNewMemberUid] = useState('')
 
   const { data: group, isLoading, error, refetch } = useGroup(cn!)
-  const { data: members, refetch: refetchMembers } = useGroupMembers(cn!)
   const updateMutation = useUpdateGroup(cn!)
   const deleteMutation = useDeleteGroup()
   const addMemberMutation = useAddGroupMember(cn!)
@@ -86,7 +86,7 @@ export function GroupDetailPage() {
       toast.success(`User "${newMemberUid}" added to group`)
       setShowAddMemberDialog(false)
       setNewMemberUid('')
-      refetchMembers()
+      refetch()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to add member')
     }
@@ -98,7 +98,7 @@ export function GroupDetailPage() {
       await removeMemberMutation.mutateAsync(memberToRemove)
       toast.success(`User "${memberToRemove}" removed from group`)
       setMemberToRemove(null)
-      refetchMembers()
+      refetch()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to remove member')
     }
@@ -137,7 +137,7 @@ export function GroupDetailPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <FormLabel>Group Name</FormLabel>
+                    <Label>Group Name</Label>
                     <Input value={group.cn} disabled className="mt-2" />
                   </div>
 
@@ -197,7 +197,7 @@ export function GroupDetailPage() {
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5" />
                   Members
-                  <Badge variant="secondary">{members?.length || 0}</Badge>
+                  <Badge variant="secondary">{group.members?.length || 0}</Badge>
                 </CardTitle>
                 <Button size="sm" onClick={() => setShowAddMemberDialog(true)}>
                   <UserPlus className="mr-1 h-4 w-4" />
@@ -207,26 +207,37 @@ export function GroupDetailPage() {
               <CardDescription>Users in this group</CardDescription>
             </CardHeader>
             <CardContent>
-              {members && members.length > 0 ? (
+              {group.members && group.members.length > 0 ? (
                 <div className="space-y-2">
-                  {members.map((member) => (
-                    <div key={member} className="flex items-center justify-between p-2 rounded-md hover:bg-muted">
-                      <Link
-                        to={ROUTES.USER_DETAIL.replace(':uid', member)}
-                        className="text-sm font-medium text-primary hover:underline"
-                      >
-                        {member}
-                      </Link>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => setMemberToRemove(member)}
-                      >
-                        <UserMinus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
+                  {group.members.map((memberDn) => {
+                    // Extract uid or cn from DN
+                    const uidMatch = memberDn.match(/^uid=([^,]+)/)
+                    const cnMatch = memberDn.match(/^cn=([^,]+)/)
+                    const memberName = uidMatch ? uidMatch[1] : (cnMatch ? cnMatch[1] : memberDn)
+                    const isUser = uidMatch !== null
+                    return (
+                      <div key={memberDn} className="flex items-center justify-between p-2 rounded-md hover:bg-muted">
+                        {isUser ? (
+                          <Link
+                            to={ROUTES.USER_DETAIL.replace(':uid', memberName)}
+                            className="text-sm font-medium text-primary hover:underline"
+                          >
+                            {memberName}
+                          </Link>
+                        ) : (
+                          <span className="text-sm font-medium">{memberName}</span>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => setMemberToRemove(memberDn)}
+                        >
+                          <UserMinus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )
+                  })}
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">No members in this group</p>
@@ -243,16 +254,18 @@ export function GroupDetailPage() {
                 <span className="text-muted-foreground">DN:</span>
                 <p className="font-mono text-xs break-all">{group.dn}</p>
               </div>
-              <div>
-                <span className="text-muted-foreground">Object Classes:</span>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {group.objectClass.map((oc) => (
-                    <Badge key={oc} variant="outline" className="text-xs">
-                      {oc}
-                    </Badge>
-                  ))}
+              {group.objectClass && group.objectClass.length > 0 && (
+                <div>
+                  <span className="text-muted-foreground">Object Classes:</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {group.objectClass.map((oc) => (
+                      <Badge key={oc} variant="outline" className="text-xs">
+                        {oc}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -266,7 +279,7 @@ export function GroupDetailPage() {
             <DialogDescription>Add a user to the {group.cn} group</DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <FormLabel>Username</FormLabel>
+            <Label>Username</Label>
             <Input
               value={newMemberUid}
               onChange={(e) => setNewMemberUid(e.target.value)}

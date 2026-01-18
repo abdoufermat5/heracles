@@ -15,7 +15,8 @@ export interface User {
   gidNumber?: number
   homeDirectory?: string
   loginShell?: string
-  objectClass: string[]
+  memberOf?: string[]
+  objectClass?: string[]
 }
 
 export interface UserListResponse {
@@ -32,7 +33,8 @@ export interface Group {
   gidNumber?: number
   memberUid?: string[]
   member?: string[]
-  objectClass: string[]
+  members?: string[]
+  objectClass?: string[]
 }
 
 export interface GroupListResponse {

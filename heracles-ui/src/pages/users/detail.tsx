@@ -16,6 +16,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
+import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
@@ -25,7 +26,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { PageHeader, LoadingPage, ErrorDisplay, LoadingSpinner, ConfirmDialog } from '@/components/common'
-import { useUser, useUpdateUser, useDeleteUser, useUserGroups, useSetUserPassword } from '@/hooks'
+import { useUser, useUpdateUser, useDeleteUser, useSetUserPassword } from '@/hooks'
 import { userUpdateSchema, setPasswordSchema, type UserUpdateFormData, type SetPasswordFormData } from '@/lib/schemas'
 import { ROUTES } from '@/config/constants'
 
@@ -36,7 +37,6 @@ export function UserDetailPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   const { data: user, isLoading, error, refetch } = useUser(uid!)
-  const { data: groups } = useUserGroups(uid!)
   const updateMutation = useUpdateUser(uid!)
   const deleteMutation = useDeleteUser()
   const setPasswordMutation = useSetUserPassword(uid!)
@@ -137,7 +137,7 @@ export function UserDetailPage() {
                 </CardHeader>
                 <CardContent className="grid gap-4 md:grid-cols-2">
                   <div>
-                    <FormLabel>Username</FormLabel>
+                    <Label>Username</Label>
                     <Input value={user.uid} disabled className="mt-2" />
                   </div>
 
@@ -305,15 +305,20 @@ export function UserDetailPage() {
               <CardDescription>Groups this user belongs to</CardDescription>
             </CardHeader>
             <CardContent>
-              {groups && groups.length > 0 ? (
+              {user.memberOf && user.memberOf.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
-                  {groups.map((group) => (
-                    <Link key={group} to={ROUTES.GROUP_DETAIL.replace(':cn', group)}>
-                      <Badge variant="secondary" className="cursor-pointer hover:bg-secondary/80">
-                        {group}
-                      </Badge>
-                    </Link>
-                  ))}
+                  {user.memberOf.map((groupDn) => {
+                    // Extract CN from DN (e.g., "cn=admins,ou=groups,..." -> "admins")
+                    const cnMatch = groupDn.match(/^cn=([^,]+)/)
+                    const groupName = cnMatch ? cnMatch[1] : groupDn
+                    return (
+                      <Link key={groupDn} to={ROUTES.GROUP_DETAIL.replace(':cn', groupName)}>
+                        <Badge variant="secondary" className="cursor-pointer hover:bg-secondary/80">
+                          {groupName}
+                        </Badge>
+                      </Link>
+                    )
+                  })}
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">Not a member of any groups</p>
@@ -330,16 +335,18 @@ export function UserDetailPage() {
                 <span className="text-muted-foreground">DN:</span>
                 <p className="font-mono text-xs break-all">{user.dn}</p>
               </div>
-              <div>
-                <span className="text-muted-foreground">Object Classes:</span>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {user.objectClass.map((oc) => (
-                    <Badge key={oc} variant="outline" className="text-xs">
-                      {oc}
-                    </Badge>
-                  ))}
+              {user.objectClass && user.objectClass.length > 0 && (
+                <div>
+                  <span className="text-muted-foreground">Object Classes:</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {user.objectClass.map((oc) => (
+                      <Badge key={oc} variant="outline" className="text-xs">
+                        {oc}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -355,7 +362,7 @@ export function UserDetailPage() {
           <form onSubmit={passwordForm.handleSubmit(onSetPassword)}>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <FormLabel>New Password</FormLabel>
+                <Label>New Password</Label>
                 <Input
                   type="password"
                   {...passwordForm.register('password')}
@@ -367,7 +374,7 @@ export function UserDetailPage() {
                 )}
               </div>
               <div className="space-y-2">
-                <FormLabel>Confirm Password</FormLabel>
+                <Label>Confirm Password</Label>
                 <Input
                   type="password"
                   {...passwordForm.register('confirmPassword')}
