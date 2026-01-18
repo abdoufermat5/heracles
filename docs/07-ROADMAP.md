@@ -2,7 +2,7 @@
 
 > **Référence**: Ce document définit le planning de développement d'Heracles.
 > **Mise à jour**: 18 Janvier 2026
-> **Statut**: Phase 1 Sprint 1-2 ✅ TERMINÉ
+> **Statut**: Phase 1 Sprint 3-4 ✅ TERMINÉ | Sprint 5-6 ✅ TERMINÉ
 
 ---
 
@@ -50,39 +50,46 @@
 
 **Livrable**: `heracles-core v0.1.0` (crate Rust) ✅
 
-### 2.2 Sprint 3-4: API Foundation (4 semaines) 🔄 EN COURS
+### 2.2 Sprint 3-4: API Foundation (4 semaines) ✅ TERMINÉ
 
 | Tâche | Priorité | Estimation | Statut |
 |-------|----------|------------|--------|
-| Setup FastAPI | P0 | 1j | ✅ Structure créée |
-| Modèles Pydantic de base | P0 | 2j | ✅ User, Group schemas |
-| Service LDAP (Python wrapper) | P0 | 3j | 🔲 À faire |
-| Endpoint `/auth/login` | P0 | 3j | 🔲 Skeleton créé |
-| Endpoint `/auth/logout` | P0 | 1j | 🔲 Skeleton créé |
-| Endpoint `/auth/me` | P0 | 1j | 🔲 Skeleton créé |
-| Middleware auth | P0 | 2j | 🔲 À faire |
-| Setup PostgreSQL + migrations | P1 | 2j | ✅ Schema init.sql créé |
-| Configuration management | P1 | 2j | ✅ pydantic-settings |
+| Setup FastAPI | P0 | 1j | ✅ Terminé |
+| Modèles Pydantic de base | P0 | 2j | ✅ Terminé (schemas/user.py, group.py, auth.py) |
+| Service LDAP (Python wrapper) | P0 | 3j | ✅ Terminé (ldap_service.py avec ldap3) |
+| Endpoint `/auth/login` | P0 | 3j | ✅ Terminé (JWT + Redis sessions) |
+| Endpoint `/auth/logout` | P0 | 1j | ✅ Terminé |
+| Endpoint `/auth/me` | P0 | 1j | ✅ Terminé |
+| Middleware auth | P0 | 2j | ✅ Terminé (dependencies.py) |
+| Setup PostgreSQL + migrations | P1 | 2j | ✅ Terminé (init.sql) |
+| Configuration management | P1 | 2j | ✅ Terminé (pydantic-settings) |
+| Repository pattern | P0 | 2j | ✅ Terminé (user_repository.py, group_repository.py) |
+| Endpoints CRUD users | P0 | 2j | ✅ Terminé |
+| Endpoints CRUD groups | P0 | 2j | ✅ Terminé |
 | Tests API | P0 | 3j | 🔲 À faire |
 
-**Livrable**: `heracles-api v0.1.0` (auth fonctionnelle)
+**Livrable**: `heracles-api v0.1.0` (auth + CRUD fonctionnels) ✅
 
-### 2.3 Sprint 5-6: UI Foundation (4 semaines)
+### 2.3 Sprint 5-6: UI Foundation (4 semaines) ✅ TERMINÉ
 
-| Tâche | Priorité | Estimation | Critères d'acceptation |
-|-------|----------|------------|------------------------|
-| Setup React + Vite | P0 | 1j | TypeScript strict |
-| Setup TailwindCSS + shadcn/ui | P0 | 1j | Composants de base |
-| Layout principal | P0 | 2j | Header, Sidebar, Content |
-| Page login | P0 | 2j | Form fonctionnel |
-| Auth context + hooks | P0 | 2j | Gestion JWT |
-| React Query setup | P0 | 1j | Client API configuré |
-| Route protection | P0 | 1j | Redirect si non auth |
-| Page dashboard (placeholder) | P1 | 1j | Message de bienvenue |
-| Tests React | P1 | 2j | Vitest, composants critiques |
-| Docker Compose dev | P0 | 2j | LDAP + PostgreSQL + Redis |
+| Tâche | Priorité | Estimation | Statut |
+|-------|----------|------------|--------|
+| Setup React + Vite + Bun | P0 | 1j | ✅ Terminé (Vite 7, React 19) |
+| Setup TailwindCSS v4 + shadcn/ui | P0 | 1j | ✅ Terminé (19 composants) |
+| Layout principal | P0 | 2j | ✅ Terminé (AppLayout, AppSidebar) |
+| Page login | P0 | 2j | ✅ Terminé (LoginPage avec validation) |
+| Auth store + hooks | P0 | 2j | ✅ Terminé (Zustand, react-hook-form) |
+| React Query setup | P0 | 1j | ✅ Terminé (TanStack Query v5) |
+| Route protection | P0 | 1j | ✅ Terminé (ProtectedRoute) |
+| Page dashboard | P1 | 1j | ✅ Terminé (stats, quick actions) |
+| Pages Users (list/create/detail) | P0 | 3j | ✅ Terminé |
+| Pages Groups (list/create/detail) | P0 | 3j | ✅ Terminé |
+| API client avec refresh token | P0 | 1j | ✅ Terminé (api-client.ts) |
+| Composants communs | P0 | 2j | ✅ Terminé (PageHeader, Loading, ErrorDisplay, EmptyState, ConfirmDialog) |
+| Docker setup (bun + nginx) | P0 | 1j | ✅ Terminé |
+| Tests React | P1 | 2j | 🔲 À faire |
 
-**Livrable**: `heracles-ui v0.1.0` (login fonctionnel)
+**Livrable**: `heracles-ui v0.1.0` (interface complète) ✅
 
 ### 2.4 Milestone Phase 1
 

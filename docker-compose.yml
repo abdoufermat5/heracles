@@ -141,23 +141,41 @@ services:
   # ===========================================
   ui:
     build:
-      context: .
-      dockerfile: docker/ui/Dockerfile
+      context: ./heracles-ui
+      dockerfile: Dockerfile
+      target: builder
     container_name: heracles-ui
     environment:
-      VITE_API_URL: "http://localhost:8000"
+      VITE_API_BASE_URL: "/api/v1"
     volumes:
       - ./heracles-ui:/app
       - /app/node_modules
     ports:
-      - "5173:5173"
+      - "3000:3000"
     depends_on:
       - api
     networks:
       - heracles-net
-    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+    command: ["bun", "run", "dev", "--host", "0.0.0.0", "--port", "3000"]
     profiles:
       - full
+
+  # ===========================================
+  # Heracles UI (React) - Production
+  # ===========================================
+  ui-prod:
+    build:
+      context: ./heracles-ui
+      dockerfile: Dockerfile
+    container_name: heracles-ui-prod
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    networks:
+      - heracles-net
+    profiles:
+      - prod
 
 # ===========================================
 # Networks

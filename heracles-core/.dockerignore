@@ -1,0 +1,33 @@
+# Build artifacts
+target/
+debug/
+release/
+
+# Generated files
+*.rs.bk
+*.pdb
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+!README.md
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python files (from maturin)
+*.pyc
+__pycache__/
+*.egg-info/
+dist/
+wheels/

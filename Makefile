@@ -1,7 +1,7 @@
 # Heracles Development Makefile
 # =============================
 
-.PHONY: help dev dev-infra stop clean test test-rust test-api lint format build bootstrap
+.PHONY: help dev dev-infra prod stop clean test test-rust test-api lint format build bootstrap ui ui-install ui-build api api-install
 
 # Default target
 help:
@@ -10,10 +10,18 @@ help:
 	@echo ""
 	@echo "Infrastructure:"
 	@echo "  make dev-infra     - Start LDAP, PostgreSQL, Redis (minimal setup)"
-	@echo "  make dev           - Start full development environment"
+	@echo "  make dev           - Start full development environment (Docker)"
+	@echo "  make prod          - Start production environment"
 	@echo "  make bootstrap     - Initialize LDAP with base structure"
 	@echo "  make stop          - Stop all services"
 	@echo "  make clean         - Stop and remove all volumes"
+	@echo ""
+	@echo "Local Development:"
+	@echo "  make api           - Run API server locally"
+	@echo "  make api-install   - Install API dependencies"
+	@echo "  make ui            - Run UI dev server locally (bun)"
+	@echo "  make ui-install    - Install UI dependencies (bun)"
+	@echo "  make ui-build      - Build UI for production"
 	@echo ""
 	@echo "Testing:"
 	@echo "  make test          - Run all tests"
@@ -27,6 +35,7 @@ help:
 	@echo "Build:"
 	@echo "  make build         - Build all components"
 	@echo "  make build-rust    - Build heracles-core"
+	@echo "  make build-ui      - Build UI"
 	@echo ""
 
 # ===========================================
@@ -60,16 +69,24 @@ dev:
 	@echo ""
 	@echo "Full environment started!"
 	@echo "  - API:           http://localhost:8000"
-	@echo "  - UI:            http://localhost:5173"
+	@echo "  - UI:            http://localhost:3000"
 	@echo "  - phpLDAPadmin:  http://localhost:8080"
+
+# Start production environment
+prod:
+	docker compose --profile prod up -d --build
+	@echo ""
+	@echo "Production environment started!"
+	@echo "  - UI:            http://localhost:80"
+	@echo "  - API:           http://localhost:8000"
 
 # Stop all services
 stop:
-	docker compose --profile full down
+	docker compose --profile full --profile prod down
 
 # Clean all volumes
 clean:
-	docker compose --profile full down -v
+	docker compose --profile full --profile prod down -v
 	@echo "All volumes removed"
 
 # ===========================================
@@ -87,12 +104,45 @@ test-rust:
 test-api:
 	cd heracles-api && python -m pytest tests/ -v
 
+# ===========================================
+# API Development
+# ===========================================
+
+# Run API server locally (requires pip install)
+api:
+	@chmod +x heracles-api/run-dev.sh
+	@cd heracles-api && ./run-dev.sh
+
+# Install API dependencies locally
+api-install:
+	pip install -r heracles-api/requirements.txt
+
+# ===========================================
+# UI Development
+# ===========================================
+
+# Run UI dev server locally (requires bun)
+ui:
+	cd heracles-ui && bun run dev
+
+# Install UI dependencies locally
+ui-install:
+	cd heracles-ui && bun install
+
+# Build UI for production
+ui-build:
+	cd heracles-ui && bun run build
+
+# Run UI type checking
+ui-typecheck:
+	cd heracles-ui && bun run tsc -b
+
 # =========================================== 
 # Code Quality
 # ===========================================
 
 # Run all linters
-lint: lint-rust lint-python
+lint: lint-rust lint-python lint-ui
 
 lint-rust:
 	cd heracles-core && cargo clippy -- -D warnings
@@ -100,6 +150,9 @@ lint-rust:
 lint-python:
 	cd heracles-api && ruff check .
 	cd heracles-api && mypy heracles_api
+
+lint-ui:
+	cd heracles-ui && bun run lint
 
 # Format all code
 format: format-rust format-python
@@ -116,7 +169,7 @@ format-python:
 # ===========================================
 
 # Build all components
-build: build-rust
+build: build-rust build-ui
 
 # Build heracles-core
 build-rust:
@@ -125,6 +178,10 @@ build-rust:
 # Build Python wheel
 build-wheel:
 	cd heracles-core && maturin build --release
+
+# Build UI
+build-ui:
+	cd heracles-ui && bun run build
 
 # ===========================================
 # Development Utilities

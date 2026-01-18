@@ -1,0 +1,6 @@
+export { LoginPage } from './login'
+export { DashboardPage } from './dashboard'
+export { UsersListPage, UserCreatePage, UserDetailPage } from './users'
+export { GroupsListPage, GroupCreatePage, GroupDetailPage } from './groups'
+export { SystemsPage } from './systems'
+export { SettingsPage } from './settings'
