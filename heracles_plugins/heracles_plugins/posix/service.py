@@ -418,28 +418,259 @@ class PosixService(TabService):
         return int(val) if val is not None else None
 
 
-class PosixGroupService(TabService):
+class PosixGroupService:
     """
-    Service for managing POSIX groups.
+    Service for managing standalone POSIX groups.
     
-    Handles posixGroup objectClass.
+    Following FusionDirectory's model, posixGroup is a standalone structural
+    objectClass, NOT something you add to groupOfNames.
+    
+    POSIX groups use:
+    - cn: Group name
+    - gidNumber: Group ID
+    - memberUid: List of member user IDs
+    - description: Optional description
     """
     
     OBJECT_CLASSES = ["posixGroup"]
     
     MANAGED_ATTRIBUTES = [
+        "cn",
         "gidNumber",
         "memberUid",
+        "description",
     ]
     
     def __init__(self, ldap_service: LdapService, config: Dict[str, Any]):
-        super().__init__(ldap_service, config)
+        self._ldap = ldap_service
+        self._config = config
         
         self._gid_min = config.get("gid_min", 10000)
         self._gid_max = config.get("gid_max", 60000)
+        self._groups_ou = config.get("posix_groups_ou", "ou=groups")
+    
+    def _get_groups_base_dn(self) -> str:
+        """Get the base DN for POSIX groups."""
+        from heracles_api.config import settings
+        return f"{self._groups_ou},{settings.LDAP_BASE_DN}"
+    
+    def _get_group_dn(self, cn: str) -> str:
+        """Get the DN for a POSIX group by cn."""
+        return f"cn={cn},{self._get_groups_base_dn()}"
+    
+    # =========================================================================
+    # CRUD Operations for Standalone POSIX Groups
+    # =========================================================================
+    
+    async def list_all(self) -> List["PosixGroupListItem"]:
+        """List all POSIX groups."""
+        from .schemas import PosixGroupListItem
+        
+        try:
+            entries = await self._ldap.search(
+                search_filter="(objectClass=posixGroup)",
+                attributes=["cn", "gidNumber", "description", "memberUid"],
+            )
+            
+            groups = []
+            for entry in entries:
+                member_uid = entry.get("memberUid", [])
+                if isinstance(member_uid, str):
+                    member_uid = [member_uid]
+                
+                groups.append(PosixGroupListItem(
+                    cn=entry.get_first("cn", ""),
+                    gidNumber=self._get_int(entry, "gidNumber"),
+                    description=entry.get_first("description"),
+                    memberCount=len(member_uid),
+                ))
+            
+            # Sort by cn
+            groups.sort(key=lambda g: g.cn)
+            return groups
+            
+        except LdapOperationError as e:
+            logger.error("list_posix_groups_failed", error=str(e))
+            raise PosixValidationError(f"Failed to list POSIX groups: {e}")
+    
+    async def get(self, cn: str) -> Optional["PosixGroupRead"]:
+        """Get a POSIX group by cn."""
+        from .schemas import PosixGroupRead
+        
+        dn = self._get_group_dn(cn)
+        
+        try:
+            # Include objectClass to verify it's a posixGroup
+            entry = await self._ldap.get_by_dn(dn, attributes=self.MANAGED_ATTRIBUTES + ["objectClass"])
+            if entry is None:
+                return None
+            
+            # Verify it's actually a posixGroup
+            object_classes = entry.get("objectClass", [])
+            if isinstance(object_classes, str):
+                object_classes = [object_classes]
+            if "posixGroup" not in object_classes:
+                return None
+            
+            member_uid = entry.get("memberUid", [])
+            if isinstance(member_uid, str):
+                member_uid = [member_uid]
+            
+            return PosixGroupRead(
+                cn=entry.get_first("cn", cn),
+                gidNumber=self._get_int(entry, "gidNumber"),
+                description=entry.get_first("description"),
+                memberUid=member_uid,
+                is_active=True,
+            )
+            
+        except LdapOperationError as e:
+            logger.error("get_posix_group_failed", cn=cn, error=str(e))
+            return None
+    
+    async def create(self, data: "PosixGroupFullCreate") -> "PosixGroupRead":
+        """Create a new standalone POSIX group."""
+        from .schemas import PosixGroupRead, PosixGroupFullCreate
+        
+        dn = self._get_group_dn(data.cn)
+        
+        # Check if group already exists
+        existing = await self._ldap.get_by_dn(dn, attributes=["cn"])
+        if existing is not None:
+            raise PosixValidationError(f"Group '{data.cn}' already exists")
+        
+        # Allocate GID if not provided
+        gid_number = data.gid_number
+        if gid_number is None:
+            gid_number = await self._allocate_next_gid()
+        else:
+            # Verify GID is not already in use
+            if await self._gid_exists(gid_number):
+                raise PosixValidationError(f"GID {gid_number} is already in use")
+        
+        # Build attributes for the new entry
+        attributes = {
+            "cn": [data.cn],
+            "gidNumber": [str(gid_number)],
+        }
+        
+        if data.description:
+            attributes["description"] = [data.description]
+        
+        if data.member_uid:
+            attributes["memberUid"] = data.member_uid
+        
+        try:
+            await self._ldap.add(dn, ["posixGroup"], attributes)
+            logger.info("posix_group_created", cn=data.cn, gid_number=gid_number)
+        except LdapOperationError as e:
+            logger.error("create_posix_group_failed", cn=data.cn, error=str(e))
+            raise PosixValidationError(f"Failed to create POSIX group: {e}")
+        
+        return await self.get(data.cn)
+    
+    async def update_group(self, cn: str, data: "PosixGroupUpdate") -> "PosixGroupRead":
+        """Update a POSIX group."""
+        from .schemas import PosixGroupUpdate
+        
+        dn = self._get_group_dn(cn)
+        
+        # Verify group exists
+        existing = await self.get(cn)
+        if existing is None:
+            raise PosixValidationError(f"POSIX group '{cn}' not found")
+        
+        changes = {}
+        
+        if data.description is not None:
+            if data.description:
+                changes["description"] = [(MODIFY_REPLACE, [data.description])]
+            else:
+                # Remove description if empty
+                changes["description"] = [(MODIFY_DELETE, [])]
+        
+        if data.member_uid is not None:
+            if data.member_uid:
+                changes["memberUid"] = [(MODIFY_REPLACE, data.member_uid)]
+            else:
+                # Remove all members
+                if existing.member_uid:
+                    changes["memberUid"] = [(MODIFY_DELETE, [])]
+        
+        if changes:
+            try:
+                await self._ldap.modify(dn, changes)
+                logger.info("posix_group_updated", cn=cn)
+            except LdapOperationError as e:
+                logger.error("update_posix_group_failed", cn=cn, error=str(e))
+                raise PosixValidationError(f"Failed to update POSIX group: {e}")
+        
+        return await self.get(cn)
+    
+    async def delete(self, cn: str) -> None:
+        """Delete a POSIX group."""
+        dn = self._get_group_dn(cn)
+        
+        # Verify group exists
+        existing = await self.get(cn)
+        if existing is None:
+            raise PosixValidationError(f"POSIX group '{cn}' not found")
+        
+        try:
+            await self._ldap.delete(dn)
+            logger.info("posix_group_deleted", cn=cn)
+        except LdapOperationError as e:
+            logger.error("delete_posix_group_failed", cn=cn, error=str(e))
+            raise PosixValidationError(f"Failed to delete POSIX group: {e}")
+    
+    # =========================================================================
+    # Member Management (by cn)
+    # =========================================================================
+    
+    async def add_member_by_cn(self, cn: str, uid: str) -> "PosixGroupRead":
+        """Add a member (by uid) to a POSIX group (by cn)."""
+        dn = self._get_group_dn(cn)
+        
+        group = await self.get(cn)
+        if group is None:
+            raise PosixValidationError(f"POSIX group '{cn}' not found")
+        
+        if uid in group.member_uid:
+            return group  # Already a member
+        
+        try:
+            await self._ldap.modify(dn, {"memberUid": [(MODIFY_ADD, [uid])]})
+            logger.info("posix_group_member_added", cn=cn, uid=uid)
+        except LdapOperationError as e:
+            raise PosixValidationError(f"Failed to add member: {e}")
+        
+        return await self.get(cn)
+    
+    async def remove_member_by_cn(self, cn: str, uid: str) -> "PosixGroupRead":
+        """Remove a member (by uid) from a POSIX group (by cn)."""
+        dn = self._get_group_dn(cn)
+        
+        group = await self.get(cn)
+        if group is None:
+            raise PosixValidationError(f"POSIX group '{cn}' not found")
+        
+        if uid not in group.member_uid:
+            return group  # Not a member
+        
+        try:
+            await self._ldap.modify(dn, {"memberUid": [(MODIFY_DELETE, [uid])]})
+            logger.info("posix_group_member_removed", cn=cn, uid=uid)
+        except LdapOperationError as e:
+            raise PosixValidationError(f"Failed to remove member: {e}")
+        
+        return await self.get(cn)
+    
+    # =========================================================================
+    # Legacy methods (for backward compatibility)
+    # =========================================================================
     
     async def is_active(self, dn: str) -> bool:
-        """Check if POSIX is active on the group."""
+        """Check if POSIX is active on the group (by DN)."""
         try:
             entry = await self._ldap.get_by_dn(dn, attributes=["objectClass"])
             if entry is None:
@@ -454,8 +685,10 @@ class PosixGroupService(TabService):
         except LdapOperationError:
             return False
     
-    async def read(self, dn: str) -> Optional[PosixGroupRead]:
-        """Read POSIX attributes from a group."""
+    async def read(self, dn: str) -> Optional["PosixGroupRead"]:
+        """Read POSIX attributes from a group (by DN) - legacy method."""
+        from .schemas import PosixGroupRead
+        
         if not await self.is_active(dn):
             return None
         
@@ -469,7 +702,9 @@ class PosixGroupService(TabService):
                 member_uid = [member_uid]
             
             return PosixGroupRead(
+                cn=entry.get_first("cn", ""),
                 gidNumber=self._get_int(entry, "gidNumber"),
+                description=entry.get_first("description"),
                 memberUid=member_uid,
                 is_active=True,
             )
@@ -477,114 +712,6 @@ class PosixGroupService(TabService):
         except LdapOperationError as e:
             logger.error("posix_group_read_failed", dn=dn, error=str(e))
             raise
-    
-    async def activate(self, dn: str, data: PosixGroupCreate) -> PosixGroupRead:
-        """Activate POSIX on a group."""
-        if await self.is_active(dn):
-            raise PosixValidationError("POSIX is already active on this group")
-        
-        # Allocate GID if not provided
-        gid_number = data.gid_number
-        if gid_number is None:
-            gid_number = await self._allocate_next_gid()
-        else:
-            # Verify GID is not already in use
-            if await self._gid_exists(gid_number):
-                raise PosixValidationError(f"GID {gid_number} is already in use")
-        
-        changes = {
-            "objectClass": [(MODIFY_ADD, ["posixGroup"])],
-            "gidNumber": [(MODIFY_ADD, [str(gid_number)])],
-        }
-        
-        try:
-            await self._ldap.modify(dn, changes)
-            logger.info("posix_group_activated", dn=dn, gid_number=gid_number)
-        except LdapOperationError as e:
-            logger.error("posix_group_activation_failed", dn=dn, error=str(e))
-            raise PosixValidationError(f"Failed to activate POSIX: {e}")
-        
-        return await self.read(dn)
-    
-    async def update(self, dn: str, data: PosixGroupUpdate) -> PosixGroupRead:
-        """Update POSIX attributes on a group."""
-        if not await self.is_active(dn):
-            raise PosixValidationError("POSIX is not active on this group")
-        
-        changes = {}
-        
-        if data.member_uid is not None:
-            # Replace all memberUid values
-            if data.member_uid:
-                changes["memberUid"] = [(MODIFY_REPLACE, data.member_uid)]
-            else:
-                changes["memberUid"] = [(MODIFY_DELETE, [])]
-        
-        if changes:
-            try:
-                await self._ldap.modify(dn, changes)
-                logger.info("posix_group_updated", dn=dn)
-            except LdapOperationError as e:
-                logger.error("posix_group_update_failed", dn=dn, error=str(e))
-                raise PosixValidationError(f"Failed to update POSIX: {e}")
-        
-        return await self.read(dn)
-    
-    async def deactivate(self, dn: str) -> None:
-        """Deactivate POSIX on a group."""
-        if not await self.is_active(dn):
-            raise PosixValidationError("POSIX is not active on this group")
-        
-        changes = {
-            "objectClass": [(MODIFY_DELETE, ["posixGroup"])],
-            "gidNumber": [(MODIFY_DELETE, [])],
-        }
-        
-        # Check if memberUid exists
-        entry = await self._ldap.get_by_dn(dn, attributes=["memberUid"])
-        if entry and entry.get("memberUid"):
-            changes["memberUid"] = [(MODIFY_DELETE, [])]
-        
-        try:
-            await self._ldap.modify(dn, changes)
-            logger.info("posix_group_deactivated", dn=dn)
-        except LdapOperationError as e:
-            logger.error("posix_group_deactivation_failed", dn=dn, error=str(e))
-            raise PosixValidationError(f"Failed to deactivate POSIX: {e}")
-    
-    async def add_member(self, dn: str, uid: str) -> PosixGroupRead:
-        """Add a member (by uid) to the POSIX group."""
-        if not await self.is_active(dn):
-            raise PosixValidationError("POSIX is not active on this group")
-        
-        current = await self.read(dn)
-        if uid in current.member_uid:
-            return current  # Already a member
-        
-        try:
-            await self._ldap.modify(dn, {"memberUid": [(MODIFY_ADD, [uid])]})
-            logger.info("posix_group_member_added", dn=dn, uid=uid)
-        except LdapOperationError as e:
-            raise PosixValidationError(f"Failed to add member: {e}")
-        
-        return await self.read(dn)
-    
-    async def remove_member(self, dn: str, uid: str) -> PosixGroupRead:
-        """Remove a member (by uid) from the POSIX group."""
-        if not await self.is_active(dn):
-            raise PosixValidationError("POSIX is not active on this group")
-        
-        current = await self.read(dn)
-        if uid not in current.member_uid:
-            return current  # Not a member
-        
-        try:
-            await self._ldap.modify(dn, {"memberUid": [(MODIFY_DELETE, [uid])]})
-            logger.info("posix_group_member_removed", dn=dn, uid=uid)
-        except LdapOperationError as e:
-            raise PosixValidationError(f"Failed to remove member: {e}")
-        
-        return await self.read(dn)
     
     # =========================================================================
     # GID Allocation

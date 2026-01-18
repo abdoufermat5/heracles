@@ -3,9 +3,13 @@ POSIX Plugin API Routes
 =======================
 
 FastAPI endpoints for POSIX account management.
+
+Following FusionDirectory's model:
+- posixAccount/shadowAccount are auxiliary classes added to users (inetOrgPerson)
+- posixGroup is a standalone structural class for UNIX groups (separate from groupOfNames)
 """
 
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import APIRouter, HTTPException, status, Depends, Query
 
@@ -18,18 +22,24 @@ from .schemas import (
     PosixGroupCreate,
     PosixGroupRead,
     PosixGroupUpdate,
+    PosixGroupFullCreate,
     PosixStatusResponse,
     PosixGroupStatusResponse,
     AvailableShellsResponse,
     IdAllocationResponse,
+    PosixGroupListResponse,
 )
 from .service import PosixService, PosixGroupService, PosixValidationError
 
 logger = structlog.get_logger(__name__)
 
-# Router for user POSIX operations
+# Router for POSIX operations
 router = APIRouter(tags=["posix"])
 
+
+# =============================================================================
+# Dependencies
+# =============================================================================
 
 def get_posix_service() -> PosixService:
     """Get the POSIX service from the plugin registry."""
@@ -57,8 +67,12 @@ def get_posix_group_service() -> PosixGroupService:
     return service
 
 
+# Import CurrentUser from core dependencies
+from heracles_api.core.dependencies import CurrentUser
+
+
 # =============================================================================
-# User POSIX Endpoints
+# User POSIX Endpoints (posixAccount / shadowAccount)
 # =============================================================================
 
 @router.get(
@@ -68,6 +82,7 @@ def get_posix_group_service() -> PosixGroupService:
 )
 async def get_user_posix(
     uid: str,
+    current_user: CurrentUser,
     service: PosixService = Depends(get_posix_service),
 ):
     """
@@ -75,10 +90,8 @@ async def get_user_posix(
     
     Returns whether POSIX is active and the account data if it is.
     """
-    from heracles_api.core.dependencies import get_ldap_service
     from heracles_api.config import settings
     
-    # Build DN from uid
     dn = f"uid={uid},ou=people,{settings.LDAP_BASE_DN}"
     
     try:
@@ -104,6 +117,7 @@ async def get_user_posix(
 async def activate_user_posix(
     uid: str,
     data: PosixAccountCreate,
+    current_user: CurrentUser,
     service: PosixService = Depends(get_posix_service),
 ):
     """
@@ -121,7 +135,7 @@ async def activate_user_posix(
     
     try:
         result = await service.activate(dn, data, uid=uid)
-        logger.info("posix_activated_via_api", uid=uid)
+        logger.info("posix_activated_via_api", uid=uid, by=current_user.uid)
         return result
         
     except PosixValidationError as e:
@@ -145,6 +159,7 @@ async def activate_user_posix(
 async def update_user_posix(
     uid: str,
     data: PosixAccountUpdate,
+    current_user: CurrentUser,
     service: PosixService = Depends(get_posix_service),
 ):
     """
@@ -158,7 +173,7 @@ async def update_user_posix(
     
     try:
         result = await service.update(dn, data)
-        logger.info("posix_updated_via_api", uid=uid)
+        logger.info("posix_updated_via_api", uid=uid, by=current_user.uid)
         return result
         
     except PosixValidationError as e:
@@ -181,6 +196,7 @@ async def update_user_posix(
 )
 async def deactivate_user_posix(
     uid: str,
+    current_user: CurrentUser,
     service: PosixService = Depends(get_posix_service),
 ):
     """
@@ -195,7 +211,7 @@ async def deactivate_user_posix(
     
     try:
         await service.deactivate(dn)
-        logger.info("posix_deactivated_via_api", uid=uid)
+        logger.info("posix_deactivated_via_api", uid=uid, by=current_user.uid)
         
     except PosixValidationError as e:
         raise HTTPException(
@@ -211,63 +227,55 @@ async def deactivate_user_posix(
 
 
 # =============================================================================
-# Group POSIX Endpoints
+# POSIX Group Management Endpoints (standalone posixGroup entries)
 # =============================================================================
 
 @router.get(
-    "/groups/{cn}/posix",
-    response_model=PosixGroupStatusResponse,
-    summary="Get POSIX status for a group",
+    "/posix/groups",
+    response_model=PosixGroupListResponse,
+    summary="List all POSIX groups",
 )
-async def get_group_posix(
-    cn: str,
+async def list_posix_groups(
+    current_user: CurrentUser,
     service: PosixGroupService = Depends(get_posix_group_service),
 ):
     """
-    Get POSIX status and data for a group.
+    List all POSIX groups.
+    
+    POSIX groups (posixGroup) are standalone entries separate from 
+    organizational groups (groupOfNames).
     """
-    from heracles_api.config import settings
-    
-    dn = f"cn={cn},ou=groups,{settings.LDAP_BASE_DN}"
-    
     try:
-        is_active = await service.is_active(dn)
-        data = await service.read(dn) if is_active else None
-        
-        return PosixGroupStatusResponse(active=is_active, data=data)
+        groups = await service.list_all()
+        return PosixGroupListResponse(groups=groups, total=len(groups))
         
     except Exception as e:
-        logger.error("get_group_posix_failed", cn=cn, error=str(e))
+        logger.error("list_posix_groups_failed", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get POSIX status: {str(e)}",
+            detail=f"Failed to list POSIX groups: {str(e)}",
         )
 
 
 @router.post(
-    "/groups/{cn}/posix",
+    "/posix/groups",
     response_model=PosixGroupRead,
     status_code=status.HTTP_201_CREATED,
-    summary="Activate POSIX for a group",
+    summary="Create a new POSIX group",
 )
-async def activate_group_posix(
-    cn: str,
-    data: PosixGroupCreate,
+async def create_posix_group(
+    data: PosixGroupFullCreate,
+    current_user: CurrentUser,
     service: PosixGroupService = Depends(get_posix_group_service),
 ):
     """
-    Activate POSIX for a group.
+    Create a new standalone POSIX group.
     
-    This adds the posixGroup objectClass and gidNumber attribute.
-    If gidNumber is not provided, it will be auto-allocated.
+    This creates a new entry with posixGroup as the structural objectClass.
     """
-    from heracles_api.config import settings
-    
-    dn = f"cn={cn},ou=groups,{settings.LDAP_BASE_DN}"
-    
     try:
-        result = await service.activate(dn, data)
-        logger.info("posix_group_activated_via_api", cn=cn)
+        result = await service.create(data)
+        logger.info("posix_group_created_via_api", cn=data.cn, by=current_user.uid)
         return result
         
     except PosixValidationError as e:
@@ -276,33 +284,62 @@ async def activate_group_posix(
             detail=str(e),
         )
     except Exception as e:
-        logger.error("activate_group_posix_failed", cn=cn, error=str(e))
+        logger.error("create_posix_group_failed", cn=data.cn, error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to activate POSIX: {str(e)}",
+            detail=f"Failed to create POSIX group: {str(e)}",
+        )
+
+
+@router.get(
+    "/posix/groups/{cn}",
+    response_model=PosixGroupRead,
+    summary="Get a POSIX group by name",
+)
+async def get_posix_group(
+    cn: str,
+    current_user: CurrentUser,
+    service: PosixGroupService = Depends(get_posix_group_service),
+):
+    """
+    Get details of a specific POSIX group.
+    """
+    try:
+        result = await service.get(cn)
+        if result is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"POSIX group '{cn}' not found",
+            )
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("get_posix_group_failed", cn=cn, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get POSIX group: {str(e)}",
         )
 
 
 @router.put(
-    "/groups/{cn}/posix",
+    "/posix/groups/{cn}",
     response_model=PosixGroupRead,
-    summary="Update POSIX attributes for a group",
+    summary="Update a POSIX group",
 )
-async def update_group_posix(
+async def update_posix_group(
     cn: str,
     data: PosixGroupUpdate,
+    current_user: CurrentUser,
     service: PosixGroupService = Depends(get_posix_group_service),
 ):
     """
-    Update POSIX group attributes.
+    Update a POSIX group's attributes.
     """
-    from heracles_api.config import settings
-    
-    dn = f"cn={cn},ou=groups,{settings.LDAP_BASE_DN}"
-    
     try:
-        result = await service.update(dn, data)
-        logger.info("posix_group_updated_via_api", cn=cn)
+        result = await service.update_group(cn, data)
+        logger.info("posix_group_updated_via_api", cn=cn, by=current_user.uid)
         return result
         
     except PosixValidationError as e:
@@ -311,32 +348,31 @@ async def update_group_posix(
             detail=str(e),
         )
     except Exception as e:
-        logger.error("update_group_posix_failed", cn=cn, error=str(e))
+        logger.error("update_posix_group_failed", cn=cn, error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update POSIX: {str(e)}",
+            detail=f"Failed to update POSIX group: {str(e)}",
         )
 
 
 @router.delete(
-    "/groups/{cn}/posix",
+    "/posix/groups/{cn}",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Deactivate POSIX for a group",
+    summary="Delete a POSIX group",
 )
-async def deactivate_group_posix(
+async def delete_posix_group(
     cn: str,
+    current_user: CurrentUser,
     service: PosixGroupService = Depends(get_posix_group_service),
 ):
     """
-    Deactivate POSIX for a group.
+    Delete a POSIX group.
+    
+    Warning: This will remove the group entry entirely.
     """
-    from heracles_api.config import settings
-    
-    dn = f"cn={cn},ou=groups,{settings.LDAP_BASE_DN}"
-    
     try:
-        await service.deactivate(dn)
-        logger.info("posix_group_deactivated_via_api", cn=cn)
+        await service.delete(cn)
+        logger.info("posix_group_deleted_via_api", cn=cn, by=current_user.uid)
         
     except PosixValidationError as e:
         raise HTTPException(
@@ -344,32 +380,34 @@ async def deactivate_group_posix(
             detail=str(e),
         )
     except Exception as e:
-        logger.error("deactivate_group_posix_failed", cn=cn, error=str(e))
+        logger.error("delete_posix_group_failed", cn=cn, error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to deactivate POSIX: {str(e)}",
+            detail=f"Failed to delete POSIX group: {str(e)}",
         )
 
 
+# =============================================================================
+# POSIX Group Member Management
+# =============================================================================
+
 @router.post(
-    "/groups/{cn}/posix/members/{uid}",
+    "/posix/groups/{cn}/members/{uid}",
     response_model=PosixGroupRead,
     summary="Add member to POSIX group",
 )
 async def add_posix_group_member(
     cn: str,
     uid: str,
+    current_user: CurrentUser,
     service: PosixGroupService = Depends(get_posix_group_service),
 ):
     """
     Add a member (by uid) to a POSIX group.
     """
-    from heracles_api.config import settings
-    
-    dn = f"cn={cn},ou=groups,{settings.LDAP_BASE_DN}"
-    
     try:
-        result = await service.add_member(dn, uid)
+        result = await service.add_member_by_cn(cn, uid)
+        logger.info("posix_group_member_added", cn=cn, uid=uid, by=current_user.uid)
         return result
         
     except PosixValidationError as e:
@@ -377,33 +415,43 @@ async def add_posix_group_member(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
+    except Exception as e:
+        logger.error("add_posix_group_member_failed", cn=cn, uid=uid, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to add member: {str(e)}",
+        )
 
 
 @router.delete(
-    "/groups/{cn}/posix/members/{uid}",
+    "/posix/groups/{cn}/members/{uid}",
     response_model=PosixGroupRead,
     summary="Remove member from POSIX group",
 )
 async def remove_posix_group_member(
     cn: str,
     uid: str,
+    current_user: CurrentUser,
     service: PosixGroupService = Depends(get_posix_group_service),
 ):
     """
     Remove a member (by uid) from a POSIX group.
     """
-    from heracles_api.config import settings
-    
-    dn = f"cn={cn},ou=groups,{settings.LDAP_BASE_DN}"
-    
     try:
-        result = await service.remove_member(dn, uid)
+        result = await service.remove_member_by_cn(cn, uid)
+        logger.info("posix_group_member_removed", cn=cn, uid=uid, by=current_user.uid)
         return result
         
     except PosixValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
+        )
+    except Exception as e:
+        logger.error("remove_posix_group_member_failed", cn=cn, uid=uid, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to remove member: {str(e)}",
         )
 
 
@@ -417,6 +465,7 @@ async def remove_posix_group_member(
     summary="Get available login shells",
 )
 async def get_available_shells(
+    current_user: CurrentUser,
     service: PosixService = Depends(get_posix_service),
 ):
     """
@@ -434,6 +483,7 @@ async def get_available_shells(
     summary="Get next available UID and GID",
 )
 async def get_next_ids(
+    current_user: CurrentUser,
     service: PosixService = Depends(get_posix_service),
     group_service: PosixGroupService = Depends(get_posix_group_service),
 ):
@@ -458,47 +508,4 @@ async def get_next_ids(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
-        )
-
-
-@router.get(
-    "/posix/groups",
-    summary="List all POSIX groups",
-)
-async def list_posix_groups(
-    service: PosixGroupService = Depends(get_posix_group_service),
-):
-    """
-    List all groups with POSIX enabled.
-    
-    Useful for populating primary group selection.
-    """
-    from heracles_api.plugins.registry import plugin_registry
-    
-    ldap = plugin_registry._ldap_service
-    
-    try:
-        entries = await ldap.search(
-            search_filter="(objectClass=posixGroup)",
-            attributes=["cn", "gidNumber", "description"],
-        )
-        
-        groups = []
-        for entry in entries:
-            groups.append({
-                "cn": entry.get_first("cn", ""),
-                "gidNumber": int(entry.get_first("gidNumber", 0)),
-                "description": entry.get_first("description", ""),
-            })
-        
-        # Sort by cn
-        groups.sort(key=lambda g: g["cn"])
-        
-        return {"groups": groups, "total": len(groups)}
-        
-    except Exception as e:
-        logger.error("list_posix_groups_failed", error=str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list POSIX groups: {str(e)}",
         )

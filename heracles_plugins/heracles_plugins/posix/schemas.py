@@ -233,7 +233,7 @@ class PosixAccountUpdate(BaseModel):
 # ============================================================================
 
 class PosixGroupCreate(BaseModel):
-    """Schema for activating POSIX on a group."""
+    """Schema for activating POSIX on an existing group (deprecated approach)."""
     
     gid_number: Optional[int] = Field(
         default=None,
@@ -247,10 +247,51 @@ class PosixGroupCreate(BaseModel):
         populate_by_name = True
 
 
+class PosixGroupFullCreate(BaseModel):
+    """Schema for creating a standalone POSIX group."""
+    
+    cn: str = Field(
+        ...,
+        min_length=1,
+        max_length=64,
+        description="Group name (cn)",
+    )
+    gid_number: Optional[int] = Field(
+        default=None,
+        ge=1000,
+        le=65534,
+        alias="gidNumber",
+        description="GID number (auto-allocated if not provided)",
+    )
+    description: Optional[str] = Field(
+        default=None,
+        max_length=255,
+        description="Group description",
+    )
+    member_uid: Optional[List[str]] = Field(
+        default=None,
+        alias="memberUid",
+        description="Initial list of member UIDs",
+    )
+    
+    @field_validator("cn")
+    @classmethod
+    def validate_cn(cls, v: str) -> str:
+        """Validate group name."""
+        if not re.match(r"^[a-z][a-z0-9_-]*$", v, re.IGNORECASE):
+            raise ValueError("Group name must start with a letter and contain only letters, numbers, underscores, and hyphens")
+        return v
+    
+    class Config:
+        populate_by_name = True
+
+
 class PosixGroupRead(BaseModel):
     """Schema for reading POSIX group data."""
     
+    cn: str = Field(..., description="Group name")
     gid_number: int = Field(..., alias="gidNumber")
+    description: Optional[str] = None
     member_uid: List[str] = Field(default_factory=list, alias="memberUid")
     is_active: bool = True
     
@@ -261,6 +302,11 @@ class PosixGroupRead(BaseModel):
 class PosixGroupUpdate(BaseModel):
     """Schema for updating POSIX group attributes."""
     
+    description: Optional[str] = Field(
+        None,
+        max_length=255,
+        description="Group description",
+    )
     member_uid: Optional[List[str]] = Field(
         None,
         alias="memberUid",
@@ -269,6 +315,25 @@ class PosixGroupUpdate(BaseModel):
     
     class Config:
         populate_by_name = True
+
+
+class PosixGroupListItem(BaseModel):
+    """Summary item for POSIX group listing."""
+    
+    cn: str
+    gid_number: int = Field(..., alias="gidNumber")
+    description: Optional[str] = None
+    member_count: int = Field(default=0, alias="memberCount")
+    
+    class Config:
+        populate_by_name = True
+
+
+class PosixGroupListResponse(BaseModel):
+    """Response for listing POSIX groups."""
+    
+    groups: List[PosixGroupListItem]
+    total: int
 
 
 # ============================================================================
