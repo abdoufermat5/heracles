@@ -5,12 +5,11 @@ import type {
   PosixAccountUpdate,
   PosixStatus,
   PosixGroupData,
-  PosixGroupCreate,
+  PosixGroupFullCreate,
   PosixGroupUpdate,
-  PosixGroupStatus,
   AvailableShells,
   NextIds,
-  PosixGroupListItem,
+  PosixGroupListResponse,
 } from '@/types/posix'
 
 export const posixApi = {
@@ -27,24 +26,27 @@ export const posixApi = {
   deactivateUserPosix: (uid: string) =>
     apiClient.delete(`/users/${uid}/posix`),
 
-  // Group POSIX endpoints
-  getGroupPosix: (cn: string) =>
-    apiClient.get<PosixGroupStatus>(`/groups/${cn}/posix`),
+  // Standalone POSIX Group endpoints (posixGroup is a standalone entry, not a tab on groupOfNames)
+  listPosixGroups: () =>
+    apiClient.get<PosixGroupListResponse>('/posix/groups'),
 
-  activateGroupPosix: (cn: string, data: PosixGroupCreate) =>
-    apiClient.post<PosixGroupData>(`/groups/${cn}/posix`, data),
+  getPosixGroup: (cn: string) =>
+    apiClient.get<PosixGroupData>(`/posix/groups/${cn}`),
 
-  updateGroupPosix: (cn: string, data: PosixGroupUpdate) =>
-    apiClient.put<PosixGroupData>(`/groups/${cn}/posix`, data),
+  createPosixGroup: (data: PosixGroupFullCreate) =>
+    apiClient.post<PosixGroupData>('/posix/groups', data),
 
-  deactivateGroupPosix: (cn: string) =>
-    apiClient.delete(`/groups/${cn}/posix`),
+  updatePosixGroup: (cn: string, data: PosixGroupUpdate) =>
+    apiClient.put<PosixGroupData>(`/posix/groups/${cn}`, data),
 
-  addGroupMember: (cn: string, uid: string) =>
-    apiClient.post<PosixGroupData>(`/groups/${cn}/posix/members/${uid}`, {}),
+  deletePosixGroup: (cn: string) =>
+    apiClient.delete(`/posix/groups/${cn}`),
 
-  removeGroupMember: (cn: string, uid: string) =>
-    apiClient.delete<PosixGroupData>(`/groups/${cn}/posix/members/${uid}`),
+  addPosixGroupMember: (cn: string, uid: string) =>
+    apiClient.post<PosixGroupData>(`/posix/groups/${cn}/members/${uid}`, {}),
+
+  removePosixGroupMember: (cn: string, uid: string) =>
+    apiClient.delete<PosixGroupData>(`/posix/groups/${cn}/members/${uid}`),
 
   // Utility endpoints
   getShells: () =>
@@ -52,7 +54,4 @@ export const posixApi = {
 
   getNextIds: () =>
     apiClient.get<NextIds>('/posix/next-ids'),
-
-  listPosixGroups: () =>
-    apiClient.get<{ groups: PosixGroupListItem[]; total: number }>('/posix/groups'),
 }

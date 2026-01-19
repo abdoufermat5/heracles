@@ -61,28 +61,34 @@ export interface PosixGroupData {
   cn: string
   gidNumber: number
   description?: string
+  memberUid: string[]
+  is_active?: boolean
+}
+
+/** Schema for creating a new standalone POSIX group */
+export interface PosixGroupFullCreate {
+  cn: string
+  gidNumber?: number
+  description?: string
   memberUid?: string[]
 }
 
-export interface PosixGroupCreate {
-  gidNumber?: number
-}
-
+/** Schema for updating an existing POSIX group */
 export interface PosixGroupUpdate {
-  gidNumber?: number
   description?: string
-}
-
-export interface PosixGroupSummary {
-  cn: string
-  gidNumber: number
-  description?: string
+  memberUid?: string[]
 }
 
 export interface PosixGroupListItem {
   cn: string
   gidNumber: number
   description?: string
+  memberCount: number
+}
+
+export interface PosixGroupListResponse {
+  groups: PosixGroupListItem[]
+  total: number
 }
 
 // ============================================================================

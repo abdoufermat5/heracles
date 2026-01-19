@@ -28,6 +28,7 @@ import {
   LogOut,
   ChevronUp,
   Shield,
+  Terminal,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores'
 import { ROUTES } from '@/config/constants'
@@ -47,6 +48,11 @@ const mainNavItems = [
     title: 'Groups',
     url: ROUTES.GROUPS,
     icon: UsersRound,
+  },
+  {
+    title: 'POSIX Groups',
+    url: '/posix/groups',
+    icon: Terminal,
   },
   {
     title: 'Systems',

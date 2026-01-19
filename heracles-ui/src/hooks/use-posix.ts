@@ -3,7 +3,7 @@ import { posixApi } from '@/lib/api'
 import type {
   PosixAccountCreate,
   PosixAccountUpdate,
-  PosixGroupCreate,
+  PosixGroupFullCreate,
   PosixGroupUpdate,
 } from '@/types/posix'
 
@@ -11,10 +11,10 @@ import type {
 export const posixKeys = {
   all: ['posix'] as const,
   user: (uid: string) => [...posixKeys.all, 'user', uid] as const,
-  group: (cn: string) => [...posixKeys.all, 'group', cn] as const,
+  posixGroups: () => [...posixKeys.all, 'posix-groups'] as const,
+  posixGroup: (cn: string) => [...posixKeys.all, 'posix-group', cn] as const,
   shells: () => [...posixKeys.all, 'shells'] as const,
   nextIds: () => [...posixKeys.all, 'next-ids'] as const,
-  posixGroups: () => [...posixKeys.all, 'posix-groups'] as const,
 }
 
 // ============================================================================
@@ -76,60 +76,69 @@ export function useDeactivateUserPosix(uid: string) {
 }
 
 // ============================================================================
-// Group POSIX Hooks
+// Standalone POSIX Group Hooks
 // ============================================================================
 
 /**
- * Get POSIX status and data for a group
+ * List all POSIX groups
  */
-export function useGroupPosix(cn: string) {
+export function usePosixGroups() {
   return useQuery({
-    queryKey: posixKeys.group(cn),
-    queryFn: () => posixApi.getGroupPosix(cn),
+    queryKey: posixKeys.posixGroups(),
+    queryFn: () => posixApi.listPosixGroups(),
+  })
+}
+
+/**
+ * Get a single POSIX group by cn
+ */
+export function usePosixGroup(cn: string) {
+  return useQuery({
+    queryKey: posixKeys.posixGroup(cn),
+    queryFn: () => posixApi.getPosixGroup(cn),
     enabled: !!cn,
   })
 }
 
 /**
- * Activate POSIX for a group
+ * Create a new standalone POSIX group
  */
-export function useActivateGroupPosix(cn: string) {
+export function useCreatePosixGroup() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: PosixGroupCreate) => posixApi.activateGroupPosix(cn, data),
+    mutationFn: (data: PosixGroupFullCreate) => posixApi.createPosixGroup(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: posixKeys.group(cn) })
+      queryClient.invalidateQueries({ queryKey: posixKeys.posixGroups() })
       queryClient.invalidateQueries({ queryKey: posixKeys.nextIds() })
+    },
+  })
+}
+
+/**
+ * Update a POSIX group
+ */
+export function useUpdatePosixGroup(cn: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: PosixGroupUpdate) => posixApi.updatePosixGroup(cn, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: posixKeys.posixGroup(cn) })
       queryClient.invalidateQueries({ queryKey: posixKeys.posixGroups() })
     },
   })
 }
 
 /**
- * Update POSIX attributes for a group
+ * Delete a POSIX group
  */
-export function useUpdateGroupPosix(cn: string) {
+export function useDeletePosixGroup() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: PosixGroupUpdate) => posixApi.updateGroupPosix(cn, data),
+    mutationFn: (cn: string) => posixApi.deletePosixGroup(cn),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: posixKeys.group(cn) })
-    },
-  })
-}
-
-/**
- * Deactivate POSIX for a group
- */
-export function useDeactivateGroupPosix(cn: string) {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: () => posixApi.deactivateGroupPosix(cn),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: posixKeys.group(cn) })
       queryClient.invalidateQueries({ queryKey: posixKeys.posixGroups() })
     },
   })
@@ -142,9 +151,10 @@ export function useAddPosixGroupMember(cn: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (uid: string) => posixApi.addGroupMember(cn, uid),
+    mutationFn: (uid: string) => posixApi.addPosixGroupMember(cn, uid),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: posixKeys.group(cn) })
+      queryClient.invalidateQueries({ queryKey: posixKeys.posixGroup(cn) })
+      queryClient.invalidateQueries({ queryKey: posixKeys.posixGroups() })
     },
   })
 }
@@ -156,9 +166,10 @@ export function useRemovePosixGroupMember(cn: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (uid: string) => posixApi.removeGroupMember(cn, uid),
+    mutationFn: (uid: string) => posixApi.removePosixGroupMember(cn, uid),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: posixKeys.group(cn) })
+      queryClient.invalidateQueries({ queryKey: posixKeys.posixGroup(cn) })
+      queryClient.invalidateQueries({ queryKey: posixKeys.posixGroups() })
     },
   })
 }
@@ -185,15 +196,5 @@ export function useNextIds() {
   return useQuery({
     queryKey: posixKeys.nextIds(),
     queryFn: () => posixApi.getNextIds(),
-  })
-}
-
-/**
- * List all POSIX groups (for primary group selection)
- */
-export function usePosixGroups() {
-  return useQuery({
-    queryKey: posixKeys.posixGroups(),
-    queryFn: () => posixApi.listPosixGroups(),
   })
 }
