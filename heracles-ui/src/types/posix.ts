@@ -5,6 +5,16 @@
  */
 
 // ============================================================================
+// Enums
+// ============================================================================
+
+export type TrustMode = 'fullaccess' | 'byhost'
+
+export type AccountStatus = 'active' | 'expired' | 'password_expired' | 'grace_time' | 'locked'
+
+export type PrimaryGroupMode = 'select_existing' | 'create_personal'
+
+// ============================================================================
 // User POSIX Account Types
 // ============================================================================
 
@@ -21,6 +31,15 @@ export interface PosixAccountData {
   shadowWarning?: number
   shadowInactive?: number
   shadowExpire?: number
+  // System trust (hostObject)
+  trustMode?: TrustMode
+  host?: string[]
+  // Primary group info
+  primaryGroupCn?: string
+  // Group memberships
+  groupMemberships?: string[]
+  // Computed account status
+  accountStatus?: AccountStatus
 }
 
 export interface PosixStatus {
@@ -34,11 +53,20 @@ export interface PosixGroupStatus {
 }
 
 export interface PosixAccountCreate {
+  // ID allocation
   uidNumber?: number | null
-  gidNumber: number
+  forceUid?: boolean
+  // Primary group configuration
+  primaryGroupMode?: PrimaryGroupMode
+  gidNumber?: number | null
+  forceGid?: boolean
+  // Basic attributes
   homeDirectory?: string | null
   loginShell?: string
   gecos?: string | null
+  // System trust
+  trustMode?: TrustMode
+  host?: string[]
 }
 
 export interface PosixAccountUpdate {
@@ -51,6 +79,11 @@ export interface PosixAccountUpdate {
   shadowWarning?: number
   shadowInactive?: number
   shadowExpire?: number
+  // System trust
+  trustMode?: TrustMode
+  host?: string[]
+  // Force password change
+  mustChangePassword?: boolean
 }
 
 // ============================================================================
@@ -110,4 +143,62 @@ export interface NextIds {
   gidNumber: number
   next_uid: number
   next_gid: number
+}
+
+// ============================================================================
+// MixedGroup Types (groupOfNames + posixGroup)
+// ============================================================================
+
+/**
+ * MixedGroup combines groupOfNames (LDAP) and posixGroup (UNIX).
+ * 
+ * This allows a group to be used for both:
+ * - LDAP-based access control (member attribute with DNs)
+ * - UNIX/POSIX permissions (memberUid attribute with UIDs)
+ */
+export interface MixedGroupData {
+  cn: string
+  gidNumber: number
+  description?: string
+  /** LDAP members (DNs) - from groupOfNames */
+  member: string[]
+  /** UNIX members (UIDs) - from posixGroup */
+  memberUid: string[]
+  /** Indicates this is a mixed group */
+  isMixedGroup: boolean
+}
+
+/** Schema for creating a new MixedGroup */
+export interface MixedGroupCreate {
+  cn: string
+  gidNumber?: number
+  description?: string
+  /** Initial LDAP members (DNs) */
+  member?: string[]
+  /** Initial UNIX members (UIDs) */
+  memberUid?: string[]
+}
+
+/** Schema for updating a MixedGroup */
+export interface MixedGroupUpdate {
+  description?: string
+  /** Replace all LDAP members */
+  member?: string[]
+  /** Replace all UNIX members */
+  memberUid?: string[]
+}
+
+/** Summary item for MixedGroup listing */
+export interface MixedGroupListItem {
+  cn: string
+  gidNumber: number
+  description?: string
+  /** Number of LDAP members */
+  memberCount: number
+  /** Number of UNIX members */
+  memberUidCount: number
+}
+
+export interface MixedGroupListResponse {
+  groups: MixedGroupListItem[]
 }

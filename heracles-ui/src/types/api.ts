@@ -69,6 +69,7 @@ export interface ApiError {
 // Form types
 export interface UserCreateData {
   uid: string
+  cn: string
   givenName: string
   sn: string
   mail?: string

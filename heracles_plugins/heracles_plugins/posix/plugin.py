@@ -16,8 +16,11 @@ from .schemas import (
     PosixGroupCreate,
     PosixGroupRead,
     PosixGroupUpdate,
+    MixedGroupCreate,
+    MixedGroupRead,
+    MixedGroupUpdate,
 )
-from .service import PosixService, PosixGroupService
+from .service import PosixService, PosixGroupService, MixedGroupService
 from .routes import router
 
 
@@ -39,8 +42,8 @@ class PosixPlugin(Plugin):
             version="1.0.0",
             description="POSIX account management (Unix accounts)",
             author="Heracles Team",
-            object_types=["user", "group"],
-            object_classes=["posixAccount", "shadowAccount", "posixGroup"],
+            object_types=["user", "group", "mixed-group"],
+            object_classes=["posixAccount", "shadowAccount", "posixGroup", "groupOfNames"],
             dependencies=[],  # No dependencies for POSIX
             required_config=[],
             priority=10,  # Show early in tabs
@@ -74,6 +77,20 @@ class PosixPlugin(Plugin):
                 create_schema=PosixGroupCreate,
                 read_schema=PosixGroupRead,
                 update_schema=PosixGroupUpdate,
+                required=False,
+            ),
+            # MixedGroup: combination of groupOfNames + posixGroup
+            TabDefinition(
+                id="mixed-group",
+                label="Mixed Group",
+                icon="layers",
+                object_type="mixed-group",
+                activation_filter="(&(objectClass=groupOfNames)(objectClass=posixGroup))",
+                schema_file="schema_mixed_group.json",
+                service_class=MixedGroupService,
+                create_schema=MixedGroupCreate,
+                read_schema=MixedGroupRead,
+                update_schema=MixedGroupUpdate,
                 required=False,
             ),
         ]

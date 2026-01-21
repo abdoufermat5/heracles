@@ -43,7 +43,9 @@ export function UserCreatePage() {
     try {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { confirmPassword, ...userData } = data
-      await createMutation.mutateAsync(userData)
+      // Compute cn (common name) from givenName and sn
+      const cn = `${userData.givenName} ${userData.sn}`.trim()
+      await createMutation.mutateAsync({ ...userData, cn })
       toast.success(`User "${data.uid}" created successfully`)
       navigate(ROUTES.USERS)
     } catch (error) {

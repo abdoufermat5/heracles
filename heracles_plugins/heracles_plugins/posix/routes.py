@@ -28,8 +28,14 @@ from .schemas import (
     AvailableShellsResponse,
     IdAllocationResponse,
     PosixGroupListResponse,
+    # MixedGroup schemas
+    MixedGroupCreate,
+    MixedGroupRead,
+    MixedGroupUpdate,
+    MixedGroupListItem,
+    MixedGroupListResponse,
 )
-from .service import PosixService, PosixGroupService, PosixValidationError
+from .service import PosixService, PosixGroupService, MixedGroupService, PosixValidationError
 
 logger = structlog.get_logger(__name__)
 
@@ -63,6 +69,19 @@ def get_posix_group_service() -> PosixGroupService:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="POSIX plugin is not loaded",
+        )
+    return service
+
+
+def get_mixed_group_service() -> MixedGroupService:
+    """Get the MixedGroup service from the plugin registry."""
+    from heracles_api.plugins.registry import plugin_registry
+    
+    service = plugin_registry.get_service("mixed-group")
+    if service is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="POSIX plugin (MixedGroup) is not loaded",
         )
     return service
 
@@ -119,6 +138,7 @@ async def activate_user_posix(
     data: PosixAccountCreate,
     current_user: CurrentUser,
     service: PosixService = Depends(get_posix_service),
+    group_service: PosixGroupService = Depends(get_posix_group_service),
 ):
     """
     Activate POSIX account for a user.
@@ -128,13 +148,16 @@ async def activate_user_posix(
     
     If uidNumber is not provided, it will be auto-allocated.
     If homeDirectory is not provided, it will be generated from the uid.
+    
+    When primaryGroupMode is "create_personal", a personal group with the same
+    name as the user will be automatically created.
     """
     from heracles_api.config import settings
     
     dn = f"uid={uid},ou=people,{settings.LDAP_BASE_DN}"
     
     try:
-        result = await service.activate(dn, data, uid=uid)
+        result = await service.activate(dn, data, uid=uid, group_service=group_service)
         logger.info("posix_activated_via_api", uid=uid, by=current_user.uid)
         return result
         
@@ -197,20 +220,32 @@ async def update_user_posix(
 async def deactivate_user_posix(
     uid: str,
     current_user: CurrentUser,
+    delete_personal_group: bool = Query(
+        default=True,
+        description="Delete the personal group if it exists and is empty",
+    ),
     service: PosixService = Depends(get_posix_service),
+    group_service: PosixGroupService = Depends(get_posix_group_service),
 ):
     """
     Deactivate POSIX account for a user.
     
     This removes the posixAccount and shadowAccount objectClasses
     and all POSIX attributes.
+    
+    If delete_personal_group is True and the user has a personal group
+    (same name as uid) that is empty, it will be automatically deleted.
     """
     from heracles_api.config import settings
     
     dn = f"uid={uid},ou=people,{settings.LDAP_BASE_DN}"
     
     try:
-        await service.deactivate(dn)
+        await service.deactivate(
+            dn,
+            group_service=group_service,
+            delete_personal_group=delete_personal_group,
+        )
         logger.info("posix_deactivated_via_api", uid=uid, by=current_user.uid)
         
     except PosixValidationError as e:
@@ -507,5 +542,376 @@ async def get_next_ids(
     except PosixValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+# =============================================================================
+# User Group Membership Management (from user perspective)
+# =============================================================================
+
+@router.get(
+    "/users/{uid}/posix/groups",
+    response_model=List[str],
+    summary="Get user's POSIX group memberships",
+)
+async def get_user_group_memberships(
+    uid: str,
+    current_user: CurrentUser,
+    service: PosixService = Depends(get_posix_service),
+):
+    """
+    Get all POSIX groups that a user belongs to (via memberUid).
+    
+    This returns the list of group CNs where the user is a member.
+    """
+    groups = await service._get_user_group_memberships(uid)
+    return groups
+
+
+@router.post(
+    "/users/{uid}/posix/groups/{cn}",
+    response_model=PosixGroupRead,
+    summary="Add user to a POSIX group",
+)
+async def add_user_to_group(
+    uid: str,
+    cn: str,
+    current_user: CurrentUser,
+    group_service: PosixGroupService = Depends(get_posix_group_service),
+):
+    """
+    Add a user to a POSIX group.
+    
+    This is the user-centric way to manage group memberships.
+    """
+    try:
+        result = await group_service.add_member_by_cn(cn, uid)
+        logger.info("user_added_to_group", uid=uid, cn=cn, by=current_user.uid)
+        return result
+        
+    except PosixValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.error("add_user_to_group_failed", uid=uid, cn=cn, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to add user to group: {str(e)}",
+        )
+
+
+@router.delete(
+    "/users/{uid}/posix/groups/{cn}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Remove user from a POSIX group",
+)
+async def remove_user_from_group(
+    uid: str,
+    cn: str,
+    current_user: CurrentUser,
+    group_service: PosixGroupService = Depends(get_posix_group_service),
+):
+    """
+    Remove a user from a POSIX group.
+    
+    This is the user-centric way to manage group memberships.
+    """
+    try:
+        await group_service.remove_member_by_cn(cn, uid)
+        logger.info("user_removed_from_group", uid=uid, cn=cn, by=current_user.uid)
+        
+    except PosixValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.error("remove_user_from_group_failed", uid=uid, cn=cn, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to remove user from group: {str(e)}",
+        )
+
+
+# =============================================================================
+# MixedGroup Endpoints (groupOfNames + posixGroup)
+# =============================================================================
+
+@router.get(
+    "/posix/mixed-groups",
+    response_model=MixedGroupListResponse,
+    summary="List all MixedGroups",
+)
+async def list_mixed_groups(
+    current_user: CurrentUser,
+    service: MixedGroupService = Depends(get_mixed_group_service),
+):
+    """
+    List all MixedGroups.
+    
+    MixedGroups combine groupOfNames (LDAP) and posixGroup (UNIX)
+    for hybrid access control.
+    """
+    try:
+        groups = await service.list_all()
+        return MixedGroupListResponse(groups=groups, total=len(groups))
+        
+    except PosixValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
+@router.get(
+    "/posix/mixed-groups/{cn}",
+    response_model=MixedGroupRead,
+    summary="Get a MixedGroup by name",
+)
+async def get_mixed_group(
+    cn: str,
+    current_user: CurrentUser,
+    service: MixedGroupService = Depends(get_mixed_group_service),
+):
+    """Get details of a specific MixedGroup."""
+    group = await service.get(cn)
+    if group is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"MixedGroup '{cn}' not found",
+        )
+    return group
+
+
+@router.post(
+    "/posix/mixed-groups",
+    response_model=MixedGroupRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new MixedGroup",
+)
+async def create_mixed_group(
+    data: MixedGroupCreate,
+    current_user: CurrentUser,
+    service: MixedGroupService = Depends(get_mixed_group_service),
+):
+    """
+    Create a new MixedGroup.
+    
+    A MixedGroup has both groupOfNames and posixGroup object classes,
+    allowing it to be used for LDAP-based access control (member DNs)
+    and UNIX group permissions (memberUid).
+    """
+    try:
+        result = await service.create(data)
+        logger.info("mixed_group_created", cn=data.cn, by=current_user.uid)
+        return result
+        
+    except PosixValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.error("create_mixed_group_failed", cn=data.cn, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create MixedGroup: {str(e)}",
+        )
+
+
+@router.patch(
+    "/posix/mixed-groups/{cn}",
+    response_model=MixedGroupRead,
+    summary="Update a MixedGroup",
+)
+async def update_mixed_group(
+    cn: str,
+    data: MixedGroupUpdate,
+    current_user: CurrentUser,
+    service: MixedGroupService = Depends(get_mixed_group_service),
+):
+    """Update a MixedGroup's attributes."""
+    try:
+        result = await service.update_group(cn, data)
+        logger.info("mixed_group_updated", cn=cn, by=current_user.uid)
+        return result
+        
+    except PosixValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.error("update_mixed_group_failed", cn=cn, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update MixedGroup: {str(e)}",
+        )
+
+
+@router.delete(
+    "/posix/mixed-groups/{cn}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a MixedGroup",
+)
+async def delete_mixed_group(
+    cn: str,
+    current_user: CurrentUser,
+    service: MixedGroupService = Depends(get_mixed_group_service),
+):
+    """Delete a MixedGroup."""
+    try:
+        await service.delete(cn)
+        logger.info("mixed_group_deleted", cn=cn, by=current_user.uid)
+        
+    except PosixValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.error("delete_mixed_group_failed", cn=cn, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete MixedGroup: {str(e)}",
+        )
+
+
+# =============================================================================
+# MixedGroup Member Management
+# =============================================================================
+
+@router.post(
+    "/posix/mixed-groups/{cn}/members",
+    response_model=MixedGroupRead,
+    summary="Add a member (DN) to a MixedGroup",
+)
+async def add_mixed_group_member(
+    cn: str,
+    current_user: CurrentUser,
+    member_dn: str = Query(..., description="The DN of the member to add"),
+    service: MixedGroupService = Depends(get_mixed_group_service),
+):
+    """
+    Add a member to a MixedGroup by DN.
+    
+    This adds the member to the `member` attribute (groupOfNames).
+    """
+    try:
+        result = await service.add_member(cn, member_dn)
+        logger.info("mixed_group_member_added", cn=cn, member_dn=member_dn, by=current_user.uid)
+        return result
+        
+    except PosixValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.delete(
+    "/posix/mixed-groups/{cn}/members",
+    response_model=MixedGroupRead,
+    summary="Remove a member (DN) from a MixedGroup",
+)
+async def remove_mixed_group_member(
+    cn: str,
+    current_user: CurrentUser,
+    member_dn: str = Query(..., description="The DN of the member to remove"),
+    service: MixedGroupService = Depends(get_mixed_group_service),
+):
+    """
+    Remove a member from a MixedGroup by DN.
+    
+    This removes the member from the `member` attribute (groupOfNames).
+    """
+    try:
+        result = await service.remove_member(cn, member_dn)
+        logger.info("mixed_group_member_removed", cn=cn, member_dn=member_dn, by=current_user.uid)
+        return result
+        
+    except PosixValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.post(
+    "/posix/mixed-groups/{cn}/member-uids/{uid}",
+    response_model=MixedGroupRead,
+    summary="Add a memberUid to a MixedGroup",
+)
+async def add_mixed_group_member_uid(
+    cn: str,
+    uid: str,
+    current_user: CurrentUser,
+    service: MixedGroupService = Depends(get_mixed_group_service),
+):
+    """
+    Add a memberUid to a MixedGroup.
+    
+    This adds the UID to the `memberUid` attribute (posixGroup).
+    """
+    try:
+        result = await service.add_member_uid(cn, uid)
+        logger.info("mixed_group_member_uid_added", cn=cn, uid=uid, by=current_user.uid)
+        return result
+        
+    except PosixValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.delete(
+    "/posix/mixed-groups/{cn}/member-uids/{uid}",
+    response_model=MixedGroupRead,
+    summary="Remove a memberUid from a MixedGroup",
+)
+async def remove_mixed_group_member_uid(
+    cn: str,
+    uid: str,
+    current_user: CurrentUser,
+    service: MixedGroupService = Depends(get_mixed_group_service),
+):
+    """
+    Remove a memberUid from a MixedGroup.
+    
+    This removes the UID from the `memberUid` attribute (posixGroup).
+    """
+    try:
+        result = await service.remove_member_uid(cn, uid)
+        logger.info("mixed_group_member_uid_removed", cn=cn, uid=uid, by=current_user.uid)
+        return result
+        
+    except PosixValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.get(
+    "/posix/mixed-groups/next-gid",
+    response_model=IdAllocationResponse,
+    summary="Get next available GID for MixedGroups",
+)
+async def get_mixed_group_next_gid(
+    current_user: CurrentUser,
+    service: MixedGroupService = Depends(get_mixed_group_service),
+):
+    """Get the next available GID number for creating a MixedGroup."""
+    try:
+        next_gid = await service.get_next_gid()
+        return IdAllocationResponse(value=next_gid)
+        
+    except PosixValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )

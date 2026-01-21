@@ -1,9 +1,10 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Terminal, Loader2 } from 'lucide-react'
+import { Terminal, Loader2, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Form,
   FormControl,
@@ -20,16 +21,53 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { useAvailableShells, usePosixGroups, useNextIds } from '@/hooks'
-import type { PosixAccountCreate } from '@/types/posix'
+import type { PosixAccountCreate, TrustMode, PrimaryGroupMode } from '@/types/posix'
 
 const posixActivateSchema = z.object({
+  // ID allocation
   uidNumber: z.number().min(1000).max(65534).optional().nullable(),
-  gidNumber: z.number().min(1000).max(65534),
+  forceUid: z.boolean().default(false),
+  // Primary group
+  primaryGroupMode: z.enum(['select_existing', 'create_personal']).default('select_existing'),
+  gidNumber: z.number().min(1000).max(65534).optional().nullable(),
+  forceGid: z.boolean().default(false),
+  // Basic attributes
   homeDirectory: z.string().min(1).regex(/^\/[\w./-]+$/, 'Must be an absolute path').optional().nullable(),
-  loginShell: z.string().min(1),
+  loginShell: z.string().min(1).default('/bin/bash'),
   gecos: z.string().optional().nullable(),
-})
+  // System trust
+  trustMode: z.enum(['fullaccess', 'byhost']).optional().nullable(),
+  host: z.array(z.string()).optional().nullable(),
+}).refine(
+  (data) => {
+    if (data.primaryGroupMode === 'select_existing' && !data.gidNumber) {
+      return false
+    }
+    return true
+  },
+  {
+    message: 'Please select a primary group',
+    path: ['gidNumber'],
+  }
+).refine(
+  (data) => {
+    if (data.trustMode === 'byhost' && (!data.host || data.host.length === 0)) {
+      return false
+    }
+    return true
+  },
+  {
+    message: 'At least one host is required when trust mode is "By Host"',
+    path: ['host'],
+  }
+)
 
 type PosixActivateFormData = z.infer<typeof posixActivateSchema>
 
@@ -56,21 +94,36 @@ export function PosixActivateForm({
     resolver: zodResolver(posixActivateSchema),
     defaultValues: {
       uidNumber: undefined,
-      gidNumber: 10000,
+      forceUid: false,
+      primaryGroupMode: 'select_existing',
+      gidNumber: undefined,
+      forceGid: false,
       homeDirectory: `/home/${uid}`,
       loginShell: shellsData?.default || '/bin/bash',
       gecos: displayName || '',
+      trustMode: undefined,
+      host: [],
     },
   })
 
+  const primaryGroupMode = form.watch('primaryGroupMode')
+  const trustMode = form.watch('trustMode')
+  const forceUid = form.watch('forceUid')
+
   const handleSubmit = async (data: PosixActivateFormData) => {
-    await onSubmit({
+    const submitData: PosixAccountCreate = {
       uidNumber: data.uidNumber,
-      gidNumber: data.gidNumber,
+      forceUid: data.forceUid,
+      primaryGroupMode: data.primaryGroupMode as PrimaryGroupMode,
+      gidNumber: data.primaryGroupMode === 'select_existing' ? data.gidNumber : undefined,
+      forceGid: data.forceGid,
       homeDirectory: data.homeDirectory,
       loginShell: data.loginShell,
       gecos: data.gecos,
-    })
+      trustMode: data.trustMode as TrustMode | undefined,
+      host: data.trustMode === 'byhost' ? data.host ?? undefined : undefined,
+    }
+    await onSubmit(submitData)
   }
 
   const defaultShells = [
@@ -101,7 +154,19 @@ export function PosixActivateForm({
             name="uidNumber"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>UID Number</FormLabel>
+                <FormLabel className="flex items-center gap-2">
+                  UID Number
+                  {forceUid && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Info className="h-3 w-3 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent>Force UID is enabled</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </FormLabel>
                 <FormControl>
                   <Input
                     type="number"
@@ -114,6 +179,25 @@ export function PosixActivateForm({
                     }}
                   />
                 </FormControl>
+                <div className="flex items-center gap-2 mt-1">
+                  <FormField
+                    control={form.control}
+                    name="forceUid"
+                    render={({ field: forceField }) => (
+                      <FormItem className="flex items-center gap-2 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={forceField.value}
+                            onCheckedChange={forceField.onChange}
+                          />
+                        </FormControl>
+                        <FormLabel className="text-xs font-normal text-muted-foreground">
+                          Force UID
+                        </FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                </div>
                 <FormDescription>
                   Leave empty for auto-allocation
                 </FormDescription>
@@ -122,38 +206,68 @@ export function PosixActivateForm({
             )}
           />
 
-          {/* Primary Group */}
+          {/* Primary Group Mode */}
           <FormField
             control={form.control}
-            name="gidNumber"
+            name="primaryGroupMode"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Primary Group *</FormLabel>
-                <Select
-                  disabled={groupsLoading}
-                  onValueChange={(value) => field.onChange(parseInt(value, 10))}
-                  value={field.value?.toString()}
-                >
+                <FormLabel>Primary Group Mode *</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder={groupsLoading ? 'Loading...' : 'Select a group'} />
+                      <SelectValue placeholder="Select mode" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {posixGroups.map((group) => (
-                      <SelectItem key={group.gidNumber} value={group.gidNumber.toString()}>
-                        {group.cn} ({group.gidNumber})
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="select_existing">Select existing group</SelectItem>
+                    <SelectItem value="create_personal">Create personal group</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormDescription>
-                  User's primary Unix group
+                  {primaryGroupMode === 'create_personal' 
+                    ? `A personal group "${uid}" will be created` 
+                    : 'Select an existing POSIX group'}
                 </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
           />
+
+          {/* Primary Group Selection (only shown when mode is select_existing) */}
+          {primaryGroupMode === 'select_existing' && (
+            <FormField
+              control={form.control}
+              name="gidNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Primary Group *</FormLabel>
+                  <Select
+                    disabled={groupsLoading}
+                    onValueChange={(value) => field.onChange(parseInt(value, 10))}
+                    value={field.value?.toString()}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder={groupsLoading ? 'Loading...' : 'Select a group'} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {posixGroups.map((group) => (
+                        <SelectItem key={group.gidNumber} value={group.gidNumber.toString()}>
+                          {group.cn} ({group.gidNumber})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    User's primary Unix group
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
 
           {/* Home Directory */}
           <FormField
@@ -230,6 +344,74 @@ export function PosixActivateForm({
             </FormItem>
           )}
         />
+
+        {/* System Trust Section */}
+        <div className="border rounded-lg p-4 space-y-4">
+          <h4 className="font-medium text-sm">System Trust (Optional)</h4>
+          <p className="text-xs text-muted-foreground">
+            Control which systems this user can access
+          </p>
+
+          <FormField
+            control={form.control}
+            name="trustMode"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Trust Mode</FormLabel>
+                <Select 
+                  onValueChange={(value) => field.onChange(value === 'none' ? null : value)} 
+                  value={field.value ?? 'none'}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="No restriction" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="none">No restriction</SelectItem>
+                    <SelectItem value="fullaccess">Full access (all systems)</SelectItem>
+                    <SelectItem value="byhost">Restricted by host</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormDescription>
+                  {!trustMode && 'User will have default system access'}
+                  {trustMode === 'fullaccess' && 'User can access all systems'}
+                  {trustMode === 'byhost' && 'User can only access specified hosts'}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {trustMode === 'byhost' && (
+            <FormField
+              control={form.control}
+              name="host"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Allowed Hosts *</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="server1.example.com, server2.example.com"
+                      value={field.value?.join(', ') ?? ''}
+                      onChange={(e) => {
+                        const hosts = e.target.value
+                          .split(',')
+                          .map((h) => h.trim())
+                          .filter((h) => h.length > 0)
+                        field.onChange(hosts.length > 0 ? hosts : [])
+                      }}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Comma-separated list of hostnames
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+        </div>
 
         <div className="flex justify-end gap-2 pt-4">
           <Button type="button" variant="outline" onClick={onCancel}>

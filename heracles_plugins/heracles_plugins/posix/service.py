@@ -22,6 +22,9 @@ from .schemas import (
     PosixGroupCreate,
     PosixGroupRead,
     PosixGroupUpdate,
+    PrimaryGroupMode,
+    TrustMode,
+    AccountStatus,
 )
 
 logger = structlog.get_logger(__name__)
@@ -40,6 +43,8 @@ class PosixService(TabService):
     - posixAccount objectClass
     - shadowAccount objectClass
     - UID number allocation and validation
+    - System trust (hostObject)
+    - Account status computation
     """
     
     OBJECT_CLASSES = ["posixAccount", "shadowAccount"]
@@ -56,6 +61,7 @@ class PosixService(TabService):
         "shadowWarning",
         "shadowInactive",
         "shadowExpire",
+        "host",  # hostObject attribute for system trust
     ]
     
     # Default shells configuration
@@ -106,23 +112,68 @@ class PosixService(TabService):
             return None
         
         try:
-            entry = await self._ldap.get_by_dn(dn, attributes=self.MANAGED_ATTRIBUTES)
+            entry = await self._ldap.get_by_dn(dn, attributes=self.MANAGED_ATTRIBUTES + ["uid"])
             if entry is None:
                 return None
             
+            uid = entry.get_first("uid", "")
+            gid_number = self._get_int(entry, "gidNumber")
+            
+            # Get primary group CN by GID
+            primary_group_cn = await self._get_group_cn_by_gid(gid_number)
+            
+            # Get group memberships (groups this user belongs to via memberUid)
+            group_memberships = await self._get_user_group_memberships(uid)
+            
+            # Parse host attribute for trust mode
+            host_list = entry.get("host", [])
+            if isinstance(host_list, str):
+                host_list = [host_list]
+            
+            trust_mode = None
+            filtered_hosts = []
+            if host_list:
+                # Check for full access marker
+                if "*" in host_list or any(h == "*" for h in host_list):
+                    trust_mode = TrustMode.FULL_ACCESS
+                else:
+                    trust_mode = TrustMode.BY_HOST
+                    filtered_hosts = [h for h in host_list if h != "*"]
+            
+            # Get shadow attributes
+            shadow_last_change = self._get_int_optional(entry, "shadowLastChange")
+            shadow_min = self._get_int_optional(entry, "shadowMin")
+            shadow_max = self._get_int_optional(entry, "shadowMax")
+            shadow_warning = self._get_int_optional(entry, "shadowWarning")
+            shadow_inactive = self._get_int_optional(entry, "shadowInactive")
+            shadow_expire = self._get_int_optional(entry, "shadowExpire")
+            
+            # Compute account status
+            account_status = self._compute_account_status(
+                shadow_last_change=shadow_last_change,
+                shadow_max=shadow_max,
+                shadow_inactive=shadow_inactive,
+                shadow_expire=shadow_expire,
+            )
+            
             return PosixAccountRead(
                 uidNumber=self._get_int(entry, "uidNumber"),
-                gidNumber=self._get_int(entry, "gidNumber"),
+                gidNumber=gid_number,
                 homeDirectory=entry.get_first("homeDirectory", ""),
                 loginShell=entry.get_first("loginShell", self._default_shell),
                 gecos=entry.get_first("gecos"),
-                shadowLastChange=self._get_int_optional(entry, "shadowLastChange"),
-                shadowMin=self._get_int_optional(entry, "shadowMin"),
-                shadowMax=self._get_int_optional(entry, "shadowMax"),
-                shadowWarning=self._get_int_optional(entry, "shadowWarning"),
-                shadowInactive=self._get_int_optional(entry, "shadowInactive"),
-                shadowExpire=self._get_int_optional(entry, "shadowExpire"),
+                shadowLastChange=shadow_last_change,
+                shadowMin=shadow_min,
+                shadowMax=shadow_max,
+                shadowWarning=shadow_warning,
+                shadowInactive=shadow_inactive,
+                shadowExpire=shadow_expire,
+                trustMode=trust_mode,
+                host=filtered_hosts if filtered_hosts else None,
+                primaryGroupCn=primary_group_cn,
+                groupMemberships=group_memberships,
                 is_active=True,
+                accountStatus=account_status,
             )
             
         except LdapOperationError as e:
@@ -134,6 +185,7 @@ class PosixService(TabService):
         dn: str,
         data: PosixAccountCreate,
         uid: Optional[str] = None,
+        group_service: Optional["PosixGroupService"] = None,
     ) -> PosixAccountRead:
         """
         Activate POSIX on a user.
@@ -141,7 +193,8 @@ class PosixService(TabService):
         Args:
             dn: User's DN
             data: POSIX account data
-            uid: User's uid (for home directory generation)
+            uid: User's uid (for home directory generation and personal group)
+            group_service: PosixGroupService instance (for auto-creating personal groups)
         """
         if await self.is_active(dn):
             raise PosixValidationError("POSIX is already active on this user")
@@ -151,16 +204,76 @@ class PosixService(TabService):
         if uid_number is None:
             uid_number = await self._allocate_next_uid()
         else:
-            # Verify UID is not already in use
-            if await self._uid_exists(uid_number):
+            # Verify UID is not already in use (unless force_uid is set)
+            if not data.force_uid and await self._uid_exists(uid_number):
                 raise PosixValidationError(f"UID {uid_number} is already in use")
         
-        # Verify GID exists
-        if not await self._gid_exists(data.gid_number):
-            raise PosixValidationError(
-                f"GID {data.gid_number} does not exist. "
-                "Please create a POSIX group first or use an existing GID."
-            )
+        # Handle primary group
+        gid_number: int
+        created_personal_group = False
+        
+        if data.primary_group_mode == PrimaryGroupMode.CREATE_PERSONAL:
+            # Auto-create a personal group with the same name as the user
+            if uid is None:
+                entry = await self._ldap.get_by_dn(dn, attributes=["uid"])
+                uid = entry.get_first("uid") if entry else None
+            
+            if uid is None:
+                raise PosixValidationError(
+                    "Cannot create personal group: uid not available"
+                )
+            
+            if group_service is None:
+                raise PosixValidationError(
+                    "Cannot create personal group: group service not available"
+                )
+            
+            # Check if group with this name already exists
+            existing_group = await group_service.get(uid)
+            if existing_group:
+                # Use the existing group
+                gid_number = existing_group.gidNumber
+                logger.info(
+                    "using_existing_personal_group",
+                    cn=uid,
+                    gid_number=gid_number,
+                )
+            else:
+                # Create new personal group
+                from .schemas import PosixGroupFullCreate
+                
+                # Allocate GID for the personal group
+                personal_gid = data.gid_number if data.force_gid and data.gid_number else None
+                
+                personal_group_data = PosixGroupFullCreate(
+                    cn=uid,
+                    gidNumber=personal_gid,
+                    description=f"Personal group for {uid}",
+                )
+                
+                created_group = await group_service.create(personal_group_data)
+                gid_number = created_group.gidNumber
+                created_personal_group = True
+                
+                logger.info(
+                    "personal_group_created",
+                    cn=uid,
+                    gid_number=gid_number,
+                )
+        else:
+            # Use selected existing group
+            if data.gid_number is None:
+                raise PosixValidationError(
+                    "GID number is required when using select_existing mode"
+                )
+            gid_number = data.gid_number
+            
+            # Verify GID exists
+            if not await self._gid_exists(gid_number):
+                raise PosixValidationError(
+                    f"GID {gid_number} does not exist. "
+                    "Please create a POSIX group first or use an existing GID."
+                )
         
         # Generate home directory if not provided
         home_directory = data.home_directory
@@ -184,10 +297,16 @@ class PosixService(TabService):
             gecos = entry.get_first("cn") if entry else None
         
         # Build LDAP modifications
+        object_classes_to_add = ["posixAccount", "shadowAccount"]
+        
+        # Add hostObject if trust mode is specified
+        if data.trust_mode is not None:
+            object_classes_to_add.append("hostObject")
+        
         changes = {
-            "objectClass": [(MODIFY_ADD, ["posixAccount", "shadowAccount"])],
+            "objectClass": [(MODIFY_ADD, object_classes_to_add)],
             "uidNumber": [(MODIFY_ADD, [str(uid_number)])],
-            "gidNumber": [(MODIFY_ADD, [str(data.gid_number)])],
+            "gidNumber": [(MODIFY_ADD, [str(gid_number)])],
             "homeDirectory": [(MODIFY_ADD, [home_directory])],
             "loginShell": [(MODIFY_ADD, [data.login_shell or self._default_shell])],
         }
@@ -200,6 +319,13 @@ class PosixService(TabService):
         changes["shadowLastChange"] = [(MODIFY_ADD, [str(shadow_last_change)])]
         changes["shadowMax"] = [(MODIFY_ADD, ["99999"])]
         
+        # Handle system trust (hostObject)
+        if data.trust_mode is not None:
+            if data.trust_mode == TrustMode.FULL_ACCESS:
+                changes["host"] = [(MODIFY_ADD, ["*"])]
+            elif data.trust_mode == TrustMode.BY_HOST and data.host:
+                changes["host"] = [(MODIFY_ADD, data.host)]
+        
         # Apply changes
         try:
             await self._ldap.modify(dn, changes)
@@ -207,9 +333,22 @@ class PosixService(TabService):
                 "posix_activated",
                 dn=dn,
                 uid_number=uid_number,
-                gid_number=data.gid_number,
+                gid_number=gid_number,
+                personal_group_created=created_personal_group,
             )
         except LdapOperationError as e:
+            # Rollback personal group creation if it was created
+            if created_personal_group and group_service and uid:
+                try:
+                    await group_service.delete(uid)
+                    logger.info("personal_group_rolled_back", cn=uid)
+                except Exception as rollback_error:
+                    logger.error(
+                        "personal_group_rollback_failed",
+                        cn=uid,
+                        error=str(rollback_error),
+                    )
+            
             logger.error("posix_activation_failed", dn=dn, error=str(e))
             raise PosixValidationError(f"Failed to activate POSIX: {e}")
         
@@ -255,6 +394,49 @@ class PosixService(TabService):
         if data.shadow_expire is not None:
             changes["shadowExpire"] = [(MODIFY_REPLACE, [str(data.shadow_expire)])]
         
+        # Handle must_change_password by setting shadowLastChange to 0
+        if data.must_change_password is not None:
+            if data.must_change_password:
+                # Set shadowLastChange to 0 to force password change
+                changes["shadowLastChange"] = [(MODIFY_REPLACE, ["0"])]
+            else:
+                # Reset to current date
+                shadow_last_change = int(time.time() / 86400)
+                changes["shadowLastChange"] = [(MODIFY_REPLACE, [str(shadow_last_change)])]
+        
+        # Handle system trust (hostObject)
+        if data.trust_mode is not None:
+            # First check if hostObject is in the objectClasses
+            entry = await self._ldap.get_by_dn(dn, attributes=["objectClass", "host"])
+            object_classes = entry.get("objectClass", []) if entry else []
+            if isinstance(object_classes, str):
+                object_classes = [object_classes]
+            
+            has_host_object = "hostObject" in object_classes
+            
+            if data.trust_mode == TrustMode.FULL_ACCESS:
+                if not has_host_object:
+                    changes["objectClass"] = [(MODIFY_ADD, ["hostObject"])]
+                changes["host"] = [(MODIFY_REPLACE, ["*"])]
+            elif data.trust_mode == TrustMode.BY_HOST:
+                if not data.host:
+                    raise PosixValidationError("host list is required when trustMode is byhost")
+                if not has_host_object:
+                    changes["objectClass"] = [(MODIFY_ADD, ["hostObject"])]
+                changes["host"] = [(MODIFY_REPLACE, data.host)]
+        elif data.host is not None:
+            # Just update hosts without changing trust mode
+            entry = await self._ldap.get_by_dn(dn, attributes=["objectClass"])
+            object_classes = entry.get("objectClass", []) if entry else []
+            if isinstance(object_classes, str):
+                object_classes = [object_classes]
+            
+            if "hostObject" in object_classes:
+                if data.host:
+                    changes["host"] = [(MODIFY_REPLACE, data.host)]
+                else:
+                    changes["host"] = [(MODIFY_DELETE, [])]
+        
         if changes:
             try:
                 await self._ldap.modify(dn, changes)
@@ -265,16 +447,54 @@ class PosixService(TabService):
         
         return await self.read(dn)
     
-    async def deactivate(self, dn: str) -> None:
-        """Deactivate POSIX on a user."""
+    async def deactivate(
+        self,
+        dn: str,
+        group_service: Optional["PosixGroupService"] = None,
+        delete_personal_group: bool = True,
+    ) -> None:
+        """
+        Deactivate POSIX on a user.
+        
+        Args:
+            dn: User's DN
+            group_service: PosixGroupService instance (for deleting personal groups)
+            delete_personal_group: If True, delete the personal group if it exists and is empty
+        """
         if not await self.is_active(dn):
             raise PosixValidationError("POSIX is not active on this user")
         
         # Read current values to properly delete
-        entry = await self._ldap.get_by_dn(dn, attributes=self.MANAGED_ATTRIBUTES)
+        entry = await self._ldap.get_by_dn(
+            dn, 
+            attributes=self.MANAGED_ATTRIBUTES + ["uid", "objectClass"]
+        )
+        
+        uid = entry.get_first("uid") if entry else None
+        gid_number = self._get_int_optional(entry, "gidNumber") if entry else None
+        
+        # Check if user has a personal group to delete
+        personal_group_to_delete = None
+        if delete_personal_group and uid and gid_number and group_service:
+            # Check if there's a group with the same name as the user
+            personal_group = await group_service.get(uid)
+            if personal_group and personal_group.gidNumber == gid_number:
+                # It's a personal group if it has the same name as the user
+                # Only delete if empty (no other members)
+                if not personal_group.memberUid or personal_group.memberUid == [uid]:
+                    personal_group_to_delete = uid
+        
+        # Check if hostObject is present
+        object_classes = entry.get("objectClass", []) if entry else []
+        if isinstance(object_classes, str):
+            object_classes = [object_classes]
+        
+        classes_to_remove = ["posixAccount", "shadowAccount"]
+        if "hostObject" in object_classes:
+            classes_to_remove.append("hostObject")
         
         changes = {
-            "objectClass": [(MODIFY_DELETE, ["posixAccount", "shadowAccount"])],
+            "objectClass": [(MODIFY_DELETE, classes_to_remove)],
         }
         
         # Delete all managed attributes that have values
@@ -289,6 +509,22 @@ class PosixService(TabService):
         except LdapOperationError as e:
             logger.error("posix_deactivation_failed", dn=dn, error=str(e))
             raise PosixValidationError(f"Failed to deactivate POSIX: {e}")
+        
+        # Delete personal group if applicable
+        if personal_group_to_delete and group_service:
+            try:
+                await group_service.delete(personal_group_to_delete)
+                logger.info(
+                    "personal_group_deleted_on_deactivate",
+                    cn=personal_group_to_delete,
+                )
+            except Exception as e:
+                # Log but don't fail - the main operation succeeded
+                logger.warning(
+                    "personal_group_deletion_failed",
+                    cn=personal_group_to_delete,
+                    error=str(e),
+                )
     
     # =========================================================================
     # UID/GID Allocation
@@ -416,6 +652,91 @@ class PosixService(TabService):
             vals = entry.get(attr, [])
             val = vals[0] if vals else None
         return int(val) if val is not None else None
+    
+    # =========================================================================
+    # Account Status and Group Lookup Helpers
+    # =========================================================================
+    
+    def _compute_account_status(
+        self,
+        shadow_last_change: Optional[int],
+        shadow_max: Optional[int],
+        shadow_inactive: Optional[int],
+        shadow_expire: Optional[int],
+    ) -> AccountStatus:
+        """
+        Compute account status based on shadow attributes.
+        
+        Mirrors FusionDirectory's isUserActive() logic.
+        
+        Returns:
+            AccountStatus enum value
+        """
+        today = int(time.time() / 86400)  # Days since epoch
+        
+        # Check if account has expired
+        if shadow_expire is not None and shadow_expire > 0:
+            if today >= shadow_expire:
+                return AccountStatus.EXPIRED
+        
+        # Check if password has expired
+        if shadow_last_change is not None and shadow_max is not None:
+            password_expire_date = shadow_last_change + shadow_max
+            
+            if today >= password_expire_date:
+                # Password expired, check for grace time
+                if shadow_inactive is not None and shadow_inactive > 0:
+                    grace_end = password_expire_date + shadow_inactive
+                    if today < grace_end:
+                        return AccountStatus.GRACE_TIME
+                    else:
+                        return AccountStatus.LOCKED
+                return AccountStatus.PASSWORD_EXPIRED
+        
+        # Check if password change is forced (shadowLastChange = 0)
+        if shadow_last_change == 0:
+            return AccountStatus.PASSWORD_EXPIRED
+        
+        return AccountStatus.ACTIVE
+    
+    async def _get_group_cn_by_gid(self, gid_number: int) -> Optional[str]:
+        """Get the CN of a POSIX group by its GID number."""
+        try:
+            entries = await self._ldap.search(
+                search_filter=f"(&(objectClass=posixGroup)(gidNumber={gid_number}))",
+                attributes=["cn"],
+            )
+            if entries:
+                return entries[0].get_first("cn") if hasattr(entries[0], 'get_first') else entries[0].get("cn", [""])[0]
+            return None
+        except LdapOperationError:
+            return None
+    
+    async def _get_user_group_memberships(self, uid: str) -> List[str]:
+        """
+        Get all POSIX groups that a user belongs to (via memberUid).
+        
+        Args:
+            uid: The user's uid
+            
+        Returns:
+            List of group CNs the user belongs to
+        """
+        try:
+            entries = await self._ldap.search(
+                search_filter=f"(&(objectClass=posixGroup)(memberUid={uid}))",
+                attributes=["cn"],
+            )
+            
+            groups = []
+            for entry in entries:
+                cn = entry.get_first("cn") if hasattr(entry, 'get_first') else entry.get("cn", [""])[0]
+                if cn:
+                    groups.append(cn)
+            
+            return sorted(groups)
+        except LdapOperationError:
+            return []
 
 
 class PosixGroupService:
@@ -722,6 +1043,388 @@ class PosixGroupService:
         try:
             entries = await self._ldap.search(
                 search_filter="(objectClass=posixGroup)",
+                attributes=["gidNumber"],
+            )
+            
+            used_gids = set()
+            for entry in entries:
+                gid = self._get_int_optional(entry, "gidNumber")
+                if gid is not None:
+                    used_gids.add(gid)
+            
+            for gid in range(self._gid_min, self._gid_max + 1):
+                if gid not in used_gids:
+                    return gid
+            
+            raise PosixValidationError(
+                f"No available GIDs in range {self._gid_min}-{self._gid_max}"
+            )
+            
+        except LdapOperationError as e:
+            raise PosixValidationError(f"Failed to allocate GID: {e}")
+    
+    async def _gid_exists(self, gid_number: int) -> bool:
+        """Check if a GID number is already in use."""
+        try:
+            entries = await self._ldap.search(
+                search_filter=f"(gidNumber={gid_number})",
+                attributes=["gidNumber"],
+            )
+            return len(entries) > 0
+        except LdapOperationError:
+            return False
+    
+    async def get_next_gid(self) -> int:
+        """Get the next available GID."""
+        return await self._allocate_next_gid()
+    
+    # =========================================================================
+    # Helpers
+    # =========================================================================
+    
+    def _get_int(self, entry: Any, attr: str) -> int:
+        """Get integer attribute."""
+        val = entry.get_first(attr) if hasattr(entry, 'get_first') else entry.get(attr, [None])[0]
+        if val is None:
+            raise PosixValidationError(f"Missing required attribute: {attr}")
+        return int(val)
+    
+    def _get_int_optional(self, entry: Any, attr: str) -> Optional[int]:
+        """Get optional integer attribute."""
+        if hasattr(entry, 'get_first'):
+            val = entry.get_first(attr)
+        else:
+            vals = entry.get(attr, [])
+            val = vals[0] if vals else None
+        return int(val) if val is not None else None
+
+
+class MixedGroupService:
+    """
+    Service for managing MixedGroups.
+    
+    MixedGroups combine groupOfNames (LDAP organizational group)
+    with posixGroup (UNIX group) in a single entry.
+    
+    This allows a group to be used both for:
+    - LDAP-based access control (member attribute with DNs)
+    - UNIX/POSIX permissions (memberUid attribute with UIDs)
+    
+    Object classes used:
+    - groupOfNames (structural): member attribute
+    - posixGroup (auxiliary or structural): gidNumber, memberUid
+    """
+    
+    OBJECT_CLASSES = ["groupOfNames", "posixGroup"]
+    
+    MANAGED_ATTRIBUTES = [
+        "cn",
+        "gidNumber",
+        "member",
+        "memberUid",
+        "description",
+    ]
+    
+    def __init__(self, ldap_service: LdapService, config: Dict[str, Any]):
+        self._ldap = ldap_service
+        self._config = config
+        
+        self._gid_min = config.get("gid_min", 10000)
+        self._gid_max = config.get("gid_max", 60000)
+        self._groups_ou = config.get("mixed_groups_ou", "ou=groups")
+    
+    def _get_groups_base_dn(self) -> str:
+        """Get the base DN for MixedGroups."""
+        from heracles_api.config import settings
+        return f"{self._groups_ou},{settings.LDAP_BASE_DN}"
+    
+    def _get_group_dn(self, cn: str) -> str:
+        """Get the DN for a MixedGroup by cn."""
+        return f"cn={cn},{self._get_groups_base_dn()}"
+    
+    # =========================================================================
+    # CRUD Operations
+    # =========================================================================
+    
+    async def list_all(self) -> List["MixedGroupListItem"]:
+        """List all MixedGroups."""
+        from .schemas import MixedGroupListItem
+        
+        try:
+            # Search for entries that have both groupOfNames and posixGroup
+            entries = await self._ldap.search(
+                search_filter="(&(objectClass=groupOfNames)(objectClass=posixGroup))",
+                attributes=["cn", "gidNumber", "description", "member", "memberUid"],
+            )
+            
+            groups = []
+            for entry in entries:
+                member = entry.get("member", [])
+                if isinstance(member, str):
+                    member = [member]
+                
+                member_uid = entry.get("memberUid", [])
+                if isinstance(member_uid, str):
+                    member_uid = [member_uid]
+                
+                groups.append(MixedGroupListItem(
+                    cn=entry.get_first("cn", ""),
+                    gidNumber=self._get_int(entry, "gidNumber"),
+                    description=entry.get_first("description"),
+                    memberCount=len(member),
+                    memberUidCount=len(member_uid),
+                ))
+            
+            groups.sort(key=lambda g: g.cn)
+            return groups
+            
+        except LdapOperationError as e:
+            logger.error("list_mixed_groups_failed", error=str(e))
+            raise PosixValidationError(f"Failed to list MixedGroups: {e}")
+    
+    async def get(self, cn: str) -> Optional["MixedGroupRead"]:
+        """Get a MixedGroup by cn."""
+        from .schemas import MixedGroupRead
+        
+        dn = self._get_group_dn(cn)
+        
+        try:
+            entry = await self._ldap.get_by_dn(
+                dn, 
+                attributes=self.MANAGED_ATTRIBUTES + ["objectClass"]
+            )
+            if entry is None:
+                return None
+            
+            # Verify it's a MixedGroup
+            object_classes = entry.get("objectClass", [])
+            if isinstance(object_classes, str):
+                object_classes = [object_classes]
+            
+            if "groupOfNames" not in object_classes or "posixGroup" not in object_classes:
+                return None
+            
+            member = entry.get("member", [])
+            if isinstance(member, str):
+                member = [member]
+            
+            member_uid = entry.get("memberUid", [])
+            if isinstance(member_uid, str):
+                member_uid = [member_uid]
+            
+            return MixedGroupRead(
+                cn=entry.get_first("cn", cn),
+                gidNumber=self._get_int(entry, "gidNumber"),
+                description=entry.get_first("description"),
+                member=member,
+                memberUid=member_uid,
+                isMixedGroup=True,
+            )
+            
+        except LdapOperationError as e:
+            logger.error("get_mixed_group_failed", cn=cn, error=str(e))
+            return None
+    
+    async def create(self, data: "MixedGroupCreate") -> "MixedGroupRead":
+        """Create a new MixedGroup."""
+        from .schemas import MixedGroupRead, MixedGroupCreate
+        
+        dn = self._get_group_dn(data.cn)
+        
+        # Check if group already exists
+        existing = await self._ldap.get_by_dn(dn, attributes=["cn"])
+        if existing is not None:
+            raise PosixValidationError(f"Group '{data.cn}' already exists")
+        
+        # Allocate GID if not provided
+        gid_number = data.gid_number
+        if gid_number is None:
+            gid_number = await self._allocate_next_gid()
+        else:
+            if await self._gid_exists(gid_number):
+                raise PosixValidationError(f"GID {gid_number} is already in use")
+        
+        # Build attributes
+        attributes = {
+            "cn": [data.cn],
+            "gidNumber": [str(gid_number)],
+        }
+        
+        if data.description:
+            attributes["description"] = [data.description]
+        
+        # groupOfNames requires at least one member
+        # Use an empty DN placeholder if no members provided
+        if data.member:
+            attributes["member"] = data.member
+        else:
+            # Some LDAP implementations require at least one member
+            # Use the group's own DN as a placeholder
+            attributes["member"] = [dn]
+        
+        if data.member_uid:
+            attributes["memberUid"] = data.member_uid
+        
+        try:
+            await self._ldap.add(dn, self.OBJECT_CLASSES, attributes)
+            logger.info("mixed_group_created", cn=data.cn, gid_number=gid_number)
+        except LdapOperationError as e:
+            logger.error("create_mixed_group_failed", cn=data.cn, error=str(e))
+            raise PosixValidationError(f"Failed to create MixedGroup: {e}")
+        
+        return await self.get(data.cn)
+    
+    async def update_group(self, cn: str, data: "MixedGroupUpdate") -> "MixedGroupRead":
+        """Update a MixedGroup."""
+        from .schemas import MixedGroupUpdate
+        
+        dn = self._get_group_dn(cn)
+        
+        existing = await self.get(cn)
+        if existing is None:
+            raise PosixValidationError(f"MixedGroup '{cn}' not found")
+        
+        changes = {}
+        
+        if data.description is not None:
+            if data.description:
+                changes["description"] = [(MODIFY_REPLACE, [data.description])]
+            else:
+                changes["description"] = [(MODIFY_DELETE, [])]
+        
+        if data.member is not None:
+            if data.member:
+                changes["member"] = [(MODIFY_REPLACE, data.member)]
+            else:
+                # Keep at least one member (the group itself)
+                changes["member"] = [(MODIFY_REPLACE, [dn])]
+        
+        if data.member_uid is not None:
+            if data.member_uid:
+                changes["memberUid"] = [(MODIFY_REPLACE, data.member_uid)]
+            else:
+                if existing.member_uid:
+                    changes["memberUid"] = [(MODIFY_DELETE, [])]
+        
+        if changes:
+            try:
+                await self._ldap.modify(dn, changes)
+                logger.info("mixed_group_updated", cn=cn)
+            except LdapOperationError as e:
+                logger.error("update_mixed_group_failed", cn=cn, error=str(e))
+                raise PosixValidationError(f"Failed to update MixedGroup: {e}")
+        
+        return await self.get(cn)
+    
+    async def delete(self, cn: str) -> None:
+        """Delete a MixedGroup."""
+        dn = self._get_group_dn(cn)
+        
+        existing = await self.get(cn)
+        if existing is None:
+            raise PosixValidationError(f"MixedGroup '{cn}' not found")
+        
+        try:
+            await self._ldap.delete(dn)
+            logger.info("mixed_group_deleted", cn=cn)
+        except LdapOperationError as e:
+            logger.error("delete_mixed_group_failed", cn=cn, error=str(e))
+            raise PosixValidationError(f"Failed to delete MixedGroup: {e}")
+    
+    # =========================================================================
+    # Member Management
+    # =========================================================================
+    
+    async def add_member(self, cn: str, member_dn: str) -> "MixedGroupRead":
+        """Add a member (by DN) to a MixedGroup."""
+        dn = self._get_group_dn(cn)
+        
+        group = await self.get(cn)
+        if group is None:
+            raise PosixValidationError(f"MixedGroup '{cn}' not found")
+        
+        if member_dn in group.member:
+            return group
+        
+        try:
+            await self._ldap.modify(dn, {"member": [(MODIFY_ADD, [member_dn])]})
+            logger.info("mixed_group_member_added", cn=cn, member_dn=member_dn)
+        except LdapOperationError as e:
+            raise PosixValidationError(f"Failed to add member: {e}")
+        
+        return await self.get(cn)
+    
+    async def remove_member(self, cn: str, member_dn: str) -> "MixedGroupRead":
+        """Remove a member (by DN) from a MixedGroup."""
+        dn = self._get_group_dn(cn)
+        
+        group = await self.get(cn)
+        if group is None:
+            raise PosixValidationError(f"MixedGroup '{cn}' not found")
+        
+        if member_dn not in group.member:
+            return group
+        
+        # Ensure at least one member remains
+        if len(group.member) <= 1:
+            raise PosixValidationError("Cannot remove the last member from a groupOfNames")
+        
+        try:
+            await self._ldap.modify(dn, {"member": [(MODIFY_DELETE, [member_dn])]})
+            logger.info("mixed_group_member_removed", cn=cn, member_dn=member_dn)
+        except LdapOperationError as e:
+            raise PosixValidationError(f"Failed to remove member: {e}")
+        
+        return await self.get(cn)
+    
+    async def add_member_uid(self, cn: str, uid: str) -> "MixedGroupRead":
+        """Add a memberUid to a MixedGroup."""
+        dn = self._get_group_dn(cn)
+        
+        group = await self.get(cn)
+        if group is None:
+            raise PosixValidationError(f"MixedGroup '{cn}' not found")
+        
+        if uid in group.member_uid:
+            return group
+        
+        try:
+            await self._ldap.modify(dn, {"memberUid": [(MODIFY_ADD, [uid])]})
+            logger.info("mixed_group_member_uid_added", cn=cn, uid=uid)
+        except LdapOperationError as e:
+            raise PosixValidationError(f"Failed to add memberUid: {e}")
+        
+        return await self.get(cn)
+    
+    async def remove_member_uid(self, cn: str, uid: str) -> "MixedGroupRead":
+        """Remove a memberUid from a MixedGroup."""
+        dn = self._get_group_dn(cn)
+        
+        group = await self.get(cn)
+        if group is None:
+            raise PosixValidationError(f"MixedGroup '{cn}' not found")
+        
+        if uid not in group.member_uid:
+            return group
+        
+        try:
+            await self._ldap.modify(dn, {"memberUid": [(MODIFY_DELETE, [uid])]})
+            logger.info("mixed_group_member_uid_removed", cn=cn, uid=uid)
+        except LdapOperationError as e:
+            raise PosixValidationError(f"Failed to remove memberUid: {e}")
+        
+        return await self.get(cn)
+    
+    # =========================================================================
+    # GID Allocation (shared logic with PosixGroupService)
+    # =========================================================================
+    
+    async def _allocate_next_gid(self) -> int:
+        """Allocate the next available GID number."""
+        try:
+            # Search for both posixGroup and MixedGroups
+            entries = await self._ldap.search(
+                search_filter="(gidNumber=*)",
                 attributes=["gidNumber"],
             )
             

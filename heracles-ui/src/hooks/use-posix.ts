@@ -5,6 +5,8 @@ import type {
   PosixAccountUpdate,
   PosixGroupFullCreate,
   PosixGroupUpdate,
+  MixedGroupCreate,
+  MixedGroupUpdate,
 } from '@/types/posix'
 
 // Query keys
@@ -13,6 +15,8 @@ export const posixKeys = {
   user: (uid: string) => [...posixKeys.all, 'user', uid] as const,
   posixGroups: () => [...posixKeys.all, 'posix-groups'] as const,
   posixGroup: (cn: string) => [...posixKeys.all, 'posix-group', cn] as const,
+  mixedGroups: () => [...posixKeys.all, 'mixed-groups'] as const,
+  mixedGroup: (cn: string) => [...posixKeys.all, 'mixed-group', cn] as const,
   shells: () => [...posixKeys.all, 'shells'] as const,
   nextIds: () => [...posixKeys.all, 'next-ids'] as const,
 }
@@ -68,9 +72,10 @@ export function useDeactivateUserPosix(uid: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: () => posixApi.deactivateUserPosix(uid),
+    mutationFn: (deletePersonalGroup?: boolean) => posixApi.deactivateUserPosix(uid, deletePersonalGroup),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: posixKeys.user(uid) })
+      queryClient.invalidateQueries({ queryKey: posixKeys.posixGroups() })
     },
   })
 }
@@ -196,5 +201,191 @@ export function useNextIds() {
   return useQuery({
     queryKey: posixKeys.nextIds(),
     queryFn: () => posixApi.getNextIds(),
+  })
+}
+
+// ============================================================================
+// User Group Membership Hooks (from user perspective)
+// ============================================================================
+
+/**
+ * Get groups a user belongs to
+ */
+export function useUserGroupMemberships(uid: string) {
+  return useQuery({
+    queryKey: [...posixKeys.user(uid), 'groups'] as const,
+    queryFn: () => posixApi.getUserGroupMemberships(uid),
+    enabled: !!uid,
+  })
+}
+
+/**
+ * Add user to a group (from user perspective)
+ */
+export function useAddUserToGroup(uid: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (cn: string) => posixApi.addUserToGroup(uid, cn),
+    onSuccess: (_, cn) => {
+      queryClient.invalidateQueries({ queryKey: posixKeys.user(uid) })
+      queryClient.invalidateQueries({ queryKey: posixKeys.posixGroup(cn) })
+      queryClient.invalidateQueries({ queryKey: posixKeys.posixGroups() })
+    },
+  })
+}
+
+/**
+ * Remove user from a group (from user perspective)
+ */
+export function useRemoveUserFromGroup(uid: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (cn: string) => posixApi.removeUserFromGroup(uid, cn),
+    onSuccess: (_, cn) => {
+      queryClient.invalidateQueries({ queryKey: posixKeys.user(uid) })
+      queryClient.invalidateQueries({ queryKey: posixKeys.posixGroup(cn) })
+      queryClient.invalidateQueries({ queryKey: posixKeys.posixGroups() })
+    },
+  })
+}
+
+// ============================================================================
+// MixedGroup Hooks (groupOfNames + posixGroup)
+// ============================================================================
+
+/**
+ * List all MixedGroups
+ */
+export function useMixedGroups() {
+  return useQuery({
+    queryKey: posixKeys.mixedGroups(),
+    queryFn: () => posixApi.listMixedGroups(),
+  })
+}
+
+/**
+ * Get a single MixedGroup by cn
+ */
+export function useMixedGroup(cn: string) {
+  return useQuery({
+    queryKey: posixKeys.mixedGroup(cn),
+    queryFn: () => posixApi.getMixedGroup(cn),
+    enabled: !!cn,
+  })
+}
+
+/**
+ * Create a new MixedGroup
+ */
+export function useCreateMixedGroup() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: MixedGroupCreate) => posixApi.createMixedGroup(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: posixKeys.mixedGroups() })
+      queryClient.invalidateQueries({ queryKey: posixKeys.nextIds() })
+    },
+  })
+}
+
+/**
+ * Update a MixedGroup
+ */
+export function useUpdateMixedGroup(cn: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: MixedGroupUpdate) => posixApi.updateMixedGroup(cn, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: posixKeys.mixedGroup(cn) })
+      queryClient.invalidateQueries({ queryKey: posixKeys.mixedGroups() })
+    },
+  })
+}
+
+/**
+ * Delete a MixedGroup
+ */
+export function useDeleteMixedGroup() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (cn: string) => posixApi.deleteMixedGroup(cn),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: posixKeys.mixedGroups() })
+    },
+  })
+}
+
+/**
+ * Add a member (DN) to a MixedGroup
+ */
+export function useAddMixedGroupMember(cn: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (memberDn: string) => posixApi.addMixedGroupMember(cn, memberDn),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: posixKeys.mixedGroup(cn) })
+      queryClient.invalidateQueries({ queryKey: posixKeys.mixedGroups() })
+    },
+  })
+}
+
+/**
+ * Remove a member (DN) from a MixedGroup
+ */
+export function useRemoveMixedGroupMember(cn: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (memberDn: string) => posixApi.removeMixedGroupMember(cn, memberDn),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: posixKeys.mixedGroup(cn) })
+      queryClient.invalidateQueries({ queryKey: posixKeys.mixedGroups() })
+    },
+  })
+}
+
+/**
+ * Add a memberUid to a MixedGroup
+ */
+export function useAddMixedGroupMemberUid(cn: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (uid: string) => posixApi.addMixedGroupMemberUid(cn, uid),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: posixKeys.mixedGroup(cn) })
+      queryClient.invalidateQueries({ queryKey: posixKeys.mixedGroups() })
+    },
+  })
+}
+
+/**
+ * Remove a memberUid from a MixedGroup
+ */
+export function useRemoveMixedGroupMemberUid(cn: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (uid: string) => posixApi.removeMixedGroupMemberUid(cn, uid),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: posixKeys.mixedGroup(cn) })
+      queryClient.invalidateQueries({ queryKey: posixKeys.mixedGroups() })
+    },
+  })
+}
+
+/**
+ * Get next available GID for MixedGroups
+ */
+export function useMixedGroupNextGid() {
+  return useQuery({
+    queryKey: [...posixKeys.mixedGroups(), 'next-gid'] as const,
+    queryFn: () => posixApi.getMixedGroupNextGid(),
   })
 }

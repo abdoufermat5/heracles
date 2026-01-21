@@ -5,6 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Separator } from '@/components/ui/separator'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,6 +26,8 @@ import {
 } from '@/hooks'
 import { PosixActivateForm } from './posix-activate-form'
 import { PosixEditForm } from './posix-edit-form'
+import { PosixGroupMemberships } from './posix-group-memberships'
+import { AccountStatusBadge } from './posix-account-status'
 import type { PosixAccountCreate, PosixAccountUpdate } from '@/types/posix'
 
 interface PosixUserTabProps {
@@ -33,6 +38,7 @@ interface PosixUserTabProps {
 export function PosixUserTab({ uid, displayName }: PosixUserTabProps) {
   const [showDeactivateDialog, setShowDeactivateDialog] = useState(false)
   const [showActivateForm, setShowActivateForm] = useState(false)
+  const [deletePersonalGroup, setDeletePersonalGroup] = useState(true)
 
   const { data: posixStatus, isLoading, error, refetch } = useUserPosix(uid)
   const activateMutation = useActivateUserPosix(uid)
@@ -60,7 +66,7 @@ export function PosixUserTab({ uid, displayName }: PosixUserTabProps) {
 
   const handleDeactivate = async () => {
     try {
-      await deactivateMutation.mutateAsync()
+      await deactivateMutation.mutateAsync(deletePersonalGroup)
       toast.success('Unix account disabled successfully')
       setShowDeactivateDialog(false)
     } catch (error) {
@@ -108,6 +114,9 @@ export function PosixUserTab({ uid, displayName }: PosixUserTabProps) {
   const isActive = posixStatus?.active ?? false
   const posixData = posixStatus?.data
 
+  // Check if user has a personal group that might be deleted
+  const hasPersonalGroup = posixData?.primaryGroupCn === uid
+
   return (
     <>
       <Card>
@@ -117,10 +126,15 @@ export function PosixUserTab({ uid, displayName }: PosixUserTabProps) {
               <Terminal className="h-5 w-5" />
               <CardTitle>Unix Account</CardTitle>
               {isActive ? (
-                <Badge variant="default" className="bg-green-600">
-                  <Power className="h-3 w-3 mr-1" />
-                  Active
-                </Badge>
+                <>
+                  <Badge variant="default" className="bg-green-600">
+                    <Power className="h-3 w-3 mr-1" />
+                    Active
+                  </Badge>
+                  {posixData?.accountStatus && (
+                    <AccountStatusBadge status={posixData.accountStatus} />
+                  )}
+                </>
               ) : (
                 <Badge variant="secondary">
                   <PowerOff className="h-3 w-3 mr-1" />
@@ -148,11 +162,23 @@ export function PosixUserTab({ uid, displayName }: PosixUserTabProps) {
 
         <CardContent>
           {isActive && posixData ? (
-            <PosixEditForm
-              data={posixData}
-              onSubmit={handleUpdate}
-              isSubmitting={updateMutation.isPending}
-            />
+            <div className="space-y-6">
+              <PosixEditForm
+                data={posixData}
+                onSubmit={handleUpdate}
+                isSubmitting={updateMutation.isPending}
+              />
+              
+              <Separator />
+              
+              {/* Group Memberships Section */}
+              <PosixGroupMemberships
+                uid={uid}
+                groupMemberships={posixData.groupMemberships ?? []}
+                primaryGroupCn={posixData.primaryGroupCn}
+                onMembershipChange={() => refetch()}
+              />
+            </div>
           ) : showActivateForm ? (
             <PosixActivateForm
               uid={uid}
@@ -199,6 +225,20 @@ export function PosixUserTab({ uid, displayName }: PosixUserTabProps) {
               </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
+          
+          {hasPersonalGroup && (
+            <div className="flex items-center space-x-2 py-2">
+              <Checkbox
+                id="delete-personal-group"
+                checked={deletePersonalGroup}
+                onCheckedChange={(checked) => setDeletePersonalGroup(checked === true)}
+              />
+              <Label htmlFor="delete-personal-group" className="text-sm">
+                Also delete personal group "{uid}" (if empty)
+              </Label>
+            </div>
+          )}
+          
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction

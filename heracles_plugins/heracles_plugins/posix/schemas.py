@@ -3,12 +3,37 @@ POSIX Plugin Schemas
 ====================
 
 Pydantic models for POSIX account data validation.
-Compatible with FusionDirectory POSIX implementation.
 """
 
-from typing import Optional, List
+from enum import Enum
+from typing import Optional, List, Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
 import re
+
+
+# ============================================================================
+# Enums
+# ============================================================================
+
+class TrustMode(str, Enum):
+    """System trust mode for host-based access control."""
+    FULL_ACCESS = "fullaccess"  # Allow access to all systems
+    BY_HOST = "byhost"  # Restrict access to specific hosts
+
+
+class AccountStatus(str, Enum):
+    """Computed account status based on shadow attributes."""
+    ACTIVE = "active"
+    EXPIRED = "expired"
+    PASSWORD_EXPIRED = "password_expired"
+    GRACE_TIME = "grace_time"
+    LOCKED = "locked"
+
+
+class PrimaryGroupMode(str, Enum):
+    """How to handle primary group when activating POSIX."""
+    SELECT_EXISTING = "select_existing"  # Use an existing group
+    CREATE_PERSONAL = "create_personal"  # Create a personal group with same name as user
 
 
 # ============================================================================
@@ -87,6 +112,7 @@ class PosixAccountBase(BaseModel):
 class PosixAccountCreate(BaseModel):
     """Schema for activating POSIX on a user."""
     
+    # ID allocation
     uid_number: Optional[int] = Field(
         default=None,
         ge=1000,
@@ -94,13 +120,32 @@ class PosixAccountCreate(BaseModel):
         alias="uidNumber",
         description="UID number (auto-allocated if not provided)",
     )
-    gid_number: int = Field(
-        ...,
+    force_uid: bool = Field(
+        default=False,
+        alias="forceUid",
+        description="Force use of specific UID even if normally auto-allocated",
+    )
+    
+    # Primary group configuration
+    primary_group_mode: PrimaryGroupMode = Field(
+        default=PrimaryGroupMode.SELECT_EXISTING,
+        alias="primaryGroupMode",
+        description="How to handle the primary group",
+    )
+    gid_number: Optional[int] = Field(
+        default=None,
         ge=1000,
         le=65534,
         alias="gidNumber",
-        description="Primary group GID number",
+        description="Primary group GID number (required if mode is select_existing)",
     )
+    force_gid: bool = Field(
+        default=False,
+        alias="forceGid",
+        description="Force use of specific GID even if normally auto-allocated",
+    )
+    
+    # Basic attributes
     home_directory: Optional[str] = Field(
         default=None,
         alias="homeDirectory",
@@ -116,6 +161,17 @@ class PosixAccountCreate(BaseModel):
         description="GECOS field",
     )
     
+    # System trust (hostObject)
+    trust_mode: Optional[TrustMode] = Field(
+        default=None,
+        alias="trustMode",
+        description="System trust mode for access control",
+    )
+    host: Optional[List[str]] = Field(
+        default=None,
+        description="List of hosts the user can access (when trustMode is byhost)",
+    )
+    
     @field_validator("home_directory")
     @classmethod
     def validate_home_directory(cls, v: Optional[str]) -> Optional[str]:
@@ -127,6 +183,15 @@ class PosixAccountCreate(BaseModel):
         if not re.match(r"^/[\w./-]+$", v):
             raise ValueError("Home directory contains invalid characters")
         return v
+    
+    @model_validator(mode="after")
+    def validate_group_config(self) -> "PosixAccountCreate":
+        """Validate primary group configuration."""
+        if self.primary_group_mode == PrimaryGroupMode.SELECT_EXISTING and self.gid_number is None:
+            raise ValueError("gidNumber is required when primaryGroupMode is select_existing")
+        if self.trust_mode == TrustMode.BY_HOST and not self.host:
+            raise ValueError("host list is required when trustMode is byhost")
+        return self
     
     class Config:
         populate_by_name = True
@@ -149,8 +214,27 @@ class PosixAccountRead(BaseModel):
     shadow_inactive: Optional[int] = Field(None, alias="shadowInactive")
     shadow_expire: Optional[int] = Field(None, alias="shadowExpire")
     
+    # System trust (hostObject)
+    trust_mode: Optional[TrustMode] = Field(None, alias="trustMode")
+    host: Optional[List[str]] = Field(None, description="List of hosts for byhost trust mode")
+    
+    # Primary group info
+    primary_group_cn: Optional[str] = Field(None, alias="primaryGroupCn")
+    
+    # Group memberships (groups this user belongs to via memberUid)
+    group_memberships: Optional[List[str]] = Field(
+        None, 
+        alias="groupMemberships",
+        description="List of group CNs this user belongs to",
+    )
+    
     # Computed status
     is_active: bool = True
+    account_status: AccountStatus = Field(
+        default=AccountStatus.ACTIVE,
+        alias="accountStatus",
+        description="Computed account status based on shadow attributes",
+    )
     
     class Config:
         populate_by_name = True
@@ -199,6 +283,24 @@ class PosixAccountUpdate(BaseModel):
         ge=-1,
         alias="shadowExpire",
         description="Days since epoch when account expires (-1 = never)",
+    )
+    
+    # System trust (hostObject) updates
+    trust_mode: Optional[TrustMode] = Field(
+        None,
+        alias="trustMode",
+        description="System trust mode for access control",
+    )
+    host: Optional[List[str]] = Field(
+        None,
+        description="List of hosts the user can access (when trustMode is byhost)",
+    )
+    
+    # Force password change on next login
+    must_change_password: Optional[bool] = Field(
+        None,
+        alias="mustChangePassword",
+        description="Force user to change password on next login",
     )
     
     @field_validator("home_directory")
@@ -333,6 +435,119 @@ class PosixGroupListResponse(BaseModel):
     """Response for listing POSIX groups."""
     
     groups: List[PosixGroupListItem]
+    total: int
+
+
+# ============================================================================
+# MixedGroup Schemas (groupOfNames + posixGroup hybrid)
+# ============================================================================
+
+class MixedGroupCreate(BaseModel):
+    """
+    Schema for creating a MixedGroup.
+    
+    MixedGroup combines groupOfNames (LDAP organizational group)
+    with posixGroup (UNIX group) in a single entry.
+    """
+    
+    cn: str = Field(
+        ...,
+        min_length=1,
+        max_length=64,
+        description="Group name (cn)",
+    )
+    gid_number: Optional[int] = Field(
+        default=None,
+        ge=1000,
+        le=65534,
+        alias="gidNumber",
+        description="GID number (auto-allocated if not provided)",
+    )
+    description: Optional[str] = Field(
+        default=None,
+        max_length=255,
+        description="Group description",
+    )
+    # groupOfNames members (DNs)
+    member: Optional[List[str]] = Field(
+        default=None,
+        description="Initial list of member DNs (groupOfNames)",
+    )
+    # posixGroup members (UIDs)
+    member_uid: Optional[List[str]] = Field(
+        default=None,
+        alias="memberUid",
+        description="Initial list of member UIDs (posixGroup)",
+    )
+    
+    @field_validator("cn")
+    @classmethod
+    def validate_cn(cls, v: str) -> str:
+        """Validate group name."""
+        if not re.match(r"^[a-z][a-z0-9_-]*$", v, re.IGNORECASE):
+            raise ValueError("Group name must start with a letter and contain only letters, numbers, underscores, and hyphens")
+        return v
+    
+    class Config:
+        populate_by_name = True
+
+
+class MixedGroupRead(BaseModel):
+    """Schema for reading MixedGroup data."""
+    
+    cn: str = Field(..., description="Group name")
+    gid_number: int = Field(..., alias="gidNumber")
+    description: Optional[str] = None
+    # groupOfNames members
+    member: List[str] = Field(default_factory=list, description="List of member DNs")
+    # posixGroup members  
+    member_uid: List[str] = Field(default_factory=list, alias="memberUid")
+    # Computed fields
+    is_mixed_group: bool = Field(default=True, alias="isMixedGroup")
+    
+    class Config:
+        populate_by_name = True
+
+
+class MixedGroupUpdate(BaseModel):
+    """Schema for updating MixedGroup attributes."""
+    
+    description: Optional[str] = Field(
+        None,
+        max_length=255,
+        description="Group description",
+    )
+    member: Optional[List[str]] = Field(
+        None,
+        description="List of member DNs",
+    )
+    member_uid: Optional[List[str]] = Field(
+        None,
+        alias="memberUid",
+        description="List of member UIDs",
+    )
+    
+    class Config:
+        populate_by_name = True
+
+
+class MixedGroupListItem(BaseModel):
+    """Summary item for MixedGroup listing."""
+    
+    cn: str
+    gid_number: int = Field(..., alias="gidNumber")
+    description: Optional[str] = None
+    member_count: int = Field(default=0, alias="memberCount")
+    member_uid_count: int = Field(default=0, alias="memberUidCount")
+    
+    class Config:
+        populate_by_name = True
+
+
+class MixedGroupListResponse(BaseModel):
+    """Response for listing MixedGroups."""
+    
+    groups: List[MixedGroupListItem]
     total: int
 
 
