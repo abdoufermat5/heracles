@@ -6,7 +6,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Key, Plus, Trash2, Power, PowerOff, Copy, Check, AlertTriangle } from 'lucide-react'
+import { Key, Plus, Power, PowerOff, AlertTriangle } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -32,21 +32,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 
+import { SshKeysTable } from './ssh-keys-table'
 import {
   useUserSSHStatus,
   useActivateUserSSH,
@@ -55,7 +42,6 @@ import {
   useRemoveSSHKey,
 } from '@/hooks/use-ssh'
 import type { SSHKeyRead } from '@/types/ssh'
-import { getKeyTypeName, getKeyStrengthVariant, truncateFingerprint } from '@/types/ssh'
 
 interface SSHUserTabProps {
   uid: string
@@ -68,7 +54,6 @@ export function SSHUserTab({ uid, displayName }: SSHUserTabProps) {
   const [keyToDelete, setKeyToDelete] = useState<SSHKeyRead | null>(null)
   const [newKeyValue, setNewKeyValue] = useState('')
   const [newKeyComment, setNewKeyComment] = useState('')
-  const [copiedFingerprint, setCopiedFingerprint] = useState<string | null>(null)
 
   const { data: sshStatus, isLoading, error, refetch } = useUserSSHStatus(uid)
   const activateMutation = useActivateUserSSH()
@@ -131,12 +116,6 @@ export function SSHUserTab({ uid, displayName }: SSHUserTabProps) {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to remove SSH key')
     }
-  }
-
-  const copyFingerprint = (fingerprint: string) => {
-    navigator.clipboard.writeText(fingerprint)
-    setCopiedFingerprint(fingerprint)
-    setTimeout(() => setCopiedFingerprint(null), 2000)
   }
 
   if (isLoading) {
@@ -238,81 +217,11 @@ export function SSHUserTab({ uid, displayName }: SSHUserTabProps) {
           </div>
         </CardHeader>
         <CardContent>
-          {sshStatus.keys.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Key className="h-8 w-8 mx-auto mb-4 opacity-50" />
-              <p>No SSH keys configured</p>
-              <p className="text-sm">Add a public key to enable SSH authentication</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Fingerprint</TableHead>
-                  <TableHead>Comment</TableHead>
-                  <TableHead>Strength</TableHead>
-                  <TableHead className="w-[100px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sshStatus.keys.map((key) => (
-                  <TableRow key={key.fingerprint}>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {getKeyTypeName(key.keyType)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex items-center gap-2">
-                              <code className="text-xs bg-muted px-2 py-1 rounded font-mono">
-                                {truncateFingerprint(key.fingerprint)}
-                              </code>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6"
-                                onClick={() => copyFingerprint(key.fingerprint)}
-                              >
-                                {copiedFingerprint === key.fingerprint ? (
-                                  <Check className="h-3 w-3 text-green-500" />
-                                ) : (
-                                  <Copy className="h-3 w-3" />
-                                )}
-                              </Button>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p className="font-mono text-xs">{key.fingerprint}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {key.comment || '-'}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={getKeyStrengthVariant(key.keyType, key.bits)}>
-                        {key.bits ? `${key.bits} bits` : 'N/A'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setKeyToDelete(key)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <SshKeysTable
+            keys={sshStatus.keys}
+            onDelete={setKeyToDelete}
+            emptyMessage="No SSH keys configured"
+          />
         </CardContent>
       </Card>
 

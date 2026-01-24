@@ -58,10 +58,6 @@ export function UserCreatePage() {
       <PageHeader
         title="Create User"
         description="Add a new user to the directory"
-        breadcrumbs={[
-          { label: 'Users', href: ROUTES.USERS },
-          { label: 'New User' },
-        ]}
         actions={
           <Button variant="outline" onClick={() => navigate(ROUTES.USERS)}>
             <ArrowLeft className="mr-2 h-4 w-4" />

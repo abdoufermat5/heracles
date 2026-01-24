@@ -146,10 +146,6 @@ export function UserDetailPage() {
           </span>
         }
         description={`@${user.uid}`}
-        breadcrumbs={[
-          { label: 'Users', href: ROUTES.USERS },
-          { label: user.uid },
-        ]}
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => navigate(ROUTES.USERS)}>

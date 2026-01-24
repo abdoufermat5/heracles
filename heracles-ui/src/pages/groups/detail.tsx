@@ -110,10 +110,6 @@ export function GroupDetailPage() {
       <PageHeader
         title={group.cn}
         description={group.description || 'No description'}
-        breadcrumbs={[
-          { label: 'Groups', href: ROUTES.GROUPS },
-          { label: group.cn },
-        ]}
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => navigate(ROUTES.GROUPS)}>

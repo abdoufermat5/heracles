@@ -7,7 +7,6 @@ export function SettingsPage() {
       <PageHeader
         title="Settings"
         description="Configure your Heracles instance"
-        breadcrumbs={[{ label: 'Settings' }]}
       />
 
       <EmptyState

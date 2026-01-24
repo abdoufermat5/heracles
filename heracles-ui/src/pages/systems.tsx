@@ -7,7 +7,6 @@ export function SystemsPage() {
       <PageHeader
         title="Systems"
         description="Manage systems and machines in the directory"
-        breadcrumbs={[{ label: 'Systems' }]}
       />
 
       <EmptyState

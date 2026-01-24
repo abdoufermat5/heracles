@@ -47,10 +47,6 @@ export function GroupCreatePage() {
       <PageHeader
         title="Create Group"
         description="Add a new group to the directory"
-        breadcrumbs={[
-          { label: 'Groups', href: ROUTES.GROUPS },
-          { label: 'New Group' },
-        ]}
         actions={
           <Button variant="outline" onClick={() => navigate(ROUTES.GROUPS)}>
             <ArrowLeft className="mr-2 h-4 w-4" />
