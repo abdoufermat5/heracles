@@ -1,0 +1,134 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Sudo Role",
+  "description": "Schema for sudo role management",
+  "type": "object",
+  "properties": {
+    "cn": {
+      "type": "string",
+      "title": "Role Name",
+      "description": "Unique identifier for this sudo role",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$",
+      "ui:placeholder": "admin-servers",
+      "ui:autofocus": true
+    },
+    "description": {
+      "type": "string",
+      "title": "Description",
+      "description": "Description of this sudo role",
+      "maxLength": 1024,
+      "ui:widget": "textarea"
+    },
+    "sudoUser": {
+      "type": "array",
+      "title": "Users",
+      "description": "Users who may run sudo (uid, %group, #uid, ALL)",
+      "items": {
+        "type": "string"
+      },
+      "ui:widget": "tags",
+      "ui:placeholder": "Add user (e.g., admin, %wheel, ALL)"
+    },
+    "sudoHost": {
+      "type": "array",
+      "title": "Hosts",
+      "description": "Hosts where sudo is allowed",
+      "items": {
+        "type": "string"
+      },
+      "default": ["ALL"],
+      "ui:widget": "tags",
+      "ui:placeholder": "Add host (e.g., server1, 192.168.1.0/24, ALL)"
+    },
+    "sudoCommand": {
+      "type": "array",
+      "title": "Commands",
+      "description": "Commands allowed (must start with / or be ALL)",
+      "items": {
+        "type": "string"
+      },
+      "ui:widget": "tags",
+      "ui:placeholder": "Add command (e.g., /usr/bin/apt, ALL)"
+    },
+    "sudoRunAsUser": {
+      "type": "array",
+      "title": "Run As User",
+      "description": "Users that commands may be run as",
+      "items": {
+        "type": "string"
+      },
+      "default": ["ALL"],
+      "ui:widget": "tags",
+      "ui:placeholder": "Add user (e.g., root, ALL)"
+    },
+    "sudoRunAsGroup": {
+      "type": "array",
+      "title": "Run As Group",
+      "description": "Groups that commands may be run as",
+      "items": {
+        "type": "string"
+      },
+      "ui:widget": "tags",
+      "ui:placeholder": "Add group (optional)"
+    },
+    "sudoOption": {
+      "type": "array",
+      "title": "Options",
+      "description": "Sudo options for this role",
+      "items": {
+        "type": "string",
+        "enum": [
+          "NOPASSWD",
+          "PASSWD",
+          "NOEXEC",
+          "EXEC",
+          "SETENV",
+          "NOSETENV",
+          "LOG_INPUT",
+          "NOLOG_INPUT",
+          "LOG_OUTPUT",
+          "NOLOG_OUTPUT"
+        ]
+      },
+      "ui:widget": "checkboxes"
+    },
+    "sudoOrder": {
+      "type": "integer",
+      "title": "Priority",
+      "description": "Rule priority (lower = higher priority)",
+      "default": 0,
+      "minimum": 0,
+      "ui:widget": "number"
+    },
+    "sudoNotBefore": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Valid From",
+      "description": "Start of validity period (optional)",
+      "ui:widget": "datetime"
+    },
+    "sudoNotAfter": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Valid Until",
+      "description": "End of validity period (optional)",
+      "ui:widget": "datetime"
+    }
+  },
+  "required": ["cn"],
+  "ui:order": [
+    "cn",
+    "description",
+    "sudoUser",
+    "sudoHost",
+    "sudoCommand",
+    "sudoRunAsUser",
+    "sudoRunAsGroup",
+    "sudoOption",
+    "sudoOrder",
+    "sudoNotBefore",
+    "sudoNotAfter"
+  ]
+}

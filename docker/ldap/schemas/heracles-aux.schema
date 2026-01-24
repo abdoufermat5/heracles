@@ -1,0 +1,12 @@
+# RFC2307bis Style - Auxiliary posixGroup
+# =========================================
+# This schema defines posixGroupAux as AUXILIARY,
+# allowing it to be combined with structural classes like groupOfNames.
+
+objectclass ( 1.3.6.1.4.1.99999.1.2.1
+    NAME 'posixGroupAux'
+    DESC 'Auxiliary POSIX group class for mixed groups'
+    SUP top
+    AUXILIARY
+    MUST gidNumber
+    MAY ( cn $ userPassword $ memberUid $ description ) )

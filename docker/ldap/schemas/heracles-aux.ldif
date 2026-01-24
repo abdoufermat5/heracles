@@ -1,0 +1,8 @@
+# AUTO-GENERATED FILE - DO NOT EDIT!! Use ldapmodify.
+# CRC32 88d73f96
+dn: cn=heracles-aux,cn=schema,cn=config
+objectClass: olcSchemaConfig
+cn: heracles-aux
+olcObjectClasses: {0}( 1.3.6.1.4.1.99999.1.2.1 NAME 'posixGroupAux' DESC 'Au
+ xiliary POSIX group class for mixed groups' SUP top AUXILIARY MUST gidNumbe
+ r MAY ( cn $ userPassword $ memberUid $ description ) )
