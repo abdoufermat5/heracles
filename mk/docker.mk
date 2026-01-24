@@ -30,6 +30,16 @@ bootstrap:
 	@./scripts/ldap-bootstrap.sh
 	$(call log_success,LDAP bootstrap complete!)
 
+# Load custom LDAP schemas (heracles-aux, openssh-lpk, sudo)
+ldap-schemas:
+	$(call log_info,Loading custom LDAP schemas...)
+	@./scripts/ldap-load-schemas.sh
+	$(call log_success,LDAP schemas loaded!)
+
+# List available and loaded LDAP schemas
+ldap-schemas-list:
+	@./scripts/ldap-load-schemas.sh --list
+
 # Start full development environment (all services in Docker)
 dev:
 	$(call log_info,Starting full development environment...)

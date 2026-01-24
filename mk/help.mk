@@ -28,6 +28,8 @@ help:
 	@echo "  $(GREEN)make stop$(NC)            Stop all services"
 	@echo "  $(GREEN)make clean$(NC)           Remove all containers and volumes"
 	@echo "  $(GREEN)make logs$(NC)            View all container logs"
+	@echo "  $(GREEN)make ldap-schemas$(NC)    Load custom LDAP schemas"
+	@echo "  $(GREEN)make ldap-schemas-list$(NC) List available/loaded schemas"
 	@echo ""
 	@echo "$(BOLD)🔧 API Development$(NC)"
 	@echo "  $(GREEN)make api$(NC)             Start API server with hot reload"

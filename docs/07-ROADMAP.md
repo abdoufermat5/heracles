@@ -2,7 +2,7 @@
 
 > **Référence**: Ce document définit le planning de développement d'Heracles.
 > **Mise à jour**: 24 Janvier 2026
-> **Statut**: Phase 1 ✅ TERMINÉ | Phase 2 ✅ TERMINÉ | Phase 3 Sprint 13-14 🚧 EN COURS
+> **Statut**: Phase 1 ✅ TERMINÉ | Phase 2 ✅ TERMINÉ | Phase 3 Sprint 13-14 ✅ TERMINÉ
 
 ---
 
@@ -187,19 +187,20 @@ Version: v0.5.0-beta
 
 **Durée**: 12 semaines
 
-### 4.1 Sprint 13-14: Sudo & SSH (4 semaines) 🚧 EN COURS
+### 4.1 Sprint 13-14: Sudo & SSH (4 semaines) ✅ TERMINÉ
 
 | Tâche | Priorité | Estimation | Statut |
 |-------|----------|------------|--------|
 | Plugin `sudo` backend | P0 | 5j | ✅ Terminé (schemas, service, routes, 97 tests) |
 | LDAP schema sudo | P0 | 1j | ✅ Terminé (sudo.schema pour osixia/openldap) |
 | UI: Gestion règles sudo | P0 | 4j | ✅ Terminé (list, detail, create, delete) |
-| Plugin `ssh` backend | P0 | 3j | 🔲 À faire |
-| UI: Onglet SSH user | P0 | 3j | 🔲 À faire |
-| Validation clés SSH | P0 | 2j | 🔲 À faire |
+| Plugin `ssh` backend | P0 | 3j | ✅ Terminé (schemas, service, routes, plugin) |
+| UI: Onglet SSH user | P0 | 3j | ✅ Terminé (SSHUserTab, activation, keys) |
+| Validation clés SSH | P0 | 2j | ✅ Terminé (ed25519, rsa, ecdsa, fingerprints) |
+| LDAP schema openssh-lpk | P0 | 1j | ✅ Terminé (built-in osixia/openldap + manual load script) |
 | Tests E2E sudo/ssh | P0 | 3j | 🔲 À faire |
 
-**Livrable**: Plugin sudo ✅ | Plugin ssh 🔲
+**Livrable**: Plugin sudo ✅ | Plugin ssh ✅
 
 ### 4.2 Sprint 15-16: Systems (4 semaines)
 
@@ -230,7 +231,7 @@ Version: v0.5.0-beta
 
 ```
 ✅ Plugin sudo (règles sudoers) - TERMINÉ
-🔲 Plugin ssh (clés publiques)
+✅ Plugin ssh (clés publiques) - TERMINÉ
 🔲 Plugin systems (serveurs, workstations)
 🔲 Plugin dns (zones, records)
 🔲 Plugin dhcp (subnets, hosts)

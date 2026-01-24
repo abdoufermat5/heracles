@@ -153,22 +153,16 @@ class SSHService(TabService):
                 return await self.add_key(uid, SSHKeyCreate(key=data.initial_key))
             return status
         
-        # Build modifications
+        # Build modifications - format: {attr: (operation, values)}
         mods = {
-            "objectClass": {
-                "action": "add",
-                "values": [self.OBJECT_CLASS],
-            }
+            "objectClass": ("add", [self.OBJECT_CLASS]),
         }
         
         # Add initial key if provided
         if data and data.initial_key:
             # Validate key first
             parse_ssh_key(data.initial_key)
-            mods[self.SSH_KEY_ATTRIBUTE] = {
-                "action": "replace",
-                "values": [data.initial_key],
-            }
+            mods[self.SSH_KEY_ATTRIBUTE] = ("replace", [data.initial_key])
         
         # Apply modifications
         await self._ldap.modify(user_dn, mods)
@@ -198,20 +192,14 @@ class SSHService(TabService):
             self._log.info("ssh_already_inactive", uid=uid)
             return status
         
-        # Remove objectClass and keys
+        # Remove objectClass and keys - format: {attr: (operation, values)}
         mods = {
-            "objectClass": {
-                "action": "delete",
-                "values": [self.OBJECT_CLASS],
-            }
+            "objectClass": ("delete", [self.OBJECT_CLASS]),
         }
         
         # Only remove sshPublicKey if there are keys
         if status.keys:
-            mods[self.SSH_KEY_ATTRIBUTE] = {
-                "action": "delete",
-                "values": None,  # Delete all values
-            }
+            mods[self.SSH_KEY_ATTRIBUTE] = ("delete", None)  # Delete all values
         
         await self._ldap.modify(user_dn, mods)
         
@@ -262,12 +250,9 @@ class SSHService(TabService):
         else:
             final_key = data.key
         
-        # Add key
+        # Add key - format: {attr: (operation, values)}
         await self._ldap.modify(user_dn, {
-            self.SSH_KEY_ATTRIBUTE: {
-                "action": "add",
-                "values": [final_key],
-            }
+            self.SSH_KEY_ATTRIBUTE: ("add", [final_key]),
         })
         
         self._log.info(
@@ -308,12 +293,9 @@ class SSHService(TabService):
         if not key_to_remove:
             raise LdapNotFoundError(f"SSH key not found: {fingerprint}")
         
-        # Remove key
+        # Remove key - format: {attr: (operation, values)}
         await self._ldap.modify(user_dn, {
-            self.SSH_KEY_ATTRIBUTE: {
-                "action": "delete",
-                "values": [key_to_remove],
-            }
+            self.SSH_KEY_ATTRIBUTE: ("delete", [key_to_remove]),
         })
         
         self._log.info("ssh_key_removed", uid=uid, fingerprint=fingerprint)
@@ -347,21 +329,15 @@ class SSHService(TabService):
                 raise ValueError(f"Duplicate key in request: {fp}")
             fingerprints.add(fp)
         
-        # Replace all keys
+        # Replace all keys - format: {attr: (operation, values)}
         if data.keys:
             await self._ldap.modify(user_dn, {
-                self.SSH_KEY_ATTRIBUTE: {
-                    "action": "replace",
-                    "values": data.keys,
-                }
+                self.SSH_KEY_ATTRIBUTE: ("replace", data.keys),
             })
         else:
             # Remove all keys
             await self._ldap.modify(user_dn, {
-                self.SSH_KEY_ATTRIBUTE: {
-                    "action": "delete",
-                    "values": None,
-                }
+                self.SSH_KEY_ATTRIBUTE: ("delete", None),
             })
         
         self._log.info("ssh_keys_updated", uid=uid, count=len(data.keys))

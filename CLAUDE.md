@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Heracles** is a modern LDAP identity management system. It provides a performant, maintainable, and extensible solution while maintaining **100% compatibility** with existing LDAP deployments and standard schemas.
 
-**Current Status (January 2026):** Sprint 11-12 complete - POSIX plugin fully implemented with all three group types (LDAP, POSIX, Mixed).
+**Current Status (January 2026):** Sprint 13-14 complete - SSH plugin fully implemented. POSIX, Sudo, and SSH plugins all operational.
 
 ## Architecture
 
@@ -85,7 +85,8 @@ docker-compose up -d     # Start LDAP, PostgreSQL, Redis
 - Custom schema allowed: `posixGroupAux` (AUXILIARY) for Mixed Groups
 - All entries must be readable/writable by existing LDAP tools and clients
 - Required schemas: core.schema, inetorgperson.schema, nis.schema, sudo.schema, openssh-lpk.schema
-- Custom schemas location: `docker/ldap/schemas/`
+- Custom schemas location: `docker/ldap/schemas/` (loaded via `make ldap-schemas`)
+- Built-in schemas (osixia/openldap): openssh-lpk, samba, postfix-book, kopano
 
 ### Security Rules
 - NEVER hardcode secrets in code (use environment variables)
@@ -141,8 +142,10 @@ Plugins provide tabs (attach to existing object types) or management capabilitie
 
 **Implemented Plugins:**
 - ✅ **posix** - Unix accounts, POSIX groups, Mixed groups, System Trust
+- ✅ **sudo** - Sudoers rules management (sudoRole objectClass)
+- ✅ **ssh** - SSH public key management (ldapPublicKey objectClass)
 
-**Planned Plugins:** sudo, ssh, systems, dns, dhcp
+**Planned Plugins:** systems, dns, dhcp
 
 ## POSIX Plugin Reference
 
