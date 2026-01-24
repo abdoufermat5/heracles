@@ -27,7 +27,7 @@ import {
   Settings,
   LogOut,
   ChevronUp,
-  Shield,
+
   ShieldCheck,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores'
@@ -87,7 +87,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center gap-2 px-2 py-2">
-          <Shield className="h-8 w-8 text-primary" />
+          <img src="/logo-icon.png" alt="Logo" className="h-8 w-8 object-contain" />
           <div className="flex flex-col">
             <span className="text-lg font-bold">Heracles</span>
             <span className="text-xs text-muted-foreground">Identity Management</span>

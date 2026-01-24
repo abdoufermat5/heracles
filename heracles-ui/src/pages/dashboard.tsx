@@ -115,7 +115,7 @@ export function DashboardPage() {
                 Create New User
               </Link>
             </Button>
-            
+
             {/* Group Creation Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
