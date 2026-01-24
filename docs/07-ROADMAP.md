@@ -2,7 +2,7 @@
 
 > **Référence**: Ce document définit le planning de développement d'Heracles.
 > **Mise à jour**: 24 Janvier 2026
-> **Statut**: Phase 1 ✅ TERMINÉ | Phase 2 Sprint 11-12 ✅ POSIX TERMINÉ
+> **Statut**: Phase 1 ✅ TERMINÉ | Phase 2 ✅ TERMINÉ | Phase 3 Sprint 13-14 🚧 EN COURS
 
 ---
 
@@ -187,18 +187,19 @@ Version: v0.5.0-beta
 
 **Durée**: 12 semaines
 
-### 4.1 Sprint 13-14: Sudo & SSH (4 semaines)
+### 4.1 Sprint 13-14: Sudo & SSH (4 semaines) 🚧 EN COURS
 
-| Tâche | Priorité | Estimation | Critères d'acceptation |
-|-------|----------|------------|------------------------|
-| Plugin `sudo` backend | P0 | 5j | CRUD sudoRole |
-| UI: Gestion règles sudo | P0 | 4j | Liste, formulaire |
-| Plugin `ssh` backend | P0 | 3j | Gestion sshPublicKey |
-| UI: Onglet SSH user | P0 | 3j | Ajout/suppression clés |
-| Validation clés SSH | P0 | 2j | Format, fingerprint |
-| Tests | P0 | 3j | Unitaires + intégration |
+| Tâche | Priorité | Estimation | Statut |
+|-------|----------|------------|--------|
+| Plugin `sudo` backend | P0 | 5j | ✅ Terminé (schemas, service, routes, 97 tests) |
+| LDAP schema sudo | P0 | 1j | ✅ Terminé (sudo.schema pour osixia/openldap) |
+| UI: Gestion règles sudo | P0 | 4j | ✅ Terminé (list, detail, create, delete) |
+| Plugin `ssh` backend | P0 | 3j | 🔲 À faire |
+| UI: Onglet SSH user | P0 | 3j | 🔲 À faire |
+| Validation clés SSH | P0 | 2j | 🔲 À faire |
+| Tests E2E sudo/ssh | P0 | 3j | 🔲 À faire |
 
-**Livrable**: Plugins sudo et ssh
+**Livrable**: Plugin sudo ✅ | Plugin ssh 🔲
 
 ### 4.2 Sprint 15-16: Systems (4 semaines)
 
@@ -228,11 +229,11 @@ Version: v0.5.0-beta
 ### 4.4 Milestone Phase 3
 
 ```
-✓ Plugin sudo (règles sudoers)
-✓ Plugin ssh (clés publiques)
-✓ Plugin systems (serveurs, workstations)
-✓ Plugin dns (zones, records)
-✓ Plugin dhcp (subnets, hosts)
+✅ Plugin sudo (règles sudoers) - TERMINÉ
+🔲 Plugin ssh (clés publiques)
+🔲 Plugin systems (serveurs, workstations)
+🔲 Plugin dns (zones, records)
+🔲 Plugin dhcp (subnets, hosts)
 
 Version: v0.8.0-beta
 ```

@@ -28,6 +28,8 @@ import {
   LogOut,
   ChevronUp,
   Shield,
+  ShieldCheck,
+  UserCog,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores'
 import { ROUTES } from '@/config/constants'
@@ -47,6 +49,16 @@ const mainNavItems = [
     title: 'Groups',
     url: ROUTES.GROUPS,
     icon: UsersRound,
+  },
+  {
+    title: 'POSIX Groups',
+    url: '/posix/groups',
+    icon: UserCog,
+  },
+  {
+    title: 'Sudo Roles',
+    url: '/sudo/roles',
+    icon: ShieldCheck,
   },
   {
     title: 'Systems',

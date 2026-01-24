@@ -14,6 +14,7 @@ import {
   SettingsPage,
 } from '@/pages'
 import { PosixGroupsPage, PosixGroupDetailPage, MixedGroupsPage } from '@/pages/posix'
+import { SudoRolesPage, SudoRoleDetailPage } from '@/pages/sudo'
 import { ROUTES } from '@/config/constants'
 
 export function AppRouter() {
@@ -48,6 +49,10 @@ export function AppRouter() {
         
         {/* Mixed Groups (groupOfNames + posixGroup) */}
         <Route path="/posix/mixed-groups" element={<MixedGroupsPage />} />
+        
+        {/* Sudo Roles */}
+        <Route path="/sudo/roles" element={<SudoRolesPage />} />
+        <Route path="/sudo/roles/:cn" element={<SudoRoleDetailPage />} />
         
         {/* Systems */}
         <Route path={ROUTES.SYSTEMS} element={<SystemsPage />} />
