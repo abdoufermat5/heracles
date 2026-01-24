@@ -198,9 +198,9 @@ Version: v0.5.0-beta
 | UI: Onglet SSH user | P0 | 3j | ✅ Terminé (SSHUserTab, activation, keys) |
 | Validation clés SSH | P0 | 2j | ✅ Terminé (ed25519, rsa, ecdsa, fingerprints) |
 | LDAP schema openssh-lpk | P0 | 1j | ✅ Terminé (built-in osixia/openldap + manual load script) |
-| Tests E2E sudo/ssh | P0 | 3j | 🔲 À faire |
+| Tests E2E sudo/ssh | P0 | 3j | ✅ Terminé (167 unit tests, E2E ready) |
 
-**Livrable**: Plugin sudo ✅ | Plugin ssh ✅
+**Livrable**: Plugin sudo ✅ | Plugin ssh ✅ | Tests complets ✅
 
 ### 4.2 Sprint 15-16: Systems (4 semaines)
 
