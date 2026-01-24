@@ -73,6 +73,50 @@ clean:
 	$(DOCKER_COMPOSE) $(DOCKER_PROFILE_FULL) $(DOCKER_PROFILE_PROD) down -v
 	$(call log_success,All volumes removed)
 
+# ===========================================
+# Build Commands
+# ===========================================
+
+# Build all Docker images
+docker-build:
+	$(call log_info,Building all Docker images...)
+	$(DOCKER_COMPOSE) $(DOCKER_PROFILE_FULL) build
+	$(call log_success,All images built!)
+
+# Build API image
+docker-build-api:
+	$(call log_info,Building API Docker image...)
+	$(DOCKER_COMPOSE) build api
+	$(call log_success,API image built!)
+
+# Build UI image
+docker-build-ui:
+	$(call log_info,Building UI Docker image...)
+	$(DOCKER_COMPOSE) build ui
+	$(call log_success,UI image built!)
+
+# Rebuild all images (no cache)
+docker-rebuild:
+	$(call log_info,Rebuilding all Docker images (no cache)...)
+	$(DOCKER_COMPOSE) $(DOCKER_PROFILE_FULL) build --no-cache
+	$(call log_success,All images rebuilt!)
+
+# Rebuild and restart services
+docker-rebuild-restart: docker-rebuild
+	$(call log_info,Restarting services with new images...)
+	$(DOCKER_COMPOSE) $(DOCKER_PROFILE_FULL) up -d
+	$(call log_success,Services restarted!)
+
+# Pull latest base images
+docker-pull:
+	$(call log_info,Pulling latest base images...)
+	$(DOCKER_COMPOSE) $(DOCKER_PROFILE_FULL) pull
+	$(call log_success,Images pulled!)
+
+# ===========================================
+# Logs
+# ===========================================
+
 # View logs
 logs:
 	$(DOCKER_COMPOSE) logs -f

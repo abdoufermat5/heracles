@@ -6,11 +6,10 @@
 
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Plus, Users, RefreshCw, Search } from 'lucide-react'
+import { Plus, Users, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
   Card,
   CardContent,
@@ -28,7 +27,6 @@ import type { PosixGroupListItem } from '@/types/posix'
 
 export function PosixGroupsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const [searchQuery, setSearchQuery] = useState('')
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [groupToDelete, setGroupToDelete] = useState<PosixGroupListItem | null>(null)
 
@@ -43,14 +41,6 @@ export function PosixGroupsPage() {
 
   const { data: groupsResponse, isLoading, error, refetch } = usePosixGroups()
   const deleteMutation = useDeletePosixGroup()
-
-  // Filter groups by search query
-  const filteredGroups =
-    groupsResponse?.groups?.filter(
-      (group) =>
-        group.cn.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        group.description?.toLowerCase().includes(searchQuery.toLowerCase())
-    ) ?? []
 
   const handleCreateSuccess = () => {
     toast.success('POSIX group created successfully')
@@ -99,30 +89,19 @@ export function PosixGroupsPage() {
             Manage standalone POSIX groups for UNIX/Linux systems
           </p>
         </div>
-        <Button onClick={() => setShowCreateDialog(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Group
-        </Button>
-      </div>
-
-      {/* Search and Stats */}
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search groups..."
-            className="pl-9"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary">
+            {groupsResponse?.total ?? 0} group
+            {(groupsResponse?.total ?? 0) !== 1 ? 's' : ''}
+          </Badge>
+          <Button variant="outline" size="icon" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+          <Button onClick={() => setShowCreateDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Group
+          </Button>
         </div>
-        <Badge variant="secondary">
-          {groupsResponse?.total ?? 0} group
-          {(groupsResponse?.total ?? 0) !== 1 ? 's' : ''}
-        </Badge>
-        <Button variant="outline" size="icon" onClick={() => refetch()}>
-          <RefreshCw className="h-4 w-4" />
-        </Button>
       </div>
 
       {/* Groups Table */}
@@ -136,11 +115,8 @@ export function PosixGroupsPage() {
         </CardHeader>
         <CardContent>
           <PosixGroupsTable
-            groups={filteredGroups}
+            groups={groupsResponse?.groups ?? []}
             onDelete={setGroupToDelete}
-            emptyMessage={
-              searchQuery ? 'No groups match your search' : 'No POSIX groups found'
-            }
           />
         </CardContent>
       </Card>

@@ -16,6 +16,15 @@ export {
   TabSkeleton,
 } from './skeletons'
 
+// Data Table
+export {
+  DataTable,
+  SortableHeader,
+  createSelectColumn,
+  type DataTableProps,
+  type ColumnDef,
+} from './data-table'
+
 // Dialogs
 export { DeleteDialog } from './dialogs'
 
