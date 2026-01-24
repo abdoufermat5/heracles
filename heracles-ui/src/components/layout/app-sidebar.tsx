@@ -31,7 +31,7 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores'
-import { ROUTES } from '@/config/constants'
+import { ROUTES, PLUGIN_ROUTES } from '@/config/constants'
 
 const mainNavItems = [
   {
@@ -51,7 +51,7 @@ const mainNavItems = [
   },
   {
     title: 'Sudo Roles',
-    url: '/sudo/roles',
+    url: PLUGIN_ROUTES.SUDO.ROLES,
     icon: ShieldCheck,
   },
   {

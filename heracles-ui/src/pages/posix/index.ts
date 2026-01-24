@@ -1,3 +1,3 @@
-export { default as PosixGroupsPage } from './groups'
-export { default as PosixGroupDetailPage } from './group-detail'
-export { default as MixedGroupsPage } from './mixed-groups'
+export { PosixGroupsPage } from './groups'
+export { PosixGroupDetailPage } from './group-detail'
+export { MixedGroupsPage } from './mixed-groups'

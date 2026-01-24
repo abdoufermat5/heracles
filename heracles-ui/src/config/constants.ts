@@ -14,20 +14,17 @@ export const SESSION_STORAGE_KEY = 'heracles_session'
 export const TOKEN_STORAGE_KEY = 'heracles_token'
 export const REFRESH_TOKEN_KEY = 'heracles_refresh_token'
 
-// Routes
-export const ROUTES = {
-  HOME: '/',
-  LOGIN: '/login',
-  DASHBOARD: '/dashboard',
-  USERS: '/users',
-  USER_DETAIL: '/users/:uid',
-  USER_CREATE: '/users/new',
-  GROUPS: '/groups',
-  GROUP_DETAIL: '/groups/:cn',
-  GROUP_CREATE: '/groups/new',
-  SYSTEMS: '/systems',
-  SETTINGS: '/settings',
-} as const
+// Routes - Re-exported from routes.ts for backward compatibility
+export {
+  ROUTES,
+  PLUGIN_ROUTES,
+  userDetailPath,
+  groupDetailPath,
+  posixGroupPath,
+  mixedGroupPath,
+  sudoRolePath,
+  withCreateQuery,
+} from './routes'
 
 // LDAP Attribute Labels
 export const LDAP_LABELS = {

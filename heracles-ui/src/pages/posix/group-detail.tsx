@@ -1,6 +1,6 @@
 /**
  * POSIX Group Detail Page
- * 
+ *
  * View and edit a single POSIX group, manage members.
  */
 
@@ -14,35 +14,22 @@ import { z } from 'zod'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Badge } from '@/components/ui/badge'
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import {
   Dialog,
   DialogContent,
@@ -52,6 +39,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 
+import { DeleteDialog, TrustModeSection } from '@/components/common'
 import {
   usePosixGroup,
   useUpdatePosixGroup,
@@ -59,25 +47,28 @@ import {
   useAddPosixGroupMember,
   useRemovePosixGroupMember,
 } from '@/hooks'
+import { PLUGIN_ROUTES } from '@/config/routes'
 import type { TrustMode } from '@/types/posix'
 
 // Form schema for editing the group
-const editSchema = z.object({
-  description: z.string().max(255).optional(),
-  trustMode: z.enum(['fullaccess', 'byhost']).optional().nullable(),
-  host: z.array(z.string()).optional().nullable(),
-}).refine(
-  (data) => {
-    if (data.trustMode === 'byhost' && (!data.host || data.host.length === 0)) {
-      return false
+const editSchema = z
+  .object({
+    description: z.string().max(255).optional(),
+    trustMode: z.enum(['fullaccess', 'byhost']).optional().nullable(),
+    host: z.array(z.string()).optional().nullable(),
+  })
+  .refine(
+    (data) => {
+      if (data.trustMode === 'byhost' && (!data.host || data.host.length === 0)) {
+        return false
+      }
+      return true
+    },
+    {
+      message: 'At least one host is required when trust mode is "By Host"',
+      path: ['host'],
     }
-    return true
-  },
-  {
-    message: 'At least one host is required when trust mode is "By Host"',
-    path: ['host'],
-  }
-)
+  )
 
 // Form schema for adding a member
 const addMemberSchema = z.object({
@@ -87,7 +78,7 @@ const addMemberSchema = z.object({
 type EditFormData = z.infer<typeof editSchema>
 type AddMemberFormData = z.infer<typeof addMemberSchema>
 
-export default function PosixGroupDetailPage() {
+export function PosixGroupDetailPage() {
   const { cn } = useParams<{ cn: string }>()
   const navigate = useNavigate()
 
@@ -110,8 +101,6 @@ export default function PosixGroupDetailPage() {
     },
   })
 
-  const trustMode = editForm.watch('trustMode')
-
   const addMemberForm = useForm<AddMemberFormData>({
     resolver: zodResolver(addMemberSchema),
     defaultValues: {
@@ -128,7 +117,9 @@ export default function PosixGroupDetailPage() {
       })
       toast.success('Group updated successfully')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update group')
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to update group'
+      )
     }
   }
 
@@ -136,9 +127,11 @@ export default function PosixGroupDetailPage() {
     try {
       await deleteMutation.mutateAsync(cn!)
       toast.success('Group deleted successfully')
-      navigate('/posix/groups')
+      navigate(PLUGIN_ROUTES.POSIX.GROUPS)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete group')
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to delete group'
+      )
     }
   }
 
@@ -149,7 +142,9 @@ export default function PosixGroupDetailPage() {
       setShowAddMemberDialog(false)
       addMemberForm.reset()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to add member')
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to add member'
+      )
     }
   }
 
@@ -161,7 +156,9 @@ export default function PosixGroupDetailPage() {
       toast.success(`Removed ${memberToRemove} from the group`)
       setMemberToRemove(null)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to remove member')
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to remove member'
+      )
     }
   }
 
@@ -192,7 +189,7 @@ export default function PosixGroupDetailPage() {
                   Retry
                 </Button>
                 <Button variant="outline" size="sm" asChild>
-                  <Link to="/posix/groups">
+                  <Link to={PLUGIN_ROUTES.POSIX.GROUPS}>
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Back to Groups
                   </Link>
@@ -211,7 +208,7 @@ export default function PosixGroupDetailPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
-            <Link to="/posix/groups">
+            <Link to={PLUGIN_ROUTES.POSIX.GROUPS}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
@@ -240,7 +237,10 @@ export default function PosixGroupDetailPage() {
           </CardHeader>
           <CardContent>
             <Form {...editForm}>
-              <form onSubmit={editForm.handleSubmit(handleUpdate)} className="space-y-4">
+              <form
+                onSubmit={editForm.handleSubmit(handleUpdate)}
+                className="space-y-4"
+              >
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Group Name (cn)</label>
                   <Input value={group.cn} disabled />
@@ -271,80 +271,11 @@ export default function PosixGroupDetailPage() {
                   )}
                 />
 
-                {/* System Trust Section */}
-                <div className="border rounded-lg p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-sm">System Trust</h4>
-                    {group.trustMode && (
-                      <Badge variant={group.trustMode === 'fullaccess' ? 'default' : 'secondary'}>
-                        {group.trustMode === 'fullaccess' ? 'Full Access' : 'By Host'}
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Control which systems this group has access to
-                  </p>
-
-                  <FormField
-                    control={editForm.control}
-                    name="trustMode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Trust Mode</FormLabel>
-                        <Select 
-                          onValueChange={(value) => field.onChange(value === 'none' ? null : value)} 
-                          value={field.value ?? 'none'}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="No restriction" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="none">No restriction</SelectItem>
-                            <SelectItem value="fullaccess">Full access (all systems)</SelectItem>
-                            <SelectItem value="byhost">Restricted by host</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormDescription>
-                          {!trustMode && 'Group will have default system access'}
-                          {trustMode === 'fullaccess' && 'Group can access all systems'}
-                          {trustMode === 'byhost' && 'Group can only access specified hosts'}
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {trustMode === 'byhost' && (
-                    <FormField
-                      control={editForm.control}
-                      name="host"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Allowed Hosts *</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="server1.example.com, server2.example.com"
-                              value={field.value?.join(', ') ?? ''}
-                              onChange={(e) => {
-                                const hosts = e.target.value
-                                  .split(',')
-                                  .map((h) => h.trim())
-                                  .filter((h) => h.length > 0)
-                                field.onChange(hosts.length > 0 ? hosts : [])
-                              }}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Comma-separated list of hostnames
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
-                </div>
+                {/* System Trust Section - Using shared component */}
+                <TrustModeSection
+                  control={editForm.control}
+                  currentTrustMode={group.trustMode}
+                />
 
                 <Button type="submit" disabled={updateMutation.isPending}>
                   <Save className="h-4 w-4 mr-2" />
@@ -421,7 +352,10 @@ export default function PosixGroupDetailPage() {
             </DialogDescription>
           </DialogHeader>
           <Form {...addMemberForm}>
-            <form onSubmit={addMemberForm.handleSubmit(handleAddMember)} className="space-y-4">
+            <form
+              onSubmit={addMemberForm.handleSubmit(handleAddMember)}
+              className="space-y-4"
+            >
               <FormField
                 control={addMemberForm.control}
                 name="uid"
@@ -431,15 +365,16 @@ export default function PosixGroupDetailPage() {
                     <FormControl>
                       <Input placeholder="jdoe" {...field} />
                     </FormControl>
-                    <FormDescription>
-                      Enter the user's uid attribute value
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setShowAddMemberDialog(false)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowAddMemberDialog(false)}
+                >
                   Cancel
                 </Button>
                 <Button type="submit" disabled={addMemberMutation.isPending}>
@@ -452,47 +387,26 @@ export default function PosixGroupDetailPage() {
       </Dialog>
 
       {/* Remove Member Confirmation */}
-      <AlertDialog open={!!memberToRemove} onOpenChange={(open) => !open && setMemberToRemove(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove Member</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to remove "{memberToRemove}" from this group?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleRemoveMember}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {removeMemberMutation.isPending ? 'Removing...' : 'Remove'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteDialog
+        open={!!memberToRemove}
+        onOpenChange={(open) => !open && setMemberToRemove(null)}
+        itemName={memberToRemove ?? ''}
+        itemType="member"
+        title="Remove Member"
+        description={`Are you sure you want to remove "${memberToRemove}" from this group?`}
+        onConfirm={handleRemoveMember}
+        isLoading={removeMemberMutation.isPending}
+      />
 
       {/* Delete Group Confirmation */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete POSIX Group</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete the POSIX group "{group.cn}"?
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        itemName={group.cn}
+        itemType="POSIX group"
+        onConfirm={handleDelete}
+        isLoading={deleteMutation.isPending}
+      />
     </div>
   )
 }

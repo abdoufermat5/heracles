@@ -4,3 +4,11 @@ export { PosixActivateForm } from './posix-activate-form'
 export { PosixEditForm } from './posix-edit-form'
 export { PosixGroupMemberships } from './posix-group-memberships'
 export { AccountStatusBadge, computeAccountStatus } from './posix-account-status'
+
+// Groups components
+export {
+  PosixGroupsTable,
+  CreatePosixGroupDialog,
+  MixedGroupsTable,
+  CreateMixedGroupDialog,
+} from './groups'

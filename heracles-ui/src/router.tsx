@@ -16,7 +16,7 @@ import {
 } from '@/pages'
 import { PosixGroupsPage, PosixGroupDetailPage, MixedGroupsPage } from '@/pages/posix'
 import { SudoRolesPage, SudoRoleDetailPage } from '@/pages/sudo'
-import { ROUTES } from '@/config/constants'
+import { ROUTES, PLUGIN_ROUTES } from '@/config/constants'
 
 export function AppRouter() {
   return (
@@ -47,15 +47,15 @@ export function AppRouter() {
         <Route path={ROUTES.GROUP_DETAIL} element={<GroupDetailPage />} />
         
         {/* POSIX Groups (standalone posixGroup entries) */}
-        <Route path="/posix/groups" element={<PosixGroupsPage />} />
-        <Route path="/posix/groups/:cn" element={<PosixGroupDetailPage />} />
-        
+        <Route path={PLUGIN_ROUTES.POSIX.GROUPS} element={<PosixGroupsPage />} />
+        <Route path={PLUGIN_ROUTES.POSIX.GROUP_DETAIL} element={<PosixGroupDetailPage />} />
+
         {/* Mixed Groups (groupOfNames + posixGroup) */}
-        <Route path="/posix/mixed-groups" element={<MixedGroupsPage />} />
-        
+        <Route path={PLUGIN_ROUTES.POSIX.MIXED_GROUPS} element={<MixedGroupsPage />} />
+
         {/* Sudo Roles */}
-        <Route path="/sudo/roles" element={<SudoRolesPage />} />
-        <Route path="/sudo/roles/:cn" element={<SudoRoleDetailPage />} />
+        <Route path={PLUGIN_ROUTES.SUDO.ROLES} element={<SudoRolesPage />} />
+        <Route path={PLUGIN_ROUTES.SUDO.ROLE_DETAIL} element={<SudoRoleDetailPage />} />
         
         {/* Systems */}
         <Route path={ROUTES.SYSTEMS} element={<SystemsPage />} />
