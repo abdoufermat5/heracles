@@ -419,10 +419,9 @@ class SSHService(TabService):
         users_base = f"ou=people,{settings.LDAP_BASE_DN}"
         
         results = await self._ldap.search(
-            base_dn=users_base,
-            filter_str=filter_str,
+            search_base=users_base,
+            search_filter=filter_str,
             attributes=["uid", self.SSH_KEY_ATTRIBUTE],
-            scope="sub",
         )
         
         for entry in results:
@@ -465,20 +464,94 @@ class SSHService(TabService):
         users_base = f"ou=people,{settings.LDAP_BASE_DN}"
         
         results = await self._ldap.search(
-            base_dn=users_base,
-            filter_str=f"(uid={uid})",
+            search_base=users_base,
+            search_filter=f"(uid={uid})",
             attributes=["dn"],
-            scope="sub",
-            limit=1,
+            size_limit=1,
         )
         
         if not results:
             raise LdapNotFoundError(f"User not found: {uid}")
         
-        return results[0].get("dn")
+        return results[0].dn
     
     # ========================================================================
-    # TabService Interface
+    # TabService Interface (required abstract methods)
+    # ========================================================================
+    
+    async def is_active(self, dn: str) -> bool:
+        """Check if SSH is active on the user."""
+        import re
+        match = re.search(r"uid=([^,]+)", dn)
+        if not match:
+            return False
+        
+        uid = match.group(1)
+        try:
+            status = await self.get_user_ssh_status(uid)
+            return status.has_ssh
+        except Exception:
+            return False
+    
+    async def read(self, dn: str) -> Optional[UserSSHStatus]:
+        """Read SSH tab data from the object."""
+        import re
+        match = re.search(r"uid=([^,]+)", dn)
+        if not match:
+            return None
+        
+        uid = match.group(1)
+        try:
+            return await self.get_user_ssh_status(uid)
+        except Exception:
+            return None
+    
+    async def activate(self, dn: str, data: Any = None) -> UserSSHStatus:
+        """Activate SSH on a user."""
+        import re
+        match = re.search(r"uid=([^,]+)", dn)
+        if not match:
+            raise ValueError("Invalid user DN")
+        
+        uid = match.group(1)
+        activate_data = None
+        if data and isinstance(data, dict):
+            activate_data = UserSSHActivate(**data)
+        elif isinstance(data, UserSSHActivate):
+            activate_data = data
+        
+        return await self.activate_ssh(uid, activate_data)
+    
+    async def deactivate(self, dn: str) -> bool:
+        """Deactivate SSH on a user."""
+        import re
+        match = re.search(r"uid=([^,]+)", dn)
+        if not match:
+            raise ValueError("Invalid user DN")
+        
+        uid = match.group(1)
+        await self.deactivate_ssh(uid)
+        return True
+    
+    async def update(self, dn: str, data: Any) -> UserSSHStatus:
+        """Update SSH tab data."""
+        import re
+        match = re.search(r"uid=([^,]+)", dn)
+        if not match:
+            raise ValueError("Invalid user DN")
+        
+        uid = match.group(1)
+        
+        # Handle different update types
+        if isinstance(data, dict) and "keys" in data:
+            update = UserSSHKeysUpdate(keys=data["keys"])
+            return await self.update_keys(uid, update)
+        
+        # Just return current status
+        return await self.get_user_ssh_status(uid)
+    
+    # ========================================================================
+    # Legacy TabService Interface (kept for compatibility)
     # ========================================================================
     
     async def get_tab_data(self, dn: str) -> Optional[Dict[str, Any]]:

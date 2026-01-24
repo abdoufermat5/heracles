@@ -42,15 +42,13 @@ def get_ssh_service() -> SSHService:
     """Get SSH service instance from plugin registry."""
     from heracles_api.plugins.registry import plugin_registry
     
-    plugin = plugin_registry.get_plugin("ssh")
-    if not plugin:
+    service = plugin_registry.get_service("ssh")
+    if service is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="SSH plugin not loaded",
         )
-    
-    ldap_service = plugin_registry.get_ldap_service()
-    return SSHService(ldap_service, plugin._config)
+    return service
 
 
 # Import CurrentUser from core dependencies

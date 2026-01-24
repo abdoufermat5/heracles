@@ -51,11 +51,6 @@ const mainNavItems = [
     icon: UsersRound,
   },
   {
-    title: 'POSIX Groups',
-    url: '/posix/groups',
-    icon: UserCog,
-  },
-  {
     title: 'Sudo Roles',
     url: '/sudo/roles',
     icon: ShieldCheck,
