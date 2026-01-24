@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { usersApi } from '@/lib/api'
 import type { UserCreateData, UserUpdateData, SetPasswordData, PaginationParams } from '@/types'
+import { useMutationErrorHandler, commonErrorMessages } from './use-mutation-error-handler'
 
 export const userKeys = {
   all: ['users'] as const,
@@ -46,6 +47,7 @@ export function useUserLockStatus(uid: string) {
 
 export function useLockUser(uid: string) {
   const queryClient = useQueryClient()
+  const handleError = useMutationErrorHandler()
 
   return useMutation({
     mutationFn: () => usersApi.lock(uid),
@@ -53,11 +55,13 @@ export function useLockUser(uid: string) {
       queryClient.invalidateQueries({ queryKey: userKeys.lockStatus(uid) })
       queryClient.invalidateQueries({ queryKey: userKeys.detail(uid) })
     },
+    onError: handleError,
   })
 }
 
 export function useUnlockUser(uid: string) {
   const queryClient = useQueryClient()
+  const handleError = useMutationErrorHandler()
 
   return useMutation({
     mutationFn: () => usersApi.unlock(uid),
@@ -65,22 +69,30 @@ export function useUnlockUser(uid: string) {
       queryClient.invalidateQueries({ queryKey: userKeys.lockStatus(uid) })
       queryClient.invalidateQueries({ queryKey: userKeys.detail(uid) })
     },
+    onError: handleError,
   })
 }
 
 export function useCreateUser() {
   const queryClient = useQueryClient()
+  const handleError = useMutationErrorHandler({
+    messages: commonErrorMessages.create,
+  })
 
   return useMutation({
     mutationFn: (data: UserCreateData) => usersApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: userKeys.lists() })
     },
+    onError: handleError,
   })
 }
 
 export function useUpdateUser(uid: string) {
   const queryClient = useQueryClient()
+  const handleError = useMutationErrorHandler({
+    messages: commonErrorMessages.update,
+  })
 
   return useMutation({
     mutationFn: (data: UserUpdateData) => usersApi.update(uid, data),
@@ -88,22 +100,30 @@ export function useUpdateUser(uid: string) {
       queryClient.invalidateQueries({ queryKey: userKeys.detail(uid) })
       queryClient.invalidateQueries({ queryKey: userKeys.lists() })
     },
+    onError: handleError,
   })
 }
 
 export function useDeleteUser() {
   const queryClient = useQueryClient()
+  const handleError = useMutationErrorHandler({
+    messages: commonErrorMessages.delete,
+  })
 
   return useMutation({
     mutationFn: (uid: string) => usersApi.delete(uid),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: userKeys.lists() })
     },
+    onError: handleError,
   })
 }
 
 export function useSetUserPassword(uid: string) {
+  const handleError = useMutationErrorHandler()
+
   return useMutation({
     mutationFn: (data: SetPasswordData) => usersApi.setPassword(uid, data),
+    onError: handleError,
   })
 }

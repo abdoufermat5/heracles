@@ -232,7 +232,7 @@ class PosixService(TabService):
             existing_group = await group_service.get(uid)
             if existing_group:
                 # Use the existing group
-                gid_number = existing_group.gidNumber
+                gid_number = existing_group.gid_number
                 logger.info(
                     "using_existing_personal_group",
                     cn=uid,
@@ -252,7 +252,7 @@ class PosixService(TabService):
                 )
                 
                 created_group = await group_service.create(personal_group_data)
-                gid_number = created_group.gidNumber
+                gid_number = created_group.gid_number
                 created_personal_group = True
                 
                 logger.info(
@@ -478,10 +478,10 @@ class PosixService(TabService):
         if delete_personal_group and uid and gid_number and group_service:
             # Check if there's a group with the same name as the user
             personal_group = await group_service.get(uid)
-            if personal_group and personal_group.gidNumber == gid_number:
+            if personal_group and personal_group.gid_number == gid_number:
                 # It's a personal group if it has the same name as the user
                 # Only delete if empty (no other members)
-                if not personal_group.memberUid or personal_group.memberUid == [uid]:
+                if not personal_group.member_uid or personal_group.member_uid == [uid]:
                     personal_group_to_delete = uid
         
         # Check if hostObject is present

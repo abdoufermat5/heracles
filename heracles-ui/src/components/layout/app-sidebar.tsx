@@ -29,7 +29,6 @@ import {
   ChevronUp,
   Shield,
   ShieldCheck,
-  UserCog,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores'
 import { ROUTES } from '@/config/constants'

@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AppLayout } from '@/components/layout'
 import { ProtectedRoute } from '@/components/auth'
+import { ErrorBoundary } from '@/components/common/error-boundary'
 import {
   LoginPage,
   DashboardPage,
@@ -27,7 +28,9 @@ export function AppRouter() {
       <Route
         element={
           <ProtectedRoute>
-            <AppLayout />
+            <ErrorBoundary>
+              <AppLayout />
+            </ErrorBoundary>
           </ProtectedRoute>
         }
       >

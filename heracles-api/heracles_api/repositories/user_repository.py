@@ -213,7 +213,8 @@ class UserRepository:
         for field, ldap_attr in attr_mapping.items():
             if field in update_data:
                 value = update_data[field]
-                if value is not None:
+                # Treat empty strings as None (delete the attribute)
+                if value is not None and value != "":
                     changes[ldap_attr] = ("replace", [value])
                 else:
                     changes[ldap_attr] = ("delete", [])

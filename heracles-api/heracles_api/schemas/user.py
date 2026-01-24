@@ -6,7 +6,9 @@ Pydantic models for user-related requests and responses.
 """
 
 from typing import Optional, List
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
+
+from heracles_api.schemas.email import TestEmailStr
 
 
 class UserBase(BaseModel):
@@ -15,7 +17,7 @@ class UserBase(BaseModel):
     cn: str = Field(..., min_length=1, max_length=128, description="Common name / Full name")
     sn: str = Field(..., min_length=1, max_length=64, description="Surname")
     given_name: Optional[str] = Field(None, max_length=64, alias="givenName")
-    mail: Optional[EmailStr] = None
+    mail: Optional[TestEmailStr] = None
     telephone_number: Optional[str] = Field(None, max_length=32, alias="telephoneNumber")
     title: Optional[str] = Field(None, max_length=64)
     description: Optional[str] = Field(None, max_length=256)
@@ -32,7 +34,7 @@ class UserUpdate(BaseModel):
     cn: Optional[str] = Field(None, max_length=128)
     sn: Optional[str] = Field(None, max_length=64)
     given_name: Optional[str] = Field(None, max_length=64, alias="givenName")
-    mail: Optional[EmailStr] = None
+    mail: Optional[TestEmailStr] = None
     telephone_number: Optional[str] = Field(None, max_length=32, alias="telephoneNumber")
     title: Optional[str] = Field(None, max_length=64)
     description: Optional[str] = Field(None, max_length=256)

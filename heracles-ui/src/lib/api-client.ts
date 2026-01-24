@@ -1,11 +1,21 @@
 import { API_BASE_URL, TOKEN_STORAGE_KEY, REFRESH_TOKEN_KEY } from '@/config/constants'
-import type { ApiError } from '@/types'
+import { AppError, ErrorCode } from '@/lib/errors'
+
+const DEFAULT_TIMEOUT = 30000 // 30 seconds
+
+interface ApiErrorResponse {
+  detail?: string
+  field_errors?: Record<string, string>
+  code?: string
+}
 
 class ApiClient {
   private baseUrl: string
+  private defaultTimeout: number
 
-  constructor(baseUrl: string = API_BASE_URL) {
+  constructor(baseUrl: string = API_BASE_URL, timeout: number = DEFAULT_TIMEOUT) {
     this.baseUrl = baseUrl
+    this.defaultTimeout = timeout
   }
 
   private getToken(): string | null {
@@ -49,7 +59,8 @@ class ApiClient {
 
   async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    timeout: number = this.defaultTimeout
   ): Promise<T> {
     const token = this.getToken()
     const headers: HeadersInit = {
@@ -61,10 +72,22 @@ class ApiClient {
       (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`
     }
 
-    let response = await fetch(`${this.baseUrl}${endpoint}`, {
-      ...options,
-      headers,
-    })
+    // Create abort controller for timeout
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeout)
+
+    let response: Response
+    try {
+      response = await fetch(`${this.baseUrl}${endpoint}`, {
+        ...options,
+        headers,
+        signal: controller.signal,
+      })
+    } catch (error) {
+      clearTimeout(timeoutId)
+      throw AppError.fromNetworkError(error instanceof Error ? error : new Error(String(error)))
+    }
+    clearTimeout(timeoutId)
 
     // Try to refresh token on 401
     if (response.status === 401 && token) {
@@ -72,19 +95,38 @@ class ApiClient {
       if (refreshed) {
         const newToken = this.getToken()
         ;(headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`
-        response = await fetch(`${this.baseUrl}${endpoint}`, {
-          ...options,
-          headers,
+
+        const retryController = new AbortController()
+        const retryTimeoutId = setTimeout(() => retryController.abort(), timeout)
+
+        try {
+          response = await fetch(`${this.baseUrl}${endpoint}`, {
+            ...options,
+            headers,
+            signal: retryController.signal,
+          })
+        } catch (error) {
+          clearTimeout(retryTimeoutId)
+          throw AppError.fromNetworkError(
+            error instanceof Error ? error : new Error(String(error))
+          )
+        }
+        clearTimeout(retryTimeoutId)
+      } else {
+        // Token refresh failed, throw session expired error
+        throw new AppError({
+          message: 'Session expired',
+          code: ErrorCode.SESSION_EXPIRED,
+          statusCode: 401,
         })
       }
     }
 
     if (!response.ok) {
-      const error: ApiError = await response.json().catch(() => ({
+      const errorBody: ApiErrorResponse = await response.json().catch(() => ({
         detail: 'An unexpected error occurred',
-        status_code: response.status,
       }))
-      throw new Error(error.detail || `HTTP ${response.status}`)
+      throw AppError.fromApiResponse(response, errorBody)
     }
 
     // Handle 204 No Content

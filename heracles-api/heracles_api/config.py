@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = "INFO"
     
+    # Email Validation (DEBUG mode only)
+    ALLOW_TEST_EMAIL_DOMAINS: bool = True  # Allow .local/.test domains in debug mode
+    TEST_EMAIL_DOMAINS: List[str] = ["heracles.local", "test.local", "localhost"]
+    
     # Plugins
     PLUGINS_ENABLED: List[str] = ["posix", "sudo", "ssh"]
     

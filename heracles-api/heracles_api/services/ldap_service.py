@@ -236,14 +236,19 @@ class LdapService:
             raise LdapOperationError(f"Search failed: {e}")
     
     async def get_by_dn(self, dn: str, attributes: List[str] = None) -> Optional[LdapEntry]:
-        """Get entry by DN."""
+        """Get entry by DN. Returns None if entry doesn't exist."""
         conn = self._ensure_connected()
         
         try:
             entry = await conn.get_by_dn(dn, attributes)
             return LdapEntry.from_core(entry) if entry else None
         except Exception as e:
-            logger.error("ldap_get_by_dn_error", dn=dn, error=str(e))
+            error_str = str(e)
+            # LDAP error 32 (noSuchObject) means the entry doesn't exist
+            # This is expected when checking if an entry exists before creating it
+            if "rc=32" in error_str or "noSuchObject" in error_str:
+                return None
+            logger.error("ldap_get_by_dn_error", dn=dn, error=error_str)
             raise LdapOperationError(f"Failed to get entry: {e}")
     
     async def add(self, dn: str, object_classes: List[str], attributes: Dict[str, Any]) -> bool:

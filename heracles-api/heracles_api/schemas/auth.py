@@ -6,7 +6,9 @@ Pydantic models for authentication-related requests and responses.
 """
 
 from typing import Optional, List
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
+
+from heracles_api.schemas.email import TestEmailStr
 
 
 class LoginRequest(BaseModel):
@@ -45,4 +47,4 @@ class PasswordChangeRequest(BaseModel):
 
 class PasswordResetRequest(BaseModel):
     """Password reset request."""
-    email: EmailStr
+    email: TestEmailStr

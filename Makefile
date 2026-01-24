@@ -39,15 +39,15 @@ format-python: api-format plugins-format
 
 # Show LDAP tree
 ldap-tree:
-	docker exec heracles-ldap ldapsearch -x -H ldap://localhost -b "dc=heracles,dc=local" -D "cn=admin,dc=heracles,dc=local" -w admin_secret "(objectClass=*)" dn
+	docker exec heracles-ldap ldapsearch -x -H ldap://localhost -b "$(LDAP_BASE_DN)" -D "$(LDAP_ADMIN_DN)" -w "$(LDAP_ADMIN_PASSWORD)" "(objectClass=*)" dn
 
 # Connect to PostgreSQL
 psql:
-	docker exec -it heracles-postgres psql -U heracles -d heracles
+	docker exec -it heracles-postgres psql -U $(POSTGRES_USER) -d $(POSTGRES_DB)
 
 # Connect to Redis CLI
 redis-cli:
-	docker exec -it heracles-redis redis-cli -a redis_secret
+	docker exec -it heracles-redis redis-cli -a $(REDIS_PASSWORD)
 
 # Watch Rust tests
 watch-rust:

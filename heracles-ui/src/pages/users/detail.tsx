@@ -74,7 +74,16 @@ export function UserDetailPage() {
 
   const onSubmit = async (data: UserUpdateFormData) => {
     try {
-      await updateMutation.mutateAsync(data)
+      // Convert empty strings to undefined for optional fields
+      // This ensures LDAP deletes the attribute rather than setting it to empty
+      const cleanedData = {
+        ...data,
+        mail: data.mail || undefined,
+        telephoneNumber: data.telephoneNumber || undefined,
+        title: data.title || undefined,
+        description: data.description || undefined,
+      }
+      await updateMutation.mutateAsync(cleanedData)
       toast.success('User updated successfully')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to update user')

@@ -1,6 +1,9 @@
 # Docker Compose for Heracles Development
 # ===========================================
 # This setup provides all required services for local development
+# 
+# Environment variables are loaded from .env file
+# Copy .env.example to .env and adjust values for your environment
 
 services:
   # ===========================================
@@ -11,11 +14,11 @@ services:
     container_name: heracles-ldap
     hostname: ldap.heracles.local
     environment:
-      LDAP_ORGANISATION: "Heracles"
-      LDAP_DOMAIN: "heracles.local"
-      LDAP_BASE_DN: "dc=heracles,dc=local"
-      LDAP_ADMIN_PASSWORD: "admin_secret"
-      LDAP_CONFIG_PASSWORD: "config_secret"
+      LDAP_ORGANISATION: "${LDAP_ORGANISATION}"
+      LDAP_DOMAIN: "${LDAP_DOMAIN}"
+      LDAP_BASE_DN: "${LDAP_BASE_DN}"
+      LDAP_ADMIN_PASSWORD: "${LDAP_ADMIN_PASSWORD}"
+      LDAP_CONFIG_PASSWORD: "${LDAP_CONFIG_PASSWORD}"
       LDAP_TLS: "false"
       LDAP_TLS_VERIFY_CLIENT: "never"
       LDAP_REPLICATION: "false"
@@ -27,12 +30,12 @@ services:
       # This avoids permission issues with volume mounts
       # Schema files are in: ./docker/ldap/schemas/
     ports:
-      - "389:389"
-      - "636:636"
+      - "${LDAP_PORT:-389}:389"
+      - "${LDAPS_PORT:-636}:636"
     networks:
       - heracles-net
     healthcheck:
-      test: ["CMD", "ldapsearch", "-x", "-H", "ldap://localhost", "-b", "dc=heracles,dc=local", "-D", "cn=admin,dc=heracles,dc=local", "-w", "admin_secret"]
+      test: ["CMD", "ldapsearch", "-x", "-H", "ldap://localhost", "-b", "${LDAP_BASE_DN}", "-D", "${LDAP_BIND_DN}", "-w", "${LDAP_ADMIN_PASSWORD}"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -46,7 +49,7 @@ services:
       PHPLDAPADMIN_LDAP_HOSTS: "ldap"
       PHPLDAPADMIN_HTTPS: "false"
     ports:
-      - "8080:80"
+      - "${PHPLDAPADMIN_PORT:-8080}:80"
     depends_on:
       - ldap
     networks:
@@ -59,18 +62,18 @@ services:
     image: postgres:15-alpine
     container_name: heracles-postgres
     environment:
-      POSTGRES_DB: heracles
-      POSTGRES_USER: heracles
-      POSTGRES_PASSWORD: heracles_secret
+      POSTGRES_DB: "${POSTGRES_DB}"
+      POSTGRES_USER: "${POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     networks:
       - heracles-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U heracles"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -81,15 +84,15 @@ services:
   redis:
     image: redis:7-alpine
     container_name: heracles-redis
-    command: redis-server --appendonly yes --requirepass redis_secret
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     volumes:
       - redis_data:/data
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     networks:
       - heracles-net
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "redis_secret", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -105,28 +108,28 @@ services:
     environment:
       # LDAP
       LDAP_URI: "ldap://ldap:389"
-      LDAP_BASE_DN: "dc=heracles,dc=local"
-      LDAP_BIND_DN: "cn=admin,dc=heracles,dc=local"
-      LDAP_BIND_PASSWORD: "admin_secret"
-      LDAP_USE_TLS: "false"
-      LDAP_POOL_SIZE: "10"
+      LDAP_BASE_DN: "${LDAP_BASE_DN}"
+      LDAP_BIND_DN: "${LDAP_BIND_DN}"
+      LDAP_BIND_PASSWORD: "${LDAP_ADMIN_PASSWORD}"
+      LDAP_USE_TLS: "${LDAP_USE_TLS}"
+      LDAP_POOL_SIZE: "${LDAP_POOL_SIZE}"
       # PostgreSQL
-      DATABASE_URL: "postgresql://heracles:heracles_secret@postgres:5432/heracles"
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
       # Redis
-      REDIS_URL: "redis://:redis_secret@redis:6379/0"
+      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/0"
       # API
-      API_HOST: "0.0.0.0"
-      API_PORT: "8000"
-      DEBUG: "true"
-      SECRET_KEY: "dev-secret-key-change-in-production"
+      API_HOST: "${API_HOST}"
+      API_PORT: "${API_PORT}"
+      DEBUG: "${DEBUG}"
+      SECRET_KEY: "${SECRET_KEY}"
       # Logging
-      LOG_LEVEL: "DEBUG"
+      LOG_LEVEL: "${LOG_LEVEL}"
     volumes:
       - ./heracles-api:/app
       - ./heracles-core:/heracles-core:ro
       - ./heracles_plugins:/heracles_plugins
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"
     depends_on:
       ldap:
         condition: service_healthy
@@ -150,12 +153,12 @@ services:
       target: builder
     container_name: heracles-ui
     environment:
-      VITE_API_BASE_URL: "/api/v1"
+      VITE_API_BASE_URL: "${VITE_API_BASE_URL}"
     volumes:
       - ./heracles-ui:/app
       - /app/node_modules
     ports:
-      - "3000:3000"
+      - "${UI_PORT:-3000}:3000"
     depends_on:
       - api
     networks:
