@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     
     # Plugins
-    PLUGINS_ENABLED: List[str] = ["posix", "sudo"]
+    PLUGINS_ENABLED: List[str] = ["posix", "sudo", "ssh"]
     
     # POSIX Plugin Settings
     POSIX_UID_MIN: int = 10000
