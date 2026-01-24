@@ -493,20 +493,20 @@ impl PyHashMethod {
 ///
 /// Args:
 ///     password: The password to hash.
-///     method: The hash method to use (default: "ssha").
+///     method: The hash method to use (default: "argon2").
 ///             Supported: "ssha", "argon2", "bcrypt", "sha512", "ssha512",
 ///                       "sha256", "ssha256", "md5", "smd5"
 ///
 /// Returns:
-///     The LDAP-formatted password hash (e.g., "{SSHA}base64hash").
+///     The LDAP-formatted password hash (e.g., "{ARGON2}$argon2id$...").
 ///
 /// Example:
 ///     >>> import heracles_core
-///     >>> hash = heracles_core.hash_password("secret123", "argon2")
+///     >>> hash = heracles_core.hash_password("secret123")
 ///     >>> print(hash)
 ///     {ARGON2}$argon2id$v=19$m=19456,t=2,p=1$...
 #[pyfunction]
-#[pyo3(signature = (password, method="ssha"))]
+#[pyo3(signature = (password, method="argon2"))]
 fn hash_password(password: &str, method: &str) -> PyResult<String> {
     let hash_method = HashMethod::from_str(method)
         .ok_or_else(|| PyValueError::new_err(format!("Unknown hash method: {}", method)))?;

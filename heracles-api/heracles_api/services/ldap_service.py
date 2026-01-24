@@ -329,7 +329,7 @@ class LdapService:
             logger.error("ldap_delete_error", dn=dn, error=str(e))
             raise LdapOperationError(f"Failed to delete entry: {e}")
     
-    async def set_password(self, dn: str, password: str, method: str = "ssha") -> bool:
+    async def set_password(self, dn: str, password: str, method: str = "argon2") -> bool:
         """
         Set password for LDAP entry.
         
@@ -344,10 +344,10 @@ class LdapService:
         hashed = self._hash_password(password, method)
         return await self.modify(dn, {"userPassword": ("replace", [hashed])})
     
-    def _hash_password(self, password: str, method: str = "ssha") -> str:
+    def _hash_password(self, password: str, method: str = "argon2") -> str:
         """Hash password for LDAP storage using heracles-core.
         
-        Supported methods: ssha, argon2, bcrypt, sha512, ssha512, sha256, ssha256, md5, smd5
+        Supported methods: argon2 (default), ssha, bcrypt, sha512, ssha512, sha256, ssha256, md5, smd5
         """
         return heracles_core.hash_password(password, method)
 
