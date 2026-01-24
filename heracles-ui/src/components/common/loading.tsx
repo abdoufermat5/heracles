@@ -24,9 +24,27 @@ interface LoadingPageProps {
 
 export function LoadingPage({ message = 'Loading...' }: LoadingPageProps) {
   return (
-    <div className="flex h-[50vh] flex-col items-center justify-center gap-4">
-      <LoadingSpinner size="lg" />
-      <p className="text-muted-foreground">{message}</p>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background/50 backdrop-blur-sm">
+      <div className="relative flex flex-col items-center gap-6">
+        <div className="relative">
+          <div className="absolute inset-0 animate-ping rounded-full bg-primary/20 duration-1000" />
+          <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-background shadow-xl ring-1 ring-border">
+            <img
+              src="/logo-icon.png"
+              alt="Loading..."
+              className="h-12 w-12 object-contain animate-pulse"
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col items-center gap-2">
+          <h3 className="text-xl font-semibold tracking-tight text-foreground">Heracles</h3>
+          <div className="flex items-center gap-2">
+            <LoadingSpinner size="sm" />
+            <p className="text-sm text-muted-foreground">{message}</p>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
