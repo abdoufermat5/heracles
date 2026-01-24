@@ -68,17 +68,7 @@ create_ou "dhcp" "Container for DHCP configuration"
 create_ou "fusiondirectory" "FusionDirectory configuration"
 
 echo ""
-echo "👥 Creating default admin group..."
-ldapadd -x -H "ldap://${LDAP_HOST}:${LDAP_PORT}" -D "$LDAP_ADMIN_DN" -w "$LDAP_ADMIN_PASSWORD" <<EOF
-dn: cn=admins,ou=groups,$LDAP_BASE_DN
-objectClass: groupOfNames
-cn: admins
-description: Heracles administrators
-member: $LDAP_ADMIN_DN
-EOF
-
-echo ""
-echo "👤 Creating test user..."
+echo "� Creating test user..."
 ldapadd -x -H "ldap://${LDAP_HOST}:${LDAP_PORT}" -D "$LDAP_ADMIN_DN" -w "$LDAP_ADMIN_PASSWORD" <<EOF
 dn: uid=testuser,ou=people,$LDAP_BASE_DN
 objectClass: inetOrgPerson
@@ -90,6 +80,16 @@ givenName: Test
 uid: testuser
 mail: testuser@heracles.local
 userPassword: {SSHA}test_password_will_be_hashed
+EOF
+
+echo ""
+echo "👥 Creating default admin group..."
+ldapadd -x -H "ldap://${LDAP_HOST}:${LDAP_PORT}" -D "$LDAP_ADMIN_DN" -w "$LDAP_ADMIN_PASSWORD" <<EOF
+dn: cn=admins,ou=groups,$LDAP_BASE_DN
+objectClass: groupOfNames
+cn: admins
+description: Heracles administrators
+member: uid=testuser,ou=people,$LDAP_BASE_DN
 EOF
 
 echo ""

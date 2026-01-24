@@ -1,7 +1,15 @@
 import { Link } from 'react-router-dom'
-import { Users, UsersRound, Server, Activity, TrendingUp, UserPlus } from 'lucide-react'
+import { Users, UsersRound, Server, Activity, TrendingUp, UserPlus, ChevronDown, Terminal, Layers } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { PageHeader, LoadingPage, ErrorDisplay } from '@/components/common'
 import { useUsers, useGroups } from '@/hooks'
 import { useAuthStore } from '@/stores'
@@ -107,12 +115,50 @@ export function DashboardPage() {
                 Create New User
               </Link>
             </Button>
-            <Button asChild variant="outline" className="w-full justify-start">
-              <Link to={ROUTES.GROUP_CREATE}>
-                <UsersRound className="mr-2 h-4 w-4" />
-                Create New Group
-              </Link>
-            </Button>
+            
+            {/* Group Creation Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full justify-between">
+                  <span className="flex items-center">
+                    <UsersRound className="mr-2 h-4 w-4" />
+                    Create New Group
+                  </span>
+                  <ChevronDown className="h-4 w-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuLabel>Group Type</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link to={ROUTES.GROUP_CREATE} className="cursor-pointer">
+                    <UsersRound className="mr-2 h-4 w-4" />
+                    <div>
+                      <div className="font-medium">Organizational Group</div>
+                      <div className="text-xs text-muted-foreground">groupOfNames for LDAP access</div>
+                    </div>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/posix/groups?create=true" className="cursor-pointer">
+                    <Terminal className="mr-2 h-4 w-4" />
+                    <div>
+                      <div className="font-medium">POSIX Group</div>
+                      <div className="text-xs text-muted-foreground">Unix/Linux system group</div>
+                    </div>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/posix/mixed-groups?create=true" className="cursor-pointer">
+                    <Layers className="mr-2 h-4 w-4" />
+                    <div>
+                      <div className="font-medium">Mixed Group</div>
+                      <div className="text-xs text-muted-foreground">LDAP + POSIX hybrid</div>
+                    </div>
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </CardContent>
         </Card>
 

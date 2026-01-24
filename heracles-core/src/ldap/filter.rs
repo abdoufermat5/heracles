@@ -218,11 +218,11 @@ impl FilterBuilder {
     }
 }
 
-/// Common LDAP filter patterns for FusionDirectory.
+/// Common LDAP filter patterns.
 pub mod patterns {
     use super::*;
 
-    /// Filter for FusionDirectory users.
+    /// Filter for standard LDAP users.
     pub fn fd_user() -> LdapFilter {
         FilterBuilder::new()
             .object_class("inetOrgPerson")

@@ -31,7 +31,7 @@ class PosixPlugin(Plugin):
     Provides Unix account attributes for users (posixAccount, shadowAccount)
     and groups (posixGroup).
     
-    Compatible with FusionDirectory POSIX implementation.
+    Compatible with standard LDAP POSIX implementation.
     """
     
     @staticmethod
@@ -43,8 +43,16 @@ class PosixPlugin(Plugin):
             description="POSIX account management (Unix accounts)",
             author="Heracles Team",
             object_types=["user", "group", "mixed-group"],
-            object_classes=["posixAccount", "shadowAccount", "posixGroup", "groupOfNames"],
+            object_classes=[
+                "posixAccount", 
+                "shadowAccount", 
+                "posixGroup", 
+                "groupOfNames",
+                "hostObject",  # For system trust
+            ],
             dependencies=[],  # No dependencies for POSIX
+            # Note: systems plugin dependency is optional (for host validation)
+            optional_dependencies=["systems"],
             required_config=[],
             priority=10,  # Show early in tabs
         )

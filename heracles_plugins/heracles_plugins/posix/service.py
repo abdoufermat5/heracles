@@ -22,6 +22,7 @@ from .schemas import (
     PosixGroupCreate,
     PosixGroupRead,
     PosixGroupUpdate,
+    PosixGroupFullCreate,
     PrimaryGroupMode,
     TrustMode,
     AccountStatus,
@@ -667,7 +668,7 @@ class PosixService(TabService):
         """
         Compute account status based on shadow attributes.
         
-        Mirrors FusionDirectory's isUserActive() logic.
+        Implements standard POSIX shadow password expiration logic.
         
         Returns:
             AccountStatus enum value
@@ -743,14 +744,18 @@ class PosixGroupService:
     """
     Service for managing standalone POSIX groups.
     
-    Following FusionDirectory's model, posixGroup is a standalone structural
-    objectClass, NOT something you add to groupOfNames.
+    In standard LDAP, posixGroup is a standalone structural objectClass,
+    NOT something you add to groupOfNames.
     
     POSIX groups use:
     - cn: Group name
     - gidNumber: Group ID
     - memberUid: List of member user IDs
     - description: Optional description
+    - host: List of hosts (hostObject) for system trust
+    
+    NOTE: System trust (hostObject) is implemented but full host validation
+    requires the systems plugin. Currently accepts any host string.
     """
     
     OBJECT_CLASSES = ["posixGroup"]
@@ -760,6 +765,7 @@ class PosixGroupService:
         "gidNumber",
         "memberUid",
         "description",
+        "host",  # hostObject attribute for system trust
     ]
     
     def __init__(self, ldap_service: LdapService, config: Dict[str, Any]):
@@ -837,11 +843,28 @@ class PosixGroupService:
             if isinstance(member_uid, str):
                 member_uid = [member_uid]
             
+            # Parse host attribute for trust mode
+            host_list = entry.get("host", [])
+            if isinstance(host_list, str):
+                host_list = [host_list]
+            
+            trust_mode = None
+            filtered_hosts = []
+            if host_list:
+                # Check for full access marker
+                if "*" in host_list or any(h == "*" for h in host_list):
+                    trust_mode = TrustMode.FULL_ACCESS
+                else:
+                    trust_mode = TrustMode.BY_HOST
+                    filtered_hosts = [h for h in host_list if h != "*"]
+            
             return PosixGroupRead(
                 cn=entry.get_first("cn", cn),
                 gidNumber=self._get_int(entry, "gidNumber"),
                 description=entry.get_first("description"),
                 memberUid=member_uid,
+                trustMode=trust_mode,
+                host=filtered_hosts if filtered_hosts else None,
                 is_active=True,
             )
             
@@ -865,9 +888,14 @@ class PosixGroupService:
         if gid_number is None:
             gid_number = await self._allocate_next_gid()
         else:
-            # Verify GID is not already in use
-            if await self._gid_exists(gid_number):
+            # Verify GID is not already in use (unless force_gid is set)
+            if not data.force_gid and await self._gid_exists(gid_number):
                 raise PosixValidationError(f"GID {gid_number} is already in use")
+        
+        # Determine object classes
+        object_classes = ["posixGroup"]
+        if data.trust_mode is not None:
+            object_classes.append("hostObject")
         
         # Build attributes for the new entry
         attributes = {
@@ -881,8 +909,17 @@ class PosixGroupService:
         if data.member_uid:
             attributes["memberUid"] = data.member_uid
         
+        # Handle system trust (hostObject)
+        # NOTE: Full host validation requires the systems plugin
+        if data.trust_mode is not None:
+            if data.trust_mode == TrustMode.FULL_ACCESS:
+                attributes["host"] = ["*"]
+            elif data.trust_mode == TrustMode.BY_HOST and data.host:
+                # TODO: Validate hosts against systems plugin when available
+                attributes["host"] = data.host
+        
         try:
-            await self._ldap.add(dn, ["posixGroup"], attributes)
+            await self._ldap.add(dn, object_classes, attributes)
             logger.info("posix_group_created", cn=data.cn, gid_number=gid_number)
         except LdapOperationError as e:
             logger.error("create_posix_group_failed", cn=data.cn, error=str(e))
@@ -917,6 +954,41 @@ class PosixGroupService:
                 # Remove all members
                 if existing.member_uid:
                     changes["memberUid"] = [(MODIFY_DELETE, [])]
+        
+        # Handle system trust (hostObject) updates
+        # NOTE: Full host validation requires the systems plugin
+        if data.trust_mode is not None:
+            # Check if hostObject is in objectClasses
+            entry = await self._ldap.get_by_dn(dn, attributes=["objectClass", "host"])
+            object_classes = entry.get("objectClass", []) if entry else []
+            if isinstance(object_classes, str):
+                object_classes = [object_classes]
+            
+            has_host_object = "hostObject" in object_classes
+            
+            if data.trust_mode == TrustMode.FULL_ACCESS:
+                if not has_host_object:
+                    changes["objectClass"] = [(MODIFY_ADD, ["hostObject"])]
+                changes["host"] = [(MODIFY_REPLACE, ["*"])]
+            elif data.trust_mode == TrustMode.BY_HOST:
+                if not data.host:
+                    raise PosixValidationError("host list is required when trustMode is byhost")
+                if not has_host_object:
+                    changes["objectClass"] = [(MODIFY_ADD, ["hostObject"])]
+                # TODO: Validate hosts against systems plugin when available
+                changes["host"] = [(MODIFY_REPLACE, data.host)]
+        elif data.host is not None:
+            # Just update hosts without changing trust mode
+            entry = await self._ldap.get_by_dn(dn, attributes=["objectClass"])
+            object_classes = entry.get("objectClass", []) if entry else []
+            if isinstance(object_classes, str):
+                object_classes = [object_classes]
+            
+            if "hostObject" in object_classes:
+                if data.host:
+                    changes["host"] = [(MODIFY_REPLACE, data.host)]
+                else:
+                    changes["host"] = [(MODIFY_DELETE, [])]
         
         if changes:
             try:
@@ -1112,10 +1184,20 @@ class MixedGroupService:
     
     Object classes used:
     - groupOfNames (structural): member attribute
-    - posixGroup (auxiliary or structural): gidNumber, memberUid
+    - posixGroupAux (auxiliary): gidNumber, memberUid - custom auxiliary version
+    - hostObject (auxiliary): host attribute for system trust
+    
+    NOTE: posixGroupAux is an auxiliary version of posixGroup that allows
+    combining with groupOfNames. The standard posixGroup is structural and
+    cannot be combined with other structural classes like groupOfNames.
+    
+    NOTE: System trust (hostObject) is implemented but full host validation
+    requires the systems plugin. Currently accepts any host string.
     """
     
-    OBJECT_CLASSES = ["groupOfNames", "posixGroup"]
+    # Use posixGroupAux (auxiliary) instead of posixGroup (structural)
+    # This allows combining with groupOfNames in a single entry
+    OBJECT_CLASSES = ["groupOfNames", "posixGroupAux"]
     
     MANAGED_ATTRIBUTES = [
         "cn",
@@ -1123,6 +1205,7 @@ class MixedGroupService:
         "member",
         "memberUid",
         "description",
+        "host",  # hostObject attribute for system trust
     ]
     
     def __init__(self, ldap_service: LdapService, config: Dict[str, Any]):
@@ -1151,9 +1234,9 @@ class MixedGroupService:
         from .schemas import MixedGroupListItem
         
         try:
-            # Search for entries that have both groupOfNames and posixGroup
+            # Search for entries that have both groupOfNames and posixGroupAux
             entries = await self._ldap.search(
-                search_filter="(&(objectClass=groupOfNames)(objectClass=posixGroup))",
+                search_filter="(&(objectClass=groupOfNames)(objectClass=posixGroupAux))",
                 attributes=["cn", "gidNumber", "description", "member", "memberUid"],
             )
             
@@ -1196,12 +1279,12 @@ class MixedGroupService:
             if entry is None:
                 return None
             
-            # Verify it's a MixedGroup
+            # Verify it's a MixedGroup (groupOfNames + posixGroupAux)
             object_classes = entry.get("objectClass", [])
             if isinstance(object_classes, str):
                 object_classes = [object_classes]
             
-            if "groupOfNames" not in object_classes or "posixGroup" not in object_classes:
+            if "groupOfNames" not in object_classes or "posixGroupAux" not in object_classes:
                 return None
             
             member = entry.get("member", [])
@@ -1212,17 +1295,35 @@ class MixedGroupService:
             if isinstance(member_uid, str):
                 member_uid = [member_uid]
             
+            # Parse host attribute for trust mode
+            host_list = entry.get("host", [])
+            if isinstance(host_list, str):
+                host_list = [host_list]
+            
+            trust_mode = None
+            filtered_hosts = []
+            if host_list:
+                # Check for full access marker
+                if "*" in host_list or any(h == "*" for h in host_list):
+                    trust_mode = TrustMode.FULL_ACCESS
+                else:
+                    trust_mode = TrustMode.BY_HOST
+                    filtered_hosts = [h for h in host_list if h != "*"]
+            
             return MixedGroupRead(
                 cn=entry.get_first("cn", cn),
                 gidNumber=self._get_int(entry, "gidNumber"),
                 description=entry.get_first("description"),
                 member=member,
                 memberUid=member_uid,
+                trustMode=trust_mode,
+                host=filtered_hosts if filtered_hosts else None,
                 isMixedGroup=True,
             )
             
         except LdapOperationError as e:
             logger.error("get_mixed_group_failed", cn=cn, error=str(e))
+            return None
             return None
     
     async def create(self, data: "MixedGroupCreate") -> "MixedGroupRead":
@@ -1241,8 +1342,14 @@ class MixedGroupService:
         if gid_number is None:
             gid_number = await self._allocate_next_gid()
         else:
-            if await self._gid_exists(gid_number):
+            # Verify GID is not already in use (unless force_gid is set)
+            if not data.force_gid and await self._gid_exists(gid_number):
                 raise PosixValidationError(f"GID {gid_number} is already in use")
+        
+        # Determine object classes
+        object_classes = list(self.OBJECT_CLASSES)
+        if data.trust_mode is not None:
+            object_classes.append("hostObject")
         
         # Build attributes
         attributes = {
@@ -1254,9 +1361,14 @@ class MixedGroupService:
             attributes["description"] = [data.description]
         
         # groupOfNames requires at least one member
-        # Use an empty DN placeholder if no members provided
+        # Convert UIDs to DNs if needed and validate members
         if data.member:
-            attributes["member"] = data.member
+            member_dns = await self._resolve_members_to_dns(data.member)
+            if member_dns:
+                attributes["member"] = member_dns
+            else:
+                # No valid members resolved, use group's own DN as placeholder
+                attributes["member"] = [dn]
         else:
             # Some LDAP implementations require at least one member
             # Use the group's own DN as a placeholder
@@ -1265,8 +1377,17 @@ class MixedGroupService:
         if data.member_uid:
             attributes["memberUid"] = data.member_uid
         
+        # Handle system trust (hostObject)
+        # NOTE: Full host validation requires the systems plugin
+        if data.trust_mode is not None:
+            if data.trust_mode == TrustMode.FULL_ACCESS:
+                attributes["host"] = ["*"]
+            elif data.trust_mode == TrustMode.BY_HOST and data.host:
+                # TODO: Validate hosts against systems plugin when available
+                attributes["host"] = data.host
+        
         try:
-            await self._ldap.add(dn, self.OBJECT_CLASSES, attributes)
+            await self._ldap.add(dn, object_classes, attributes)
             logger.info("mixed_group_created", cn=data.cn, gid_number=gid_number)
         except LdapOperationError as e:
             logger.error("create_mixed_group_failed", cn=data.cn, error=str(e))
@@ -1294,7 +1415,13 @@ class MixedGroupService:
         
         if data.member is not None:
             if data.member:
-                changes["member"] = [(MODIFY_REPLACE, data.member)]
+                # Resolve UIDs/CNs to full DNs
+                resolved_members = await self._resolve_members_to_dns(data.member)
+                if resolved_members:
+                    changes["member"] = [(MODIFY_REPLACE, resolved_members)]
+                else:
+                    # No valid members, use group's own DN as placeholder
+                    changes["member"] = [(MODIFY_REPLACE, [dn])]
             else:
                 # Keep at least one member (the group itself)
                 changes["member"] = [(MODIFY_REPLACE, [dn])]
@@ -1305,6 +1432,41 @@ class MixedGroupService:
             else:
                 if existing.member_uid:
                     changes["memberUid"] = [(MODIFY_DELETE, [])]
+        
+        # Handle system trust (hostObject) updates
+        # NOTE: Full host validation requires the systems plugin
+        if data.trust_mode is not None:
+            # Check if hostObject is in objectClasses
+            entry = await self._ldap.get_by_dn(dn, attributes=["objectClass", "host"])
+            object_classes = entry.get("objectClass", []) if entry else []
+            if isinstance(object_classes, str):
+                object_classes = [object_classes]
+            
+            has_host_object = "hostObject" in object_classes
+            
+            if data.trust_mode == TrustMode.FULL_ACCESS:
+                if not has_host_object:
+                    changes["objectClass"] = [(MODIFY_ADD, ["hostObject"])]
+                changes["host"] = [(MODIFY_REPLACE, ["*"])]
+            elif data.trust_mode == TrustMode.BY_HOST:
+                if not data.host:
+                    raise PosixValidationError("host list is required when trustMode is byhost")
+                if not has_host_object:
+                    changes["objectClass"] = [(MODIFY_ADD, ["hostObject"])]
+                # TODO: Validate hosts against systems plugin when available
+                changes["host"] = [(MODIFY_REPLACE, data.host)]
+        elif data.host is not None:
+            # Just update hosts without changing trust mode
+            entry = await self._ldap.get_by_dn(dn, attributes=["objectClass"])
+            object_classes = entry.get("objectClass", []) if entry else []
+            if isinstance(object_classes, str):
+                object_classes = [object_classes]
+            
+            if "hostObject" in object_classes:
+                if data.host:
+                    changes["host"] = [(MODIFY_REPLACE, data.host)]
+                else:
+                    changes["host"] = [(MODIFY_DELETE, [])]
         
         if changes:
             try:
@@ -1479,3 +1641,49 @@ class MixedGroupService:
             vals = entry.get(attr, [])
             val = vals[0] if vals else None
         return int(val) if val is not None else None
+
+    async def _resolve_members_to_dns(self, members: List[str]) -> List[str]:
+        """
+        Resolve member identifiers to full DNs.
+        
+        Accepts:
+        - Full DNs (uid=user,ou=people,dc=... or cn=group,ou=groups,dc=...)
+        - UIDs (testuser) - will be resolved to user DN
+        - Group CNs (admins) - will be resolved to group DN
+        
+        Returns list of valid DNs, filtering out unresolved identifiers.
+        """
+        from heracles_api.config import settings
+        
+        resolved_dns = []
+        
+        for member in members:
+            # Already a DN
+            if "=" in member and "," in member:
+                resolved_dns.append(member)
+                continue
+            
+            # Try to resolve as a user UID
+            try:
+                user_dn = f"uid={member},ou=people,{settings.LDAP_BASE_DN}"
+                user_entry = await self._ldap.get_by_dn(user_dn, attributes=["uid"])
+                if user_entry is not None:
+                    resolved_dns.append(user_dn)
+                    continue
+            except LdapOperationError:
+                pass
+            
+            # Try to resolve as a group CN
+            try:
+                group_dn = f"cn={member},ou=groups,{settings.LDAP_BASE_DN}"
+                group_entry = await self._ldap.get_by_dn(group_dn, attributes=["cn"])
+                if group_entry is not None:
+                    resolved_dns.append(group_dn)
+                    continue
+            except LdapOperationError:
+                pass
+            
+            # Log warning for unresolved member
+            logger.warning("member_not_resolved", member=member)
+        
+        return resolved_dns

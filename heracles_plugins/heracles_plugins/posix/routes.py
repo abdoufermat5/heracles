@@ -4,7 +4,7 @@ POSIX Plugin API Routes
 
 FastAPI endpoints for POSIX account management.
 
-Following FusionDirectory's model:
+In standard LDAP:
 - posixAccount/shadowAccount are auxiliary classes added to users (inetOrgPerson)
 - posixGroup is a standalone structural class for UNIX groups (separate from groupOfNames)
 """

@@ -497,7 +497,7 @@ CORS_ORIGINS=["http://localhost:3000"]
 
 ### 6.2 Fichier de Configuration Principal
 
-La configuration FusionDirectory (`fusiondirectory.conf`) doit pouvoir être lue pour la compatibilité. Un convertisseur sera fourni.
+Un convertisseur de configuration legacy sera fourni pour les migrations.
 
 ```yaml
 # heracles.yaml (format natif Heracles)

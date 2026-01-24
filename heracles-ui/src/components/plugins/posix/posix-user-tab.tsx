@@ -131,7 +131,7 @@ export function PosixUserTab({ uid, displayName }: PosixUserTabProps) {
                     <Power className="h-3 w-3 mr-1" />
                     Active
                   </Badge>
-                  {posixData?.accountStatus && (
+                  {posixData?.accountStatus && posixData.accountStatus !== 'active' && (
                     <AccountStatusBadge status={posixData.accountStatus} />
                   )}
                 </>

@@ -344,6 +344,11 @@ class PosixGroupCreate(BaseModel):
         alias="gidNumber",
         description="GID number (auto-allocated if not provided)",
     )
+    force_gid: bool = Field(
+        default=False,
+        alias="forceGid",
+        description="Force use of specific GID even if normally auto-allocated",
+    )
     
     class Config:
         populate_by_name = True
@@ -365,6 +370,11 @@ class PosixGroupFullCreate(BaseModel):
         alias="gidNumber",
         description="GID number (auto-allocated if not provided)",
     )
+    force_gid: bool = Field(
+        default=False,
+        alias="forceGid",
+        description="Force use of specific GID even if it appears allocated",
+    )
     description: Optional[str] = Field(
         default=None,
         max_length=255,
@@ -375,6 +385,16 @@ class PosixGroupFullCreate(BaseModel):
         alias="memberUid",
         description="Initial list of member UIDs",
     )
+    # System trust (hostObject) - NOTE: Full validation requires systems plugin
+    trust_mode: Optional[TrustMode] = Field(
+        default=None,
+        alias="trustMode",
+        description="System trust mode for host-based access control",
+    )
+    host: Optional[List[str]] = Field(
+        default=None,
+        description="List of hosts the group is available on (when trustMode is byhost)",
+    )
     
     @field_validator("cn")
     @classmethod
@@ -383,6 +403,13 @@ class PosixGroupFullCreate(BaseModel):
         if not re.match(r"^[a-z][a-z0-9_-]*$", v, re.IGNORECASE):
             raise ValueError("Group name must start with a letter and contain only letters, numbers, underscores, and hyphens")
         return v
+    
+    @model_validator(mode="after")
+    def validate_trust_config(self) -> "PosixGroupFullCreate":
+        """Validate system trust configuration."""
+        if self.trust_mode == TrustMode.BY_HOST and not self.host:
+            raise ValueError("host list is required when trustMode is byhost")
+        return self
     
     class Config:
         populate_by_name = True
@@ -395,6 +422,9 @@ class PosixGroupRead(BaseModel):
     gid_number: int = Field(..., alias="gidNumber")
     description: Optional[str] = None
     member_uid: List[str] = Field(default_factory=list, alias="memberUid")
+    # System trust (hostObject)
+    trust_mode: Optional[TrustMode] = Field(None, alias="trustMode")
+    host: Optional[List[str]] = Field(None, description="List of hosts for byhost trust mode")
     is_active: bool = True
     
     class Config:
@@ -413,6 +443,16 @@ class PosixGroupUpdate(BaseModel):
         None,
         alias="memberUid",
         description="List of member UIDs",
+    )
+    # System trust (hostObject) updates
+    trust_mode: Optional[TrustMode] = Field(
+        None,
+        alias="trustMode",
+        description="System trust mode for host-based access control",
+    )
+    host: Optional[List[str]] = Field(
+        None,
+        description="List of hosts the group is available on (when trustMode is byhost)",
     )
     
     class Config:
@@ -463,6 +503,11 @@ class MixedGroupCreate(BaseModel):
         alias="gidNumber",
         description="GID number (auto-allocated if not provided)",
     )
+    force_gid: bool = Field(
+        default=False,
+        alias="forceGid",
+        description="Force use of specific GID even if it appears allocated",
+    )
     description: Optional[str] = Field(
         default=None,
         max_length=255,
@@ -479,6 +524,16 @@ class MixedGroupCreate(BaseModel):
         alias="memberUid",
         description="Initial list of member UIDs (posixGroup)",
     )
+    # System trust (hostObject) - NOTE: Full validation requires systems plugin
+    trust_mode: Optional[TrustMode] = Field(
+        default=None,
+        alias="trustMode",
+        description="System trust mode for host-based access control",
+    )
+    host: Optional[List[str]] = Field(
+        default=None,
+        description="List of hosts the group is available on (when trustMode is byhost)",
+    )
     
     @field_validator("cn")
     @classmethod
@@ -487,6 +542,13 @@ class MixedGroupCreate(BaseModel):
         if not re.match(r"^[a-z][a-z0-9_-]*$", v, re.IGNORECASE):
             raise ValueError("Group name must start with a letter and contain only letters, numbers, underscores, and hyphens")
         return v
+    
+    @model_validator(mode="after")
+    def validate_trust_config(self) -> "MixedGroupCreate":
+        """Validate system trust configuration."""
+        if self.trust_mode == TrustMode.BY_HOST and not self.host:
+            raise ValueError("host list is required when trustMode is byhost")
+        return self
     
     class Config:
         populate_by_name = True
@@ -502,6 +564,9 @@ class MixedGroupRead(BaseModel):
     member: List[str] = Field(default_factory=list, description="List of member DNs")
     # posixGroup members  
     member_uid: List[str] = Field(default_factory=list, alias="memberUid")
+    # System trust (hostObject)
+    trust_mode: Optional[TrustMode] = Field(None, alias="trustMode")
+    host: Optional[List[str]] = Field(None, description="List of hosts for byhost trust mode")
     # Computed fields
     is_mixed_group: bool = Field(default=True, alias="isMixedGroup")
     
@@ -525,6 +590,16 @@ class MixedGroupUpdate(BaseModel):
         None,
         alias="memberUid",
         description="List of member UIDs",
+    )
+    # System trust (hostObject) updates
+    trust_mode: Optional[TrustMode] = Field(
+        None,
+        alias="trustMode",
+        description="System trust mode for host-based access control",
+    )
+    host: Optional[List[str]] = Field(
+        None,
+        description="List of hosts the group is available on (when trustMode is byhost)",
     )
     
     class Config:

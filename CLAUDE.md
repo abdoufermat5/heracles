@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Heracles** is a modern rewrite of FusionDirectory, an LDAP identity management system. It provides a more performant, maintainable, and extensible solution while maintaining **100% compatibility** with existing FusionDirectory LDAP deployments.
+**Heracles** is a modern LDAP identity management system. It provides a performant, maintainable, and extensible solution while maintaining **100% compatibility** with existing LDAP deployments and standard schemas.
+
+**Current Status (January 2026):** Sprint 11-12 complete - POSIX plugin fully implemented with all three group types (LDAP, POSIX, Mixed).
 
 ## Architecture
 
@@ -13,9 +15,9 @@ heracles/
 ├── heracles-core/          # Rust library (LDAP operations, password hashing, schema validation)
 ├── heracles-api/           # Python/FastAPI backend (REST API, auth, business logic)
 ├── heracles-ui/            # React/TypeScript frontend
-├── heracles-plugins/       # Python plugins (posix, sudo, ssh, systems, dns, dhcp)
-├── docker/                 # Docker configurations
-└── tests/                  # E2E tests
+├── heracles_plugins/       # Python plugins (posix implemented, sudo/ssh planned)
+├── docker/                 # Docker configurations (including custom LDAP schemas)
+└── docs/                   # Specifications and documentation
 ```
 
 **Component Communication:**
@@ -79,10 +81,11 @@ docker-compose up -d     # Start LDAP, PostgreSQL, Redis
 ## Critical Constraints
 
 ### LDAP Compatibility (CRITICAL)
-- Use ONLY existing FusionDirectory LDAP schemas
-- NEVER create new objectClass or attributeType
-- All entries must be readable/writable by both Heracles and FusionDirectory
-- Required schemas: core.schema, inetorgperson.schema, nis.schema, core-fd.schema, sudo.schema, openssh-lpk.schema
+- Use ONLY standard LDAP schemas **EXCEPT** for documented custom schemas
+- Custom schema allowed: `posixGroupAux` (AUXILIARY) for Mixed Groups
+- All entries must be readable/writable by existing LDAP tools and clients
+- Required schemas: core.schema, inetorgperson.schema, nis.schema, sudo.schema, openssh-lpk.schema
+- Custom schemas location: `docker/ldap/schemas/`
 
 ### Security Rules
 - NEVER hardcode secrets in code (use environment variables)
@@ -131,12 +134,31 @@ Example: feat(api): add user creation endpoint
 ## Plugin System
 
 Plugins provide tabs (attach to existing object types) or management capabilities (new object types). Each plugin has:
-- `plugin.py` - Plugin definition with PluginInfo
-- `service.py` - Business logic extending TabService
-- `schemas.py` - Pydantic models
-- `schema.json` - UI form schema
+- `__init__.py` - Exports router, services, schemas
+- `service.py` - Business logic (PosixService, PosixGroupService, MixedGroupService)
+- `schemas.py` - Pydantic models with Field(alias="camelCase")
+- `router.py` - FastAPI routes
 
-Essential plugins for v1.0: core, posix, sudo, ssh, systems, dns, dhcp
+**Implemented Plugins:**
+- ✅ **posix** - Unix accounts, POSIX groups, Mixed groups, System Trust
+
+**Planned Plugins:** sudo, ssh, systems, dns, dhcp
+
+## POSIX Plugin Reference
+
+**Three Group Types:**
+| Type | ObjectClasses | Members |
+|------|---------------|---------|
+| LDAP | groupOfNames | member (DNs) |
+| POSIX | posixGroup | memberUid |
+| Mixed | groupOfNames + posixGroupAux | both |
+
+**Custom Schema:** `posixGroupAux` is AUXILIARY (OID 1.3.6.1.4.1.99999.1.2.1)
+
+**API Endpoints:**
+- GET/POST/DELETE `/posix/users/{dn}/posix` - Account management
+- GET/POST `/posix/groups/posix` - POSIX groups
+- GET/POST `/posix/groups/mixed` - Mixed groups
 
 ## API Structure
 

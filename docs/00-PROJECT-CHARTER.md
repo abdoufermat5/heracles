@@ -8,13 +8,13 @@
 
 ## 1. Vision du Projet
 
-**Heracles** est une réécriture moderne de FusionDirectory, un système de gestion d'identités LDAP. L'objectif est de créer une solution plus performante, maintenable et extensible tout en **garantissant une compatibilité totale** avec les déploiements FusionDirectory existants.
+**Heracles** est un système moderne de gestion d'identités LDAP. L'objectif est de créer une solution performante, maintenable et extensible tout en **garantissant une compatibilité totale** avec les déploiements LDAP existants.
 
 ### 1.1 Principes Fondamentaux
 
 | Principe | Description | Priorité |
 |----------|-------------|----------|
-| **Compatibilité LDAP** | Les schémas LDAP FusionDirectory doivent fonctionner sans modification | CRITIQUE |
+| **Compatibilité LDAP** | Les schémas LDAP standards doivent fonctionner sans modification | CRITIQUE |
 | **API-First** | Toute fonctionnalité expose une API REST avant toute UI | HAUTE |
 | **Simplicité** | Single-tenant, pas de sur-ingénierie | HAUTE |
 | **Testabilité** | Code testable, coverage > 80% | HAUTE |
@@ -22,9 +22,8 @@
 
 ### 1.2 Ce que Heracles N'EST PAS
 
-- ❌ Un fork de FusionDirectory (réécriture complète)
 - ❌ Une solution multi-tenant/SaaS (pour le moment)
-- ❌ Un remplacement des 60+ plugins (seulement les essentiels)
+- ❌ Un remplacement des 60+ plugins existants (seulement les essentiels)
 - ❌ Un système de base de données relationnelle (LDAP reste la source de vérité)
 
 ---
@@ -85,7 +84,7 @@
 
 ```
 TOUTE entrée LDAP créée/modifiée par Heracles DOIT être lisible 
-et modifiable par FusionDirectory, et vice-versa.
+et modifiable par les outils LDAP standards, et vice-versa.
 ```
 
 Implications:
@@ -197,4 +196,4 @@ Une fonctionnalité est considérée comme terminée si:
 - [ ] Documentation utilisateur si UI
 - [ ] Revue de code effectuée
 - [ ] Pas de régression sur les tests existants
-- [ ] Compatible avec FusionDirectory (test de coexistence)
+- [ ] Compatible avec les déploiements LDAP existants (test de coexistence)

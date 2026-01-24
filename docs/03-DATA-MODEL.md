@@ -1,15 +1,15 @@
 # HERACLES - Modèle de Données
 
 > **Référence**: Ce document définit les schémas LDAP et PostgreSQL utilisés par Heracles.
-> **Règle critique**: Les schémas LDAP doivent être 100% compatibles avec FusionDirectory.
+> **Règle critique**: Les schémas LDAP doivent être 100% compatibles avec les standards LDAP.
 
 ---
 
-## 1. Compatibilité FusionDirectory
+## 1. Compatibilité LDAP
 
 ### 1.1 Schémas LDAP Requis
 
-Heracles nécessite les schémas LDAP suivants (identiques à FusionDirectory):
+Heracles nécessite les schémas LDAP suivants:
 
 | Schéma | Source | Description |
 |--------|--------|-------------|
@@ -17,8 +17,6 @@ Heracles nécessite les schémas LDAP suivants (identiques à FusionDirectory):
 | cosine.schema | OpenLDAP | X.500 classes |
 | inetorgperson.schema | OpenLDAP | Utilisateurs |
 | nis.schema | OpenLDAP | POSIX (posixAccount, posixGroup) |
-| core-fd.schema | FusionDirectory | Classes FD core |
-| core-fd-conf.schema | FusionDirectory | Configuration FD |
 | sudo.schema | sudoers | Règles sudo |
 | openssh-lpk.schema | OpenSSH | Clés SSH LDAP |
 
@@ -26,7 +24,8 @@ Heracles nécessite les schémas LDAP suivants (identiques à FusionDirectory):
 
 ```
 INTERDIT: Créer de nouveaux objectClass ou attributeType propriétaires à Heracles.
-AUTORISÉ: Utiliser uniquement les schémas FusionDirectory existants.
+AUTORISÉ: Utiliser uniquement les schémas LDAP standards existants.
+EXCEPTION: Schémas auxiliaires documentés (ex: posixGroupAux).
 ```
 
 ---
@@ -38,9 +37,7 @@ AUTORISÉ: Utiliser uniquement les schémas FusionDirectory existants.
 ```
 dc=example,dc=com                    # Base DN
 ├── ou=aclroles                      # Rôles ACL
-├── ou=configs                       # Configuration FD
-│   └── ou=fusiondirectory           # Configuration
-├── ou=fusiondirectory               # Metadata FD
+├── ou=configs                       # Configuration
 ├── ou=groups                        # Groupes
 ├── ou=people                        # Utilisateurs
 ├── ou=sudoers                       # Règles sudo
@@ -227,7 +224,7 @@ sudoOrder: 10
 
 ### 3.4 Système (Server/Workstation)
 
-#### ObjectClasses (FusionDirectory)
+#### ObjectClasses (Systèmes)
 
 | ObjectClass | Type | Utilisation |
 |-------------|------|-------------|
@@ -256,7 +253,7 @@ cn={cn},ou=workstations,ou=systems,{base_dn}
 
 ---
 
-### 3.5 Rôle ACL (FusionDirectory)
+### 3.5 Rôle ACL
 
 #### ObjectClass
 

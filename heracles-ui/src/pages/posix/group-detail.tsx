@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Badge } from '@/components/ui/badge'
 import {
   Form,
   FormControl,
@@ -25,6 +26,13 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,11 +59,25 @@ import {
   useAddPosixGroupMember,
   useRemovePosixGroupMember,
 } from '@/hooks'
+import type { TrustMode } from '@/types/posix'
 
 // Form schema for editing the group
 const editSchema = z.object({
   description: z.string().max(255).optional(),
-})
+  trustMode: z.enum(['fullaccess', 'byhost']).optional().nullable(),
+  host: z.array(z.string()).optional().nullable(),
+}).refine(
+  (data) => {
+    if (data.trustMode === 'byhost' && (!data.host || data.host.length === 0)) {
+      return false
+    }
+    return true
+  },
+  {
+    message: 'At least one host is required when trust mode is "By Host"',
+    path: ['host'],
+  }
+)
 
 // Form schema for adding a member
 const addMemberSchema = z.object({
@@ -83,8 +105,12 @@ export default function PosixGroupDetailPage() {
     resolver: zodResolver(editSchema),
     values: {
       description: group?.description ?? '',
+      trustMode: group?.trustMode ?? null,
+      host: group?.host ?? [],
     },
   })
+
+  const trustMode = editForm.watch('trustMode')
 
   const addMemberForm = useForm<AddMemberFormData>({
     resolver: zodResolver(addMemberSchema),
@@ -97,6 +123,8 @@ export default function PosixGroupDetailPage() {
     try {
       await updateMutation.mutateAsync({
         description: data.description || undefined,
+        trustMode: data.trustMode as TrustMode | null,
+        host: data.trustMode === 'byhost' ? data.host : null,
       })
       toast.success('Group updated successfully')
     } catch (error) {
@@ -242,6 +270,81 @@ export default function PosixGroupDetailPage() {
                     </FormItem>
                   )}
                 />
+
+                {/* System Trust Section */}
+                <div className="border rounded-lg p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium text-sm">System Trust</h4>
+                    {group.trustMode && (
+                      <Badge variant={group.trustMode === 'fullaccess' ? 'default' : 'secondary'}>
+                        {group.trustMode === 'fullaccess' ? 'Full Access' : 'By Host'}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Control which systems this group has access to
+                  </p>
+
+                  <FormField
+                    control={editForm.control}
+                    name="trustMode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Trust Mode</FormLabel>
+                        <Select 
+                          onValueChange={(value) => field.onChange(value === 'none' ? null : value)} 
+                          value={field.value ?? 'none'}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="No restriction" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="none">No restriction</SelectItem>
+                            <SelectItem value="fullaccess">Full access (all systems)</SelectItem>
+                            <SelectItem value="byhost">Restricted by host</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          {!trustMode && 'Group will have default system access'}
+                          {trustMode === 'fullaccess' && 'Group can access all systems'}
+                          {trustMode === 'byhost' && 'Group can only access specified hosts'}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {trustMode === 'byhost' && (
+                    <FormField
+                      control={editForm.control}
+                      name="host"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Allowed Hosts *</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="server1.example.com, server2.example.com"
+                              value={field.value?.join(', ') ?? ''}
+                              onChange={(e) => {
+                                const hosts = e.target.value
+                                  .split(',')
+                                  .map((h) => h.trim())
+                                  .filter((h) => h.length > 0)
+                                field.onChange(hosts.length > 0 ? hosts : [])
+                              }}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Comma-separated list of hostnames
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </div>
 
                 <Button type="submit" disabled={updateMutation.isPending}>
                   <Save className="h-4 w-4 mr-2" />

@@ -13,7 +13,7 @@ import {
   SystemsPage,
   SettingsPage,
 } from '@/pages'
-import { PosixGroupsPage, PosixGroupDetailPage } from '@/pages/posix'
+import { PosixGroupsPage, PosixGroupDetailPage, MixedGroupsPage } from '@/pages/posix'
 import { ROUTES } from '@/config/constants'
 
 export function AppRouter() {
@@ -45,6 +45,9 @@ export function AppRouter() {
         {/* POSIX Groups (standalone posixGroup entries) */}
         <Route path="/posix/groups" element={<PosixGroupsPage />} />
         <Route path="/posix/groups/:cn" element={<PosixGroupDetailPage />} />
+        
+        {/* Mixed Groups (groupOfNames + posixGroup) */}
+        <Route path="/posix/mixed-groups" element={<MixedGroupsPage />} />
         
         {/* Systems */}
         <Route path={ROUTES.SYSTEMS} element={<SystemsPage />} />

@@ -96,20 +96,30 @@ export interface PosixGroupData {
   description?: string
   memberUid: string[]
   is_active?: boolean
+  // System trust (hostObject)
+  trustMode?: TrustMode
+  host?: string[]
 }
 
 /** Schema for creating a new standalone POSIX group */
 export interface PosixGroupFullCreate {
   cn: string
   gidNumber?: number
+  forceGid?: boolean
   description?: string
   memberUid?: string[]
+  // System trust (hostObject)
+  trustMode?: TrustMode
+  host?: string[]
 }
 
 /** Schema for updating an existing POSIX group */
 export interface PosixGroupUpdate {
   description?: string
   memberUid?: string[]
+  // System trust (hostObject)
+  trustMode?: TrustMode | null
+  host?: string[] | null
 }
 
 export interface PosixGroupListItem {
@@ -166,17 +176,24 @@ export interface MixedGroupData {
   memberUid: string[]
   /** Indicates this is a mixed group */
   isMixedGroup: boolean
+  // System trust (hostObject)
+  trustMode?: TrustMode
+  host?: string[]
 }
 
 /** Schema for creating a new MixedGroup */
 export interface MixedGroupCreate {
   cn: string
   gidNumber?: number
+  forceGid?: boolean
   description?: string
   /** Initial LDAP members (DNs) */
   member?: string[]
   /** Initial UNIX members (UIDs) */
   memberUid?: string[]
+  // System trust (hostObject)
+  trustMode?: TrustMode
+  host?: string[]
 }
 
 /** Schema for updating a MixedGroup */
@@ -186,6 +203,9 @@ export interface MixedGroupUpdate {
   member?: string[]
   /** Replace all UNIX members */
   memberUid?: string[]
+  // System trust (hostObject)
+  trustMode?: TrustMode | null
+  host?: string[] | null
 }
 
 /** Summary item for MixedGroup listing */

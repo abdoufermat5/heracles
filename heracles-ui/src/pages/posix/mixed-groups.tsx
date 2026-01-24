@@ -1,12 +1,12 @@
 /**
- * POSIX Groups List Page
+ * Mixed Groups List Page
  * 
- * Lists all standalone POSIX groups and provides CRUD operations.
+ * Lists all MixedGroups (groupOfNames + posixGroup) and provides CRUD operations.
  */
 
 import { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Plus, Users, Trash2, Edit, RefreshCw, Search } from 'lucide-react'
+import { Plus, Layers, Trash2, Edit, RefreshCw, Search, Users, Terminal } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Table,
   TableBody,
@@ -49,12 +50,6 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
-
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -63,11 +58,15 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
-import { usePosixGroups, useCreatePosixGroup, useDeletePosixGroup, useNextIds } from '@/hooks'
-import type { PosixGroupListItem, TrustMode } from '@/types/posix'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 
-// Form schema for creating a new POSIX group
-const createGroupSchema = z.object({
+import { useMixedGroups, useCreateMixedGroup, useDeleteMixedGroup, useNextIds } from '@/hooks'
+import type { MixedGroupListItem, TrustMode } from '@/types/posix'
+
+// Form schema for creating a new MixedGroup
+const createMixedGroupSchema = z.object({
   cn: z.string()
     .min(1, 'Group name is required')
     .max(64, 'Group name must be at most 64 characters')
@@ -91,13 +90,13 @@ const createGroupSchema = z.object({
   }
 )
 
-type CreateGroupFormData = z.infer<typeof createGroupSchema>
+type CreateMixedGroupFormData = z.infer<typeof createMixedGroupSchema>
 
-export default function PosixGroupsPage() {
+export default function MixedGroupsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [searchQuery, setSearchQuery] = useState('')
   const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const [groupToDelete, setGroupToDelete] = useState<PosixGroupListItem | null>(null)
+  const [groupToDelete, setGroupToDelete] = useState<MixedGroupListItem | null>(null)
 
   // Open create dialog if ?create=true is in URL
   useEffect(() => {
@@ -109,13 +108,13 @@ export default function PosixGroupsPage() {
     }
   }, [searchParams, setSearchParams])
 
-  const { data: groupsResponse, isLoading, error, refetch } = usePosixGroups()
+  const { data: groupsResponse, isLoading, error, refetch } = useMixedGroups()
   const { data: nextIds } = useNextIds()
-  const createMutation = useCreatePosixGroup()
-  const deleteMutation = useDeletePosixGroup()
+  const createMutation = useCreateMixedGroup()
+  const deleteMutation = useDeleteMixedGroup()
 
-  const form = useForm<CreateGroupFormData>({
-    resolver: zodResolver(createGroupSchema),
+  const form = useForm<CreateMixedGroupFormData>({
+    resolver: zodResolver(createMixedGroupSchema),
     defaultValues: {
       cn: '',
       description: '',
@@ -133,7 +132,7 @@ export default function PosixGroupsPage() {
     (group.description?.toLowerCase().includes(searchQuery.toLowerCase()))
   ) ?? []
 
-  const handleCreate = async (data: CreateGroupFormData) => {
+  const handleCreate = async (data: CreateMixedGroupFormData) => {
     try {
       await createMutation.mutateAsync({
         cn: data.cn,
@@ -143,11 +142,11 @@ export default function PosixGroupsPage() {
         trustMode: data.trustMode as TrustMode | undefined,
         host: data.trustMode === 'byhost' ? data.host ?? undefined : undefined,
       })
-      toast.success(`POSIX group "${data.cn}" created successfully`)
+      toast.success(`Mixed group "${data.cn}" created successfully`)
       setShowCreateDialog(false)
       form.reset()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to create POSIX group')
+      toast.error(error instanceof Error ? error.message : 'Failed to create mixed group')
     }
   }
 
@@ -156,10 +155,10 @@ export default function PosixGroupsPage() {
 
     try {
       await deleteMutation.mutateAsync(groupToDelete.cn)
-      toast.success(`POSIX group "${groupToDelete.cn}" deleted successfully`)
+      toast.success(`Mixed group "${groupToDelete.cn}" deleted successfully`)
       setGroupToDelete(null)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete POSIX group')
+      toast.error(error instanceof Error ? error.message : 'Failed to delete mixed group')
     }
   }
 
@@ -189,7 +188,7 @@ export default function PosixGroupsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-center py-8 text-destructive">
-              <p>Failed to load POSIX groups</p>
+              <p>Failed to load mixed groups</p>
               <Button variant="outline" size="sm" className="mt-4" onClick={() => refetch()}>
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Retry
@@ -207,16 +206,16 @@ export default function PosixGroupsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Users className="h-6 w-6" />
-            POSIX Groups
+            <Layers className="h-6 w-6" />
+            Mixed Groups
           </h1>
           <p className="text-muted-foreground">
-            Manage standalone POSIX groups for UNIX/Linux systems
+            Hybrid groups combining LDAP organizational groups with POSIX capabilities
           </p>
         </div>
         <Button onClick={() => setShowCreateDialog(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          Create Group
+          Create Mixed Group
         </Button>
       </div>
 
@@ -232,7 +231,7 @@ export default function PosixGroupsPage() {
           />
         </div>
         <Badge variant="secondary">
-          {groupsResponse?.total ?? 0} group{(groupsResponse?.total ?? 0) !== 1 ? 's' : ''}
+          {groupsResponse?.groups?.length ?? 0} group{(groupsResponse?.groups?.length ?? 0) !== 1 ? 's' : ''}
         </Badge>
         <Button variant="outline" size="icon" onClick={() => refetch()}>
           <RefreshCw className="h-4 w-4" />
@@ -242,24 +241,45 @@ export default function PosixGroupsPage() {
       {/* Groups Table */}
       <Card>
         <CardHeader>
-          <CardTitle>POSIX Groups</CardTitle>
+          <CardTitle>All Mixed Groups</CardTitle>
           <CardDescription>
-            These are standalone POSIX groups (posixGroup objectClass) used for UNIX/Linux permissions
+            Mixed groups support both LDAP member DNs (groupOfNames) and POSIX memberUid
           </CardDescription>
         </CardHeader>
         <CardContent>
           {filteredGroups.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              {searchQuery ? 'No groups match your search' : 'No POSIX groups found'}
+              <Layers className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No mixed groups found</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={() => setShowCreateDialog(true)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create your first mixed group
+              </Button>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Group Name (cn)</TableHead>
+                  <TableHead>Name</TableHead>
                   <TableHead>GID</TableHead>
                   <TableHead>Description</TableHead>
-                  <TableHead>Members</TableHead>
+                  <TableHead>
+                    <span className="flex items-center gap-1">
+                      <Users className="h-3 w-3" />
+                      LDAP
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="flex items-center gap-1">
+                      <Terminal className="h-3 w-3" />
+                      POSIX
+                    </span>
+                  </TableHead>
                   <TableHead className="w-[100px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -268,7 +288,7 @@ export default function PosixGroupsPage() {
                   <TableRow key={group.cn}>
                     <TableCell className="font-medium">
                       <Link 
-                        to={`/posix/groups/${group.cn}`}
+                        to={`/posix/mixed-groups/${group.cn}`}
                         className="hover:underline text-primary"
                       >
                         {group.cn}
@@ -286,9 +306,14 @@ export default function PosixGroupsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
+                      <Badge variant="secondary">
+                        {group.memberUidCount} uid{group.memberUidCount !== 1 ? 's' : ''}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="icon" asChild>
-                          <Link to={`/posix/groups/${group.cn}`}>
+                          <Link to={`/posix/mixed-groups/${group.cn}`}>
                             <Edit className="h-4 w-4" />
                           </Link>
                         </Button>
@@ -313,9 +338,9 @@ export default function PosixGroupsPage() {
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Create POSIX Group</DialogTitle>
+            <DialogTitle>Create Mixed Group</DialogTitle>
             <DialogDescription>
-              Create a new standalone POSIX group for UNIX/Linux systems
+              Create a new hybrid group with both LDAP organizational and POSIX capabilities
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -476,9 +501,9 @@ export default function PosixGroupsPage() {
       <AlertDialog open={!!groupToDelete} onOpenChange={(open) => !open && setGroupToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete POSIX Group</AlertDialogTitle>
+            <AlertDialogTitle>Delete Mixed Group</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete the POSIX group "{groupToDelete?.cn}"?
+              Are you sure you want to delete the mixed group "{groupToDelete?.cn}"?
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>

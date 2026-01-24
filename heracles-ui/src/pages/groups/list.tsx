@@ -135,6 +135,12 @@ export function GroupsListPage() {
                   POSIX Group
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/posix/mixed-groups?create=true">
+                  <Layers className="mr-2 h-4 w-4" />
+                  Mixed Group
+                </Link>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         }

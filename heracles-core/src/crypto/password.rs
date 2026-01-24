@@ -1,7 +1,7 @@
 //! Password hashing and verification.
 //!
 //! This module provides password hashing compatible with LDAP userPassword
-//! attribute formats used by FusionDirectory.
+//! attribute formats.
 
 use crate::errors::{HeraclesError, Result};
 use argon2::{
@@ -17,7 +17,7 @@ use std::fmt;
 /// Supported password hash methods.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HashMethod {
-    /// Salted SHA-1 (LDAP standard, FusionDirectory default)
+    /// Salted SHA-1 (LDAP standard default)
     Ssha,
     /// Argon2id (modern, recommended)
     Argon2id,
@@ -114,7 +114,7 @@ impl HashMethod {
 
 impl Default for HashMethod {
     fn default() -> Self {
-        HashMethod::Ssha // FusionDirectory default
+        HashMethod::Ssha // LDAP standard default
     }
 }
 

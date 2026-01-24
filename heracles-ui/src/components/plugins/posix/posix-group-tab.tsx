@@ -10,7 +10,7 @@ interface PosixGroupTabProps {
 /**
  * POSIX Group Tab (Informational)
  * 
- * In FusionDirectory's model, posixGroup is a standalone structural objectClass,
+ * In standard LDAP, posixGroup is a standalone structural objectClass,
  * not something you add to groupOfNames. This tab provides information and
  * links to the proper POSIX group management page.
  */

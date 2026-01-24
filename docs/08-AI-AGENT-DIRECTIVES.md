@@ -24,7 +24,7 @@ Avant de coder quoi que ce soit, l'agent DOIT lire dans cet ordre:
 ╠══════════════════════════════════════════════════════════════════════════════╣
 ║                                                                               ║
 ║  1. COMPATIBILITÉ LDAP                                                        ║
-║     Utiliser UNIQUEMENT les schémas LDAP FusionDirectory existants.          ║
+║     Utiliser UNIQUEMENT les schémas LDAP standards existants.                ║
 ║     NE JAMAIS créer de nouveaux objectClass ou attributeType.                 ║
 ║                                                                               ║
 ║  2. STACK TECHNOLOGIQUE                                                       ║
@@ -285,7 +285,7 @@ filter = f"(uid={escape_filter_chars(user_input)})"
 # ❌ ERREUR: Nouveau schéma LDAP
 objectClass: heraclesCustomClass  # INTERDIT!
 
-# ✅ CORRECT: Schéma FusionDirectory existant
+# ✅ CORRECT: Schéma LDAP standard
 objectClass: inetOrgPerson
 objectClass: posixAccount
 ```
@@ -388,13 +388,13 @@ logger.info(f"User {uid} logged in successfully")
 2. Ne pas mélanger le fix avec la tâche en cours
 3. Documenter le bug et la correction proposée
 
-### Q: Comment gérer la compatibilité avec FusionDirectory?
+### Q: Comment gérer la compatibilité LDAP?
 
 **R**: 
-1. Utiliser uniquement les schémas LDAP FD
-2. Tester en environnement avec FD installé
-3. Vérifier que les entrées créées sont lisibles par FD
-4. Vérifier que les entrées FD sont lisibles par Heracles
+1. Utiliser uniquement les schémas LDAP standards
+2. Tester en environnement avec des outils LDAP standards
+3. Vérifier que les entrées créées sont lisibles par les clients LDAP
+4. Vérifier que les entrées existantes sont lisibles par Heracles
 
 ### Q: Puis-je refactorer du code existant?
 
@@ -421,12 +421,12 @@ logger.info(f"User {uid} logged in successfully")
 | `06-SECURITY.md` | Règles sécurité |
 | `07-ROADMAP.md` | Planning |
 
-### Schémas LDAP FusionDirectory
+### Schémas LDAP Standards
 
 Référence pour les schémas LDAP:
-- `core-fd.schema`
-- `core-fd-conf.schema`
-- Schémas des plugins dans `fd-plugins/`
+- `core.schema`, `cosine.schema`, `inetorgperson.schema`
+- `nis.schema` (POSIX)
+- `sudo.schema`, `openssh-lpk.schema`
 
 ---
 

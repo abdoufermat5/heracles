@@ -199,7 +199,7 @@ async def check_login_attempts(username: str, ip: str) -> None:
 
 ### 3.2 Format des Permissions
 
-Compatible avec FusionDirectory:
+Format standard:
 
 ```
 {category}/{tab}:{permissions}:{target_filter}

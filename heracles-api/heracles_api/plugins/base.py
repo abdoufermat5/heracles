@@ -38,6 +38,9 @@ class PluginInfo:
     dependencies: List[str] = field(default_factory=list)
     """Other plugins required by this one."""
     
+    optional_dependencies: List[str] = field(default_factory=list)
+    """Optional plugins that enhance this one's functionality."""
+    
     required_config: List[str] = field(default_factory=list)
     """Configuration keys required by this plugin."""
     

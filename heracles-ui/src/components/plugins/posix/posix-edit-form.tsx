@@ -27,7 +27,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import { useAvailableShells, usePosixGroups } from '@/hooks'
-import type { PosixAccountData, PosixAccountUpdate } from '@/types/posix'
+import type { PosixAccountData, PosixAccountUpdate, TrustMode } from '@/types/posix'
 
 const posixEditSchema = z.object({
   gidNumber: z.number().min(1000).max(65534).optional().nullable(),
@@ -39,7 +39,21 @@ const posixEditSchema = z.object({
   shadowWarning: z.number().min(0).optional().nullable(),
   shadowInactive: z.number().min(-1).optional().nullable(),
   shadowExpire: z.number().min(-1).optional().nullable(),
-})
+  // System trust
+  trustMode: z.enum(['fullaccess', 'byhost']).optional().nullable(),
+  host: z.array(z.string()).optional().nullable(),
+}).refine(
+  (data) => {
+    if (data.trustMode === 'byhost' && (!data.host || data.host.length === 0)) {
+      return false
+    }
+    return true
+  },
+  {
+    message: 'At least one host is required when trust mode is "By Host"',
+    path: ['host'],
+  }
+)
 
 type PosixEditFormData = z.infer<typeof posixEditSchema>
 
@@ -69,8 +83,12 @@ export function PosixEditForm({
       shadowWarning: data.shadowWarning ?? undefined,
       shadowInactive: data.shadowInactive ?? undefined,
       shadowExpire: data.shadowExpire,
+      trustMode: data.trustMode ?? null,
+      host: data.host ?? [],
     },
   })
+
+  const trustMode = form.watch('trustMode')
 
   const handleSubmit = async (formData: PosixEditFormData) => {
     // Only include fields that have changed
@@ -102,6 +120,13 @@ export function PosixEditForm({
     }
     if (formData.shadowExpire !== data.shadowExpire && formData.shadowExpire != null) {
       update.shadowExpire = formData.shadowExpire
+    }
+    // Trust mode - include if changed (can set to null to remove)
+    if (formData.trustMode !== data.trustMode) {
+      update.trustMode = formData.trustMode as TrustMode | undefined
+      update.host = formData.trustMode === 'byhost' ? formData.host ?? undefined : undefined
+    } else if (formData.trustMode === 'byhost' && JSON.stringify(formData.host) !== JSON.stringify(data.host)) {
+      update.host = formData.host ?? undefined
     }
 
     // Only submit if there are changes
@@ -355,6 +380,78 @@ export function PosixEditForm({
                     className="bg-muted"
                   />
                 </div>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+
+        {/* System Trust Section */}
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="trust">
+            <AccordionTrigger>System Trust</AccordionTrigger>
+            <AccordionContent className="space-y-4 pt-4">
+              <p className="text-xs text-muted-foreground mb-4">
+                Control which systems this user can access
+              </p>
+
+              <FormField
+                control={form.control}
+                name="trustMode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Trust Mode</FormLabel>
+                    <Select 
+                      onValueChange={(value) => field.onChange(value === 'none' ? null : value)} 
+                      value={field.value ?? 'none'}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="No restriction" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">No restriction</SelectItem>
+                        <SelectItem value="fullaccess">Full access (all systems)</SelectItem>
+                        <SelectItem value="byhost">Restricted by host</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      {!trustMode && 'User will have default system access'}
+                      {trustMode === 'fullaccess' && 'User can access all systems'}
+                      {trustMode === 'byhost' && 'User can only access specified hosts'}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {trustMode === 'byhost' && (
+                <FormField
+                  control={form.control}
+                  name="host"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Allowed Hosts *</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="server1.example.com, server2.example.com"
+                          value={field.value?.join(', ') ?? ''}
+                          onChange={(e) => {
+                            const hosts = e.target.value
+                              .split(',')
+                              .map((h) => h.trim())
+                              .filter((h) => h.length > 0)
+                            field.onChange(hosts.length > 0 ? hosts : [])
+                          }}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Comma-separated list of hostnames
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               )}
             </AccordionContent>
           </AccordionItem>

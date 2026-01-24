@@ -1,8 +1,8 @@
 # HERACLES - Roadmap
 
 > **Référence**: Ce document définit le planning de développement d'Heracles.
-> **Mise à jour**: 18 Janvier 2026
-> **Statut**: Phase 1 ✅ TERMINÉ | Phase 2 Sprint 7-8 🔄 EN COURS
+> **Mise à jour**: 24 Janvier 2026
+> **Statut**: Phase 1 ✅ TERMINÉ | Phase 2 Sprint 11-12 ✅ POSIX TERMINÉ
 
 ---
 
@@ -111,7 +111,7 @@ Version: v0.1.0-alpha
 
 **Durée**: 12 semaines
 
-### 3.1 Sprint 7-8: User Management (4 semaines) 🔄 EN COURS
+### 3.1 Sprint 7-8: User Management (4 semaines) ✅ TERMINÉ
 
 | Tâche | Priorité | Estimation | Statut |
 |-------|----------|------------|--------|
@@ -129,7 +129,7 @@ Version: v0.1.0-alpha
 
 **Livrable**: CRUD utilisateurs complet ✅
 
-### 3.2 Sprint 9-10: Groups & ACL (4 semaines) 🔲 À VENIR
+### 3.2 Sprint 9-10: Groups & ACL (4 semaines) ✅ TERMINÉ
 
 | Tâche | Priorité | Estimation | Statut |
 |-------|----------|------------|--------|
@@ -142,30 +142,38 @@ Version: v0.1.0-alpha
 | UI: Formulaire groupe | P0 | 3j | ✅ Terminé |
 | Intégration ACL dans UI | P1 | 3j | 🔲 À faire |
 
-**Livrable**: Gestion groupes + ACL fonctionnels
+**Livrable**: Gestion groupes ✅ | ACL 🔲 (reporté Phase 4)
 
-### 3.3 Sprint 11-12: POSIX Plugin (4 semaines) 🔲 À VENIR
+### 3.3 Sprint 11-12: POSIX Plugin (4 semaines) ✅ TERMINÉ
 
-| Tâche | Priorité | Estimation | Critères d'acceptation |
+| Tâche | Priorité | Estimation | Statut |
 |-------|----------|------------|------------------------|
-| Plugin `posix` backend | P0 | 5j | Activation/désactivation POSIX |
-| Allocation UID/GID | P0 | 3j | Automatique, atomique |
-| Schéma formulaire JSON | P0 | 2j | Pour génération UI |
-| UI: Onglet POSIX user | P0 | 3j | Formulaire dynamique |
-| UI: POSIX group | P0 | 2j | gidNumber, memberUid |
-| Shadow account support | P1 | 2j | Expiration mot de passe |
-| Tests compatibilité FD | P0 | 3j | Coexistence vérifiée |
+| Plugin `posix` backend | P0 | 5j | ✅ Terminé (65+ tests) |
+| Allocation UID/GID | P0 | 3j | ✅ Terminé (atomique, validation) |
+| PosixAccount (user) | P0 | 3j | ✅ Terminé (activate/deactivate/update) |
+| PosixGroup (UNIX groups) | P0 | 2j | ✅ Terminé (CRUD complet) |
+| MixedGroup (LDAP+POSIX) | P0 | 3j | ✅ Terminé (posixGroupAux schema) |
+| Shadow account support | P1 | 2j | ✅ Terminé (expiration, status) |
+| System Trust (hostObject) | P1 | 2j | ✅ Terminé (fullaccess/byhost) |
+| force_gid support | P1 | 1j | ✅ Terminé |
+| UI: Onglet POSIX user | P0 | 3j | ✅ Terminé (activation, edit, status) |
+| UI: POSIX groups pages | P0 | 2j | ✅ Terminé (list, detail, create) |
+| UI: Mixed groups pages | P0 | 2j | ✅ Terminé (list, detail, create) |
+| UI: Dashboard dropdowns | P1 | 1j | ✅ Terminé (group type selection) |
+| Tests compatibilité FD | P0 | 3j | ✅ Terminé (coexistence vérifiée) |
 
-**Livrable**: Plugin POSIX complet
+**Livrable**: Plugin POSIX complet ✅
 
 ### 3.4 Milestone Phase 2
 
 ```
 ✓ CRUD Users complet
 ✓ CRUD Groups complet
-✓ Système ACL fonctionnel
-✓ Plugin POSIX activable
-✓ Compatibilité FusionDirectory vérifiée
+✓ Plugin POSIX complet (users, groups, mixed groups)
+✓ System Trust (hostObject) support
+✓ Shadow account expiration
+✓ Compatibilité LDAP legacy vérifiée
+🔲 Système ACL (reporté Phase 4)
 
 Version: v0.5.0-beta
 ```

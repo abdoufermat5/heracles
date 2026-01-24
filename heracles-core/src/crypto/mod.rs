@@ -1,10 +1,10 @@
 //! Cryptographic module for Heracles.
 //!
 //! This module provides password hashing and verification using various methods
-//! compatible with LDAP password storage (FusionDirectory compatible).
+//! compatible with LDAP password storage.
 //!
 //! Supported hash methods:
-//! - SSHA (Salted SHA-1) - FusionDirectory default
+//! - SSHA (Salted SHA-1) - LDAP standard default
 //! - Argon2id - Modern secure option
 //! - bcrypt - Widely used secure option
 //! - SHA-512 / SHA-256 - Standard hashes

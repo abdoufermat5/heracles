@@ -11,7 +11,7 @@
 
 ## 📋 Overview
 
-**Heracles** is a modern rewrite of [FusionDirectory](https://www.fusiondirectory.org/), designed to provide a more powerful, scalable, and maintainable LDAP identity management solution while maintaining **100% compatibility** with existing FusionDirectory deployments.
+**Heracles** is a modern LDAP identity management platform, designed to provide a powerful, scalable, and maintainable solution while maintaining **100% compatibility** with standard LDAP deployments and existing directory structures.
 
 ### Key Features
 
@@ -20,7 +20,7 @@
 - 🎨 **Modern UI**: React-based responsive interface
 - 🔐 **Enterprise Security**: JWT authentication, fine-grained ACL
 - 📦 **Plugin Architecture**: Modular and extensible
-- ✅ **FusionDirectory Compatible**: Same LDAP schemas, coexistence possible
+- ✅ **LDAP Compatible**: Standard LDAP schemas, coexistence possible
 
 ---
 
@@ -196,6 +196,5 @@ This project is licensed under the GNU General Public License v2.0 - see the [LI
 
 ## 🙏 Acknowledgments
 
-- [FusionDirectory](https://www.fusiondirectory.org/) - The original project that inspired Heracles
 - [OpenLDAP](https://www.openldap.org/) - The LDAP implementation
-- All the FusionDirectory contributors
+- The open-source LDAP management community

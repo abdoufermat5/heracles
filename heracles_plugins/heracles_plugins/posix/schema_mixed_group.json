@@ -1,21 +1,21 @@
 {
   "$schema": "https://heracles.example.com/schemas/form-schema-v1.json",
-  "id": "posix-group",
+  "id": "posix-mixed-group",
   "version": "1.0.0",
-  "title": "POSIX Group",
-  "description": "POSIX/Unix group settings",
-  "icon": "users",
+  "title": "Mixed Group (LDAP + POSIX)",
+  "description": "Combined groupOfNames and posixGroup for LDAP access control and Unix permissions",
+  "icon": "users-cog",
 
   "activation": {
-    "label": "Enable POSIX group",
-    "description": "Add POSIX attributes to enable Unix/Linux group functionality"
+    "label": "Create Mixed Group",
+    "description": "Create a group with both LDAP (member DNs) and POSIX (memberUid) membership"
   },
 
   "sections": [
     {
       "id": "main",
       "title": "Group Settings",
-      "description": "POSIX group configuration",
+      "description": "Basic group configuration",
       "fields": [
         {
           "name": "cn",
@@ -42,15 +42,6 @@
           "helpText": "Leave empty to auto-allocate the next available GID"
         },
         {
-          "name": "forceGid",
-          "type": "boolean",
-          "label": "Force GID",
-          "description": "Force use of specific GID even if it appears allocated",
-          "required": false,
-          "default": false,
-          "helpText": "Use with caution - allows specifying GIDs that may conflict"
-        },
-        {
           "name": "description",
           "type": "string",
           "label": "Description",
@@ -62,21 +53,40 @@
       ]
     },
     {
-      "id": "members",
-      "title": "POSIX Members",
-      "description": "Unix group membership via memberUid",
+      "id": "ldap_members",
+      "title": "LDAP Members (groupOfNames)",
+      "description": "Members identified by their full LDAP Distinguished Name",
+      "fields": [
+        {
+          "name": "member",
+          "type": "dn_select",
+          "label": "LDAP Members",
+          "description": "Members identified by Distinguished Name (for LDAP-based access control)",
+          "required": false,
+          "multiple": true,
+          "filter": "(objectClass=inetOrgPerson)",
+          "displayField": "cn",
+          "valueField": "dn",
+          "helpText": "These members are used for LDAP group-based access control (ACLs, application permissions)"
+        }
+      ]
+    },
+    {
+      "id": "posix_members",
+      "title": "POSIX Members (memberUid)",
+      "description": "Members identified by their Unix uid attribute",
       "fields": [
         {
           "name": "memberUid",
           "type": "user_select",
           "label": "Unix Members",
-          "description": "Users who are members of this Unix group (by uid)",
+          "description": "Members identified by uid (for Unix/POSIX permissions)",
           "required": false,
           "multiple": true,
           "filter": "(objectClass=posixAccount)",
           "displayField": "uid",
           "valueField": "uid",
-          "helpText": "Select users to add as Unix group members"
+          "helpText": "These members are used for Unix file permissions and NFS access"
         }
       ]
     },
@@ -146,6 +156,9 @@
   },
 
   "notes": [
+    "Mixed Groups combine LDAP groupOfNames (member DNs) with POSIX posixGroup (memberUid).",
+    "Use LDAP members for application-level access control (e.g., who can login to a web app).",
+    "Use POSIX members for Unix file permissions and NFS/CIFS access.",
     "System trust features require the systems plugin to be installed for full host validation."
   ]
 }
