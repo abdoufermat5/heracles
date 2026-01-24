@@ -1,4 +1,4 @@
-# 🏛️ Heracles
+# Heracles
 
 > Next-generation LDAP Identity Management Platform
 
@@ -9,22 +9,22 @@
 
 ---
 
-## 📋 Overview
+## Overview
 
 **Heracles** is a modern LDAP identity management platform, designed to provide a powerful, scalable, and maintainable solution while maintaining **100% compatibility** with standard LDAP deployments and existing directory structures.
 
 ### Key Features
 
-- 🚀 **High Performance**: Rust-powered LDAP operations and password hashing
-- 🔌 **API-First**: RESTful API with OpenAPI documentation
-- 🎨 **Modern UI**: React-based responsive interface
-- 🔐 **Enterprise Security**: JWT authentication, fine-grained ACL
-- 📦 **Plugin Architecture**: Modular and extensible
-- ✅ **LDAP Compatible**: Standard LDAP schemas, coexistence possible
+- **High Performance**: Rust-powered LDAP operations and password hashing
+- **API-First**: RESTful API with OpenAPI documentation
+- **Modern UI**: React-based responsive interface
+- **Enterprise Security**: JWT authentication, fine-grained ACL
+- **Plugin Architecture**: Modular and extensible
+- **LDAP Compatible**: Standard LDAP schemas, coexistence possible
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -52,26 +52,9 @@
 │           LDAP Operations • Password Hashing • Schema            │
 └─────────────────────────────────────────────────────────────────┘
 ```
-
 ---
 
-## 📚 Documentation
-
-| Document | Description |
-|----------|-------------|
-| [Project Charter](docs/00-PROJECT-CHARTER.md) | Vision, principles, constraints |
-| [Architecture](docs/01-ARCHITECTURE.md) | Technical architecture details |
-| [API Specification](docs/02-API-SPECIFICATION.md) | REST API contract |
-| [Data Model](docs/03-DATA-MODEL.md) | LDAP schemas and database |
-| [Coding Rules](docs/04-CODING-RULES.md) | Development standards |
-| [Plugin Specification](docs/05-PLUGIN-SPECIFICATION.md) | How to create plugins |
-| [Security](docs/06-SECURITY.md) | Security requirements |
-| [Roadmap](docs/07-ROADMAP.md) | Development timeline |
-| [AI Agent Directives](docs/08-AI-AGENT-DIRECTIVES.md) | Guidelines for AI development |
-
----
-
-## 🔌 Plugins (v1.0 Scope)
+## Plugins (v1.0 Scope)
 
 | Plugin | Description | Status |
 |--------|-------------|--------|
@@ -85,7 +68,7 @@
 
 ---
 
-## � Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -98,7 +81,7 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/heracles.git
+git clone https://github.com/abdoufermat5/heracles.git
 cd heracles
 
 # Start LDAP, PostgreSQL, Redis
@@ -127,7 +110,7 @@ cargo build --release
 
 ---
 
-## �🛠️ Tech Stack
+## Tech Stack
 
 | Layer | Technology |
 |-------|------------|
@@ -140,9 +123,9 @@ cargo build --release
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
-> ⚠️ **Note**: Heracles is currently in early development. This section will be updated when the first alpha is released.
+> **Note**: Heracles is currently in early development. This section will be updated when the first alpha is released.
 
 ### Prerequisites
 
@@ -155,7 +138,7 @@ cargo build --release
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/heracles.git
+git clone https://github.com/abdoufermat5/heracles.git
 cd heracles
 
 # Start infrastructure (LDAP, PostgreSQL, Redis)
@@ -178,7 +161,7 @@ npm run dev
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Please read our documentation before contributing:
 
@@ -188,13 +171,13 @@ Please read our documentation before contributing:
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the GNU General Public License v2.0 - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - [OpenLDAP](https://www.openldap.org/) - The LDAP implementation
 - The open-source LDAP management community
