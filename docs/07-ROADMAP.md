@@ -43,7 +43,8 @@
 | heracles-core: connexion LDAP | P0 | 5j | ✅ Terminé (pool deadpool) |
 | heracles-core: opérations LDAP | P0 | 5j | ✅ Terminé (search, add, modify, delete) |
 | heracles-core: password hashing | P0 | 3j | ✅ Terminé (SSHA, Argon2, bcrypt, SHA-256/512, MD5) |
-| heracles-core: PyO3 bindings | P0 | 3j | ✅ Terminé |
+| heracles-core: PyO3 bindings | P0 | 3j | ✅ Terminé (password, DN, LDAP ops) |
+| heracles-core: intégration API | P0 | 2j | ✅ Terminé (ldap3 remplacé par Rust) |
 | Tests unitaires Rust | P0 | 2j | ✅ Terminé (57 tests, 100% pass) |
 | Docker Compose infrastructure | P0 | 2j | ✅ Terminé (LDAP, PostgreSQL, Redis) |
 | heracles-api skeleton | P1 | 2j | ✅ Terminé (FastAPI structure) |
@@ -56,7 +57,7 @@
 |-------|----------|------------|--------|
 | Setup FastAPI | P0 | 1j | ✅ Terminé |
 | Modèles Pydantic de base | P0 | 2j | ✅ Terminé (schemas/user.py, group.py, auth.py) |
-| Service LDAP (Python wrapper) | P0 | 3j | ✅ Terminé (ldap_service.py avec ldap3) |
+| Service LDAP (Python wrapper) | P0 | 3j | ✅ Terminé (ldap_service.py via heracles-core) |
 | Endpoint `/auth/login` | P0 | 3j | ✅ Terminé (JWT + Redis sessions) |
 | Endpoint `/auth/logout` | P0 | 1j | ✅ Terminé |
 | Endpoint `/auth/me` | P0 | 1j | ✅ Terminé |

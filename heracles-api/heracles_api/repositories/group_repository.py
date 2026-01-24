@@ -8,8 +8,6 @@ Data access layer for group LDAP operations.
 from typing import Optional, List
 from dataclasses import dataclass
 
-from ldap3 import MODIFY_REPLACE, MODIFY_ADD, MODIFY_DELETE
-
 from heracles_api.services.ldap_service import LdapService, LdapEntry, LdapOperationError
 from heracles_api.schemas.group import GroupCreate, GroupUpdate
 from heracles_api.config import settings
@@ -173,9 +171,9 @@ class GroupRepository:
         
         if updates.description is not None:
             if updates.description:
-                changes["description"] = [(MODIFY_REPLACE, [updates.description])]
+                changes["description"] = ("replace", [updates.description])
             else:
-                changes["description"] = [(MODIFY_DELETE, [])]
+                changes["description"] = ("delete", [])
         
         if changes:
             await self.ldap.modify(entry.dn, changes)
@@ -227,7 +225,7 @@ class GroupRepository:
         
         await self.ldap.modify(
             entry.dn,
-            {"member": [(MODIFY_ADD, [member_dn])]}
+            {"member": ("add", [member_dn])}
         )
         
         logger.info("group_member_added", cn=cn, member_dn=member_dn)
@@ -261,7 +259,7 @@ class GroupRepository:
         
         await self.ldap.modify(
             entry.dn,
-            {"member": [(MODIFY_DELETE, [member_dn])]}
+            {"member": ("delete", [member_dn])}
         )
         
         logger.info("group_member_removed", cn=cn, member_dn=member_dn)
@@ -338,7 +336,7 @@ class GroupRepository:
                 if len(members) > 1:
                     await self.ldap.modify(
                         group.dn,
-                        {"member": [(MODIFY_DELETE, [user_dn])]}
+                        {"member": ("delete", [user_dn])}
                     )
                     count += 1
             except LdapOperationError:

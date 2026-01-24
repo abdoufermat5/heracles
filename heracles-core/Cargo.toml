@@ -43,6 +43,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Python bindings
 pyo3 = { version = "0.20", features = ["extension-module", "abi3-py311"], optional = true }
+pyo3-asyncio = { version = "0.20", features = ["tokio-runtime"], optional = true }
 
 # Connection pooling
 deadpool = { version = "0.10", features = ["managed"] }
@@ -61,7 +62,7 @@ wiremock = "0.5"
 
 [features]
 default = ["python"]
-python = ["pyo3"]
+python = ["pyo3", "pyo3-asyncio"]
 
 [profile.release]
 lto = true

@@ -10,7 +10,6 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import structlog
-from ldap3 import MODIFY_ADD, MODIFY_DELETE, MODIFY_REPLACE
 
 from heracles_api.plugins.base import TabService
 from heracles_api.services.ldap_service import LdapService, LdapOperationError
@@ -305,27 +304,27 @@ class PosixService(TabService):
             object_classes_to_add.append("hostObject")
         
         changes = {
-            "objectClass": [(MODIFY_ADD, object_classes_to_add)],
-            "uidNumber": [(MODIFY_ADD, [str(uid_number)])],
-            "gidNumber": [(MODIFY_ADD, [str(gid_number)])],
-            "homeDirectory": [(MODIFY_ADD, [home_directory])],
-            "loginShell": [(MODIFY_ADD, [data.login_shell or self._default_shell])],
+            "objectClass": ("add", object_classes_to_add),
+            "uidNumber": ("add", [str(uid_number)]),
+            "gidNumber": ("add", [str(gid_number)]),
+            "homeDirectory": ("add", [home_directory]),
+            "loginShell": ("add", [data.login_shell or self._default_shell]),
         }
         
         if gecos:
-            changes["gecos"] = [(MODIFY_ADD, [gecos])]
+            changes["gecos"] = ("add", [gecos])
         
         # Initialize shadow account
         shadow_last_change = int(time.time() / 86400)  # Days since epoch
-        changes["shadowLastChange"] = [(MODIFY_ADD, [str(shadow_last_change)])]
-        changes["shadowMax"] = [(MODIFY_ADD, ["99999"])]
+        changes["shadowLastChange"] = ("add", [str(shadow_last_change)])
+        changes["shadowMax"] = ("add", ["99999"])
         
         # Handle system trust (hostObject)
         if data.trust_mode is not None:
             if data.trust_mode == TrustMode.FULL_ACCESS:
-                changes["host"] = [(MODIFY_ADD, ["*"])]
+                changes["host"] = ("add", ["*"])
             elif data.trust_mode == TrustMode.BY_HOST and data.host:
-                changes["host"] = [(MODIFY_ADD, data.host)]
+                changes["host"] = ("add", data.host)
         
         # Apply changes
         try:
@@ -365,45 +364,45 @@ class PosixService(TabService):
         if data.gid_number is not None:
             if not await self._gid_exists(data.gid_number):
                 raise PosixValidationError(f"GID {data.gid_number} does not exist")
-            changes["gidNumber"] = [(MODIFY_REPLACE, [str(data.gid_number)])]
+            changes["gidNumber"] = ("replace", [str(data.gid_number)])
         
         if data.home_directory is not None:
-            changes["homeDirectory"] = [(MODIFY_REPLACE, [data.home_directory])]
+            changes["homeDirectory"] = ("replace", [data.home_directory])
         
         if data.login_shell is not None:
-            changes["loginShell"] = [(MODIFY_REPLACE, [data.login_shell])]
+            changes["loginShell"] = ("replace", [data.login_shell])
         
         if data.gecos is not None:
             if data.gecos == "":
-                changes["gecos"] = [(MODIFY_DELETE, [])]
+                changes["gecos"] = ("delete", [])
             else:
-                changes["gecos"] = [(MODIFY_REPLACE, [data.gecos])]
+                changes["gecos"] = ("replace", [data.gecos])
         
         # Shadow attributes
         if data.shadow_min is not None:
-            changes["shadowMin"] = [(MODIFY_REPLACE, [str(data.shadow_min)])]
+            changes["shadowMin"] = ("replace", [str(data.shadow_min)])
         
         if data.shadow_max is not None:
-            changes["shadowMax"] = [(MODIFY_REPLACE, [str(data.shadow_max)])]
+            changes["shadowMax"] = ("replace", [str(data.shadow_max)])
         
         if data.shadow_warning is not None:
-            changes["shadowWarning"] = [(MODIFY_REPLACE, [str(data.shadow_warning)])]
+            changes["shadowWarning"] = ("replace", [str(data.shadow_warning)])
         
         if data.shadow_inactive is not None:
-            changes["shadowInactive"] = [(MODIFY_REPLACE, [str(data.shadow_inactive)])]
+            changes["shadowInactive"] = ("replace", [str(data.shadow_inactive)])
         
         if data.shadow_expire is not None:
-            changes["shadowExpire"] = [(MODIFY_REPLACE, [str(data.shadow_expire)])]
+            changes["shadowExpire"] = ("replace", [str(data.shadow_expire)])
         
         # Handle must_change_password by setting shadowLastChange to 0
         if data.must_change_password is not None:
             if data.must_change_password:
                 # Set shadowLastChange to 0 to force password change
-                changes["shadowLastChange"] = [(MODIFY_REPLACE, ["0"])]
+                changes["shadowLastChange"] = ("replace", ["0"])
             else:
                 # Reset to current date
                 shadow_last_change = int(time.time() / 86400)
-                changes["shadowLastChange"] = [(MODIFY_REPLACE, [str(shadow_last_change)])]
+                changes["shadowLastChange"] = ("replace", [str(shadow_last_change)])
         
         # Handle system trust (hostObject)
         if data.trust_mode is not None:
@@ -417,14 +416,14 @@ class PosixService(TabService):
             
             if data.trust_mode == TrustMode.FULL_ACCESS:
                 if not has_host_object:
-                    changes["objectClass"] = [(MODIFY_ADD, ["hostObject"])]
-                changes["host"] = [(MODIFY_REPLACE, ["*"])]
+                    changes["objectClass"] = ("add", ["hostObject"])
+                changes["host"] = ("replace", ["*"])
             elif data.trust_mode == TrustMode.BY_HOST:
                 if not data.host:
                     raise PosixValidationError("host list is required when trustMode is byhost")
                 if not has_host_object:
-                    changes["objectClass"] = [(MODIFY_ADD, ["hostObject"])]
-                changes["host"] = [(MODIFY_REPLACE, data.host)]
+                    changes["objectClass"] = ("add", ["hostObject"])
+                changes["host"] = ("replace", data.host)
         elif data.host is not None:
             # Just update hosts without changing trust mode
             entry = await self._ldap.get_by_dn(dn, attributes=["objectClass"])
@@ -434,9 +433,9 @@ class PosixService(TabService):
             
             if "hostObject" in object_classes:
                 if data.host:
-                    changes["host"] = [(MODIFY_REPLACE, data.host)]
+                    changes["host"] = ("replace", data.host)
                 else:
-                    changes["host"] = [(MODIFY_DELETE, [])]
+                    changes["host"] = ("delete", [])
         
         if changes:
             try:
@@ -495,14 +494,14 @@ class PosixService(TabService):
             classes_to_remove.append("hostObject")
         
         changes = {
-            "objectClass": [(MODIFY_DELETE, classes_to_remove)],
+            "objectClass": ("delete", classes_to_remove),
         }
         
         # Delete all managed attributes that have values
         for attr in self.MANAGED_ATTRIBUTES:
             value = entry.get(attr) if entry else None
             if value:
-                changes[attr] = [(MODIFY_DELETE, [])]
+                changes[attr] = ("delete", [])
         
         try:
             await self._ldap.modify(dn, changes)
@@ -942,18 +941,18 @@ class PosixGroupService:
         
         if data.description is not None:
             if data.description:
-                changes["description"] = [(MODIFY_REPLACE, [data.description])]
+                changes["description"] = ("replace", [data.description])
             else:
                 # Remove description if empty
-                changes["description"] = [(MODIFY_DELETE, [])]
+                changes["description"] = ("delete", [])
         
         if data.member_uid is not None:
             if data.member_uid:
-                changes["memberUid"] = [(MODIFY_REPLACE, data.member_uid)]
+                changes["memberUid"] = ("replace", data.member_uid)
             else:
                 # Remove all members
                 if existing.member_uid:
-                    changes["memberUid"] = [(MODIFY_DELETE, [])]
+                    changes["memberUid"] = ("delete", [])
         
         # Handle system trust (hostObject) updates
         # NOTE: Full host validation requires the systems plugin
@@ -968,15 +967,15 @@ class PosixGroupService:
             
             if data.trust_mode == TrustMode.FULL_ACCESS:
                 if not has_host_object:
-                    changes["objectClass"] = [(MODIFY_ADD, ["hostObject"])]
-                changes["host"] = [(MODIFY_REPLACE, ["*"])]
+                    changes["objectClass"] = ("add", ["hostObject"])
+                changes["host"] = ("replace", ["*"])
             elif data.trust_mode == TrustMode.BY_HOST:
                 if not data.host:
                     raise PosixValidationError("host list is required when trustMode is byhost")
                 if not has_host_object:
-                    changes["objectClass"] = [(MODIFY_ADD, ["hostObject"])]
+                    changes["objectClass"] = ("add", ["hostObject"])
                 # TODO: Validate hosts against systems plugin when available
-                changes["host"] = [(MODIFY_REPLACE, data.host)]
+                changes["host"] = ("replace", data.host)
         elif data.host is not None:
             # Just update hosts without changing trust mode
             entry = await self._ldap.get_by_dn(dn, attributes=["objectClass"])
@@ -986,9 +985,9 @@ class PosixGroupService:
             
             if "hostObject" in object_classes:
                 if data.host:
-                    changes["host"] = [(MODIFY_REPLACE, data.host)]
+                    changes["host"] = ("replace", data.host)
                 else:
-                    changes["host"] = [(MODIFY_DELETE, [])]
+                    changes["host"] = ("delete", [])
         
         if changes:
             try:
@@ -1032,7 +1031,7 @@ class PosixGroupService:
             return group  # Already a member
         
         try:
-            await self._ldap.modify(dn, {"memberUid": [(MODIFY_ADD, [uid])]})
+            await self._ldap.modify(dn, {"memberUid": ("add", [uid])})
             logger.info("posix_group_member_added", cn=cn, uid=uid)
         except LdapOperationError as e:
             raise PosixValidationError(f"Failed to add member: {e}")
@@ -1051,7 +1050,7 @@ class PosixGroupService:
             return group  # Not a member
         
         try:
-            await self._ldap.modify(dn, {"memberUid": [(MODIFY_DELETE, [uid])]})
+            await self._ldap.modify(dn, {"memberUid": ("delete", [uid])})
             logger.info("posix_group_member_removed", cn=cn, uid=uid)
         except LdapOperationError as e:
             raise PosixValidationError(f"Failed to remove member: {e}")
@@ -1409,29 +1408,29 @@ class MixedGroupService:
         
         if data.description is not None:
             if data.description:
-                changes["description"] = [(MODIFY_REPLACE, [data.description])]
+                changes["description"] = ("replace", [data.description])
             else:
-                changes["description"] = [(MODIFY_DELETE, [])]
+                changes["description"] = ("delete", [])
         
         if data.member is not None:
             if data.member:
                 # Resolve UIDs/CNs to full DNs
                 resolved_members = await self._resolve_members_to_dns(data.member)
                 if resolved_members:
-                    changes["member"] = [(MODIFY_REPLACE, resolved_members)]
+                    changes["member"] = ("replace", resolved_members)
                 else:
                     # No valid members, use group's own DN as placeholder
-                    changes["member"] = [(MODIFY_REPLACE, [dn])]
+                    changes["member"] = ("replace", [dn])
             else:
                 # Keep at least one member (the group itself)
-                changes["member"] = [(MODIFY_REPLACE, [dn])]
+                changes["member"] = ("replace", [dn])
         
         if data.member_uid is not None:
             if data.member_uid:
-                changes["memberUid"] = [(MODIFY_REPLACE, data.member_uid)]
+                changes["memberUid"] = ("replace", data.member_uid)
             else:
                 if existing.member_uid:
-                    changes["memberUid"] = [(MODIFY_DELETE, [])]
+                    changes["memberUid"] = ("delete", [])
         
         # Handle system trust (hostObject) updates
         # NOTE: Full host validation requires the systems plugin
@@ -1446,15 +1445,15 @@ class MixedGroupService:
             
             if data.trust_mode == TrustMode.FULL_ACCESS:
                 if not has_host_object:
-                    changes["objectClass"] = [(MODIFY_ADD, ["hostObject"])]
-                changes["host"] = [(MODIFY_REPLACE, ["*"])]
+                    changes["objectClass"] = ("add", ["hostObject"])
+                changes["host"] = ("replace", ["*"])
             elif data.trust_mode == TrustMode.BY_HOST:
                 if not data.host:
                     raise PosixValidationError("host list is required when trustMode is byhost")
                 if not has_host_object:
-                    changes["objectClass"] = [(MODIFY_ADD, ["hostObject"])]
+                    changes["objectClass"] = ("add", ["hostObject"])
                 # TODO: Validate hosts against systems plugin when available
-                changes["host"] = [(MODIFY_REPLACE, data.host)]
+                changes["host"] = ("replace", data.host)
         elif data.host is not None:
             # Just update hosts without changing trust mode
             entry = await self._ldap.get_by_dn(dn, attributes=["objectClass"])
@@ -1464,9 +1463,9 @@ class MixedGroupService:
             
             if "hostObject" in object_classes:
                 if data.host:
-                    changes["host"] = [(MODIFY_REPLACE, data.host)]
+                    changes["host"] = ("replace", data.host)
                 else:
-                    changes["host"] = [(MODIFY_DELETE, [])]
+                    changes["host"] = ("delete", [])
         
         if changes:
             try:
@@ -1509,7 +1508,7 @@ class MixedGroupService:
             return group
         
         try:
-            await self._ldap.modify(dn, {"member": [(MODIFY_ADD, [member_dn])]})
+            await self._ldap.modify(dn, {"member": ("add", [member_dn])})
             logger.info("mixed_group_member_added", cn=cn, member_dn=member_dn)
         except LdapOperationError as e:
             raise PosixValidationError(f"Failed to add member: {e}")
@@ -1532,7 +1531,7 @@ class MixedGroupService:
             raise PosixValidationError("Cannot remove the last member from a groupOfNames")
         
         try:
-            await self._ldap.modify(dn, {"member": [(MODIFY_DELETE, [member_dn])]})
+            await self._ldap.modify(dn, {"member": ("delete", [member_dn])})
             logger.info("mixed_group_member_removed", cn=cn, member_dn=member_dn)
         except LdapOperationError as e:
             raise PosixValidationError(f"Failed to remove member: {e}")
@@ -1551,7 +1550,7 @@ class MixedGroupService:
             return group
         
         try:
-            await self._ldap.modify(dn, {"memberUid": [(MODIFY_ADD, [uid])]})
+            await self._ldap.modify(dn, {"memberUid": ("add", [uid])})
             logger.info("mixed_group_member_uid_added", cn=cn, uid=uid)
         except LdapOperationError as e:
             raise PosixValidationError(f"Failed to add memberUid: {e}")
@@ -1570,7 +1569,7 @@ class MixedGroupService:
             return group
         
         try:
-            await self._ldap.modify(dn, {"memberUid": [(MODIFY_DELETE, [uid])]})
+            await self._ldap.modify(dn, {"memberUid": ("delete", [uid])})
             logger.info("mixed_group_member_uid_removed", cn=cn, uid=uid)
         except LdapOperationError as e:
             raise PosixValidationError(f"Failed to remove memberUid: {e}")

@@ -8,8 +8,6 @@ Data access layer for user LDAP operations.
 from typing import Optional, List
 from dataclasses import dataclass
 
-from ldap3 import MODIFY_REPLACE, MODIFY_DELETE
-
 from heracles_api.services.ldap_service import LdapService, LdapEntry, LdapOperationError
 from heracles_api.schemas.user import UserCreate, UserUpdate, UserResponse
 from heracles_api.config import settings
@@ -216,9 +214,9 @@ class UserRepository:
             if field in update_data:
                 value = update_data[field]
                 if value is not None:
-                    changes[ldap_attr] = [(MODIFY_REPLACE, [value])]
+                    changes[ldap_attr] = ("replace", [value])
                 else:
-                    changes[ldap_attr] = [(MODIFY_DELETE, [])]
+                    changes[ldap_attr] = ("delete", [])
         
         if changes:
             await self.ldap.modify(entry.dn, changes)
@@ -353,7 +351,7 @@ class UserRepository:
         # Prefix password with {LOCKED}
         locked_password = f"{self.LOCK_PREFIX}{password_str}"
         changes = {
-            "userPassword": [(MODIFY_REPLACE, [locked_password])]
+            "userPassword": ("replace", [locked_password])
         }
         await self.ldap.modify(entry.dn, changes)
         logger.info("user_locked", uid=uid)
@@ -386,7 +384,7 @@ class UserRepository:
         # Remove {LOCKED} prefix
         unlocked_password = password_str[len(self.LOCK_PREFIX):]
         changes = {
-            "userPassword": [(MODIFY_REPLACE, [unlocked_password])]
+            "userPassword": ("replace", [unlocked_password])
         }
         await self.ldap.modify(entry.dn, changes)
         logger.info("user_unlocked", uid=uid)
