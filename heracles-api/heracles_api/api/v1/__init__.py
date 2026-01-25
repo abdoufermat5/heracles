@@ -23,3 +23,10 @@ try:
     router.include_router(posix_router, tags=["POSIX"])
 except ImportError:
     pass  # POSIX plugin not installed
+
+# Include Systems plugin routes
+try:
+    from heracles_plugins.systems.routes import router as systems_router
+    router.include_router(systems_router, tags=["Systems"])
+except ImportError:
+    pass  # Systems plugin not installed

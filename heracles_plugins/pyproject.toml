@@ -27,3 +27,4 @@ include = ["heracles_plugins*"]
 
 [tool.setuptools.package-data]
 "heracles_plugins.posix" = ["*.json"]
+"heracles_plugins.systems" = ["*.json"]

@@ -68,7 +68,7 @@ const searchItems = [
   { label: 'Users', href: ROUTES.USERS, icon: Users, shortcut: 'U' },
   { label: 'Groups', href: ROUTES.GROUPS, icon: UsersRound, shortcut: 'G' },
   { label: 'Sudo Roles', href: PLUGIN_ROUTES.SUDO.ROLES, icon: ShieldCheck, shortcut: 'S' },
-  { label: 'Systems', href: ROUTES.SYSTEMS, icon: Server, shortcut: 'Y' },
+  { label: 'Systems', href: PLUGIN_ROUTES.SYSTEMS.LIST, icon: Server, shortcut: 'Y' },
   { label: 'Settings', href: ROUTES.SETTINGS, icon: Settings, shortcut: ',' },
 ]
 

@@ -56,7 +56,7 @@ const mainNavItems = [
   },
   {
     title: 'Systems',
-    url: ROUTES.SYSTEMS,
+    url: PLUGIN_ROUTES.SYSTEMS.LIST,
     icon: Server,
   },
 ]

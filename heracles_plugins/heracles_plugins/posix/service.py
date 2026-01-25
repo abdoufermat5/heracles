@@ -753,8 +753,8 @@ class PosixGroupService:
     - description: Optional description
     - host: List of hosts (hostObject) for system trust
     
-    NOTE: System trust (hostObject) is implemented but full host validation
-    requires the systems plugin. Currently accepts any host string.
+    Host validation is performed against the systems plugin when available.
+    If the systems plugin is not loaded, host values are accepted without validation.
     """
     
     OBJECT_CLASSES = ["posixGroup"]
@@ -778,6 +778,55 @@ class PosixGroupService:
     def _get_groups_base_dn(self) -> str:
         """Get the base DN for POSIX groups."""
         from heracles_api.config import settings
+        return f"{self._groups_ou},{settings.LDAP_BASE_DN}"
+    
+    async def _validate_hosts(self, hosts: List[str]) -> List[str]:
+        """
+        Validate hosts against the systems plugin.
+        
+        If the systems plugin is available, validates that all hostnames
+        correspond to registered systems. Raises PosixValidationError if
+        any hosts are invalid.
+        
+        If the systems plugin is not loaded, accepts all hosts without validation.
+        
+        Args:
+            hosts: List of hostnames to validate
+            
+        Returns:
+            The validated list of hosts (unchanged if valid)
+            
+        Raises:
+            PosixValidationError: If any hosts are not registered in systems
+        """
+        if not hosts:
+            return hosts
+        
+        try:
+            from heracles_api.plugins.registry import plugin_registry
+            systems_service = plugin_registry.get_service("systems")
+            
+            if systems_service is None:
+                # Systems plugin not loaded, skip validation
+                logger.debug("systems_plugin_not_loaded", action="skipping_host_validation")
+                return hosts
+            
+            # Validate hosts
+            result = await systems_service.validate_hosts(hosts)
+            
+            if result.invalid_hosts:
+                raise PosixValidationError(
+                    f"Invalid hosts (not registered in systems): {', '.join(result.invalid_hosts)}"
+                )
+            
+            return hosts
+            
+        except ImportError:
+            # Plugin registry not available (e.g., during testing)
+            logger.debug("plugin_registry_not_available", action="skipping_host_validation")
+            return hosts
+    
+    def _get_group_dn(self, cn: str) -> str:
         return f"{self._groups_ou},{settings.LDAP_BASE_DN}"
     
     def _get_group_dn(self, cn: str) -> str:
@@ -909,12 +958,12 @@ class PosixGroupService:
             attributes["memberUid"] = data.member_uid
         
         # Handle system trust (hostObject)
-        # NOTE: Full host validation requires the systems plugin
         if data.trust_mode is not None:
             if data.trust_mode == TrustMode.FULL_ACCESS:
                 attributes["host"] = ["*"]
             elif data.trust_mode == TrustMode.BY_HOST and data.host:
-                # TODO: Validate hosts against systems plugin when available
+                # Validate hosts against systems plugin
+                await self._validate_hosts(data.host)
                 attributes["host"] = data.host
         
         try:
@@ -955,7 +1004,6 @@ class PosixGroupService:
                     changes["memberUid"] = ("delete", [])
         
         # Handle system trust (hostObject) updates
-        # NOTE: Full host validation requires the systems plugin
         if data.trust_mode is not None:
             # Check if hostObject is in objectClasses
             entry = await self._ldap.get_by_dn(dn, attributes=["objectClass", "host"])
@@ -974,7 +1022,8 @@ class PosixGroupService:
                     raise PosixValidationError("host list is required when trustMode is byhost")
                 if not has_host_object:
                     changes["objectClass"] = ("add", ["hostObject"])
-                # TODO: Validate hosts against systems plugin when available
+                # Validate hosts against systems plugin
+                await self._validate_hosts(data.host)
                 changes["host"] = ("replace", data.host)
         elif data.host is not None:
             # Just update hosts without changing trust mode
@@ -1190,8 +1239,8 @@ class MixedGroupService:
     combining with groupOfNames. The standard posixGroup is structural and
     cannot be combined with other structural classes like groupOfNames.
     
-    NOTE: System trust (hostObject) is implemented but full host validation
-    requires the systems plugin. Currently accepts any host string.
+    Host validation is performed against the systems plugin when available.
+    If the systems plugin is not loaded, host values are accepted without validation.
     """
     
     # Use posixGroupAux (auxiliary) instead of posixGroup (structural)
@@ -1219,6 +1268,52 @@ class MixedGroupService:
         """Get the base DN for MixedGroups."""
         from heracles_api.config import settings
         return f"{self._groups_ou},{settings.LDAP_BASE_DN}"
+    
+    async def _validate_hosts(self, hosts: List[str]) -> List[str]:
+        """
+        Validate hosts against the systems plugin.
+        
+        If the systems plugin is available, validates that all hostnames
+        correspond to registered systems. Raises PosixValidationError if
+        any hosts are invalid.
+        
+        If the systems plugin is not loaded, accepts all hosts without validation.
+        
+        Args:
+            hosts: List of hostnames to validate
+            
+        Returns:
+            The validated list of hosts (unchanged if valid)
+            
+        Raises:
+            PosixValidationError: If any hosts are not registered in systems
+        """
+        if not hosts:
+            return hosts
+        
+        try:
+            from heracles_api.plugins.registry import plugin_registry
+            systems_service = plugin_registry.get_service("systems")
+            
+            if systems_service is None:
+                # Systems plugin not loaded, skip validation
+                logger.debug("systems_plugin_not_loaded", action="skipping_host_validation")
+                return hosts
+            
+            # Validate hosts
+            result = await systems_service.validate_hosts(hosts)
+            
+            if result.invalid_hosts:
+                raise PosixValidationError(
+                    f"Invalid hosts (not registered in systems): {', '.join(result.invalid_hosts)}"
+                )
+            
+            return hosts
+            
+        except ImportError:
+            # Plugin registry not available (e.g., during testing)
+            logger.debug("plugin_registry_not_available", action="skipping_host_validation")
+            return hosts
     
     def _get_group_dn(self, cn: str) -> str:
         """Get the DN for a MixedGroup by cn."""
@@ -1377,12 +1472,12 @@ class MixedGroupService:
             attributes["memberUid"] = data.member_uid
         
         # Handle system trust (hostObject)
-        # NOTE: Full host validation requires the systems plugin
         if data.trust_mode is not None:
             if data.trust_mode == TrustMode.FULL_ACCESS:
                 attributes["host"] = ["*"]
             elif data.trust_mode == TrustMode.BY_HOST and data.host:
-                # TODO: Validate hosts against systems plugin when available
+                # Validate hosts against systems plugin
+                await self._validate_hosts(data.host)
                 attributes["host"] = data.host
         
         try:
@@ -1433,7 +1528,6 @@ class MixedGroupService:
                     changes["memberUid"] = ("delete", [])
         
         # Handle system trust (hostObject) updates
-        # NOTE: Full host validation requires the systems plugin
         if data.trust_mode is not None:
             # Check if hostObject is in objectClasses
             entry = await self._ldap.get_by_dn(dn, attributes=["objectClass", "host"])
@@ -1452,7 +1546,8 @@ class MixedGroupService:
                     raise PosixValidationError("host list is required when trustMode is byhost")
                 if not has_host_object:
                     changes["objectClass"] = ("add", ["hostObject"])
-                # TODO: Validate hosts against systems plugin when available
+                # Validate hosts against systems plugin
+                await self._validate_hosts(data.host)
                 changes["host"] = ("replace", data.host)
         elif data.host is not None:
             # Just update hosts without changing trust mode

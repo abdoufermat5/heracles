@@ -28,6 +28,9 @@ export {
 // Dialogs
 export { DeleteDialog } from './dialogs'
 
+// Selectors
+export { HostSelector } from './host-selector'
+
 // Forms
 export { TrustModeSection } from './forms'
 

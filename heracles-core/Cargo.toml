@@ -53,6 +53,9 @@ async-trait = "0.1"
 config = "0.14"
 dotenvy = "0.15"
 
+# Pin time to a version compatible with Rust 1.85
+time = "0.3.36"
+
 [dev-dependencies]
 tokio-test = "0.4"
 mockall = "0.12"

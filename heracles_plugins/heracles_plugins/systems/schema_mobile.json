@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Mobile Phone",
+  "description": "Schema for mobile device management",
+  "type": "object",
+  "properties": {
+    "cn": {
+      "type": "string",
+      "title": "Device Name",
+      "description": "Mobile device identifier",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]*$",
+      "ui:placeholder": "mobile-jdoe-iphone",
+      "ui:autofocus": true
+    },
+    "description": {
+      "type": "string",
+      "title": "Description",
+      "description": "Description of this mobile device",
+      "maxLength": 1024,
+      "ui:widget": "textarea",
+      "ui:placeholder": "iPhone 15 Pro - John Doe"
+    },
+    "telephoneNumber": {
+      "type": "string",
+      "title": "Phone Number",
+      "description": "Mobile phone number",
+      "maxLength": 32,
+      "pattern": "^[0-9+\\-\\s()]+$",
+      "ui:placeholder": "+1-555-123-4567"
+    },
+    "serialNumber": {
+      "type": "string",
+      "title": "Serial Number",
+      "description": "Device serial number",
+      "maxLength": 128,
+      "ui:placeholder": "DNPXK2ABCDEF"
+    },
+    "hrcMobileIMEI": {
+      "type": "string",
+      "title": "IMEI",
+      "description": "International Mobile Equipment Identity (15 digits)",
+      "pattern": "^[0-9]{15}$",
+      "ui:placeholder": "123456789012345"
+    },
+    "hrcMobileOS": {
+      "type": "string",
+      "title": "Operating System",
+      "description": "Mobile device operating system",
+      "enum": ["iOS", "Android", "Windows", "Other"],
+      "ui:widget": "select"
+    },
+    "hrcMobilePUK": {
+      "type": "string",
+      "title": "PUK Code",
+      "description": "SIM card PUK code (stored securely)",
+      "maxLength": 16,
+      "ui:widget": "password",
+      "ui:placeholder": "••••••••"
+    },
+    "macAddress": {
+      "type": "array",
+      "title": "MAC Addresses",
+      "description": "WiFi MAC addresses",
+      "items": {
+        "type": "string",
+        "pattern": "^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$"
+      },
+      "ui:widget": "tags",
+      "ui:placeholder": "Add MAC address"
+    }
+  },
+  "required": ["cn"],
+  "ui:order": ["cn", "description", "telephoneNumber", "serialNumber", "hrcMobileIMEI", "hrcMobileOS", "hrcMobilePUK", "macAddress"]
+}

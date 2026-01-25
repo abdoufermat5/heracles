@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Component",
+  "description": "Schema for network component management (switches, routers, etc.)",
+  "type": "object",
+  "properties": {
+    "cn": {
+      "type": "string",
+      "title": "Device Name",
+      "description": "Component hostname or identifier",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$",
+      "ui:placeholder": "switch-core01",
+      "ui:autofocus": true
+    },
+    "description": {
+      "type": "string",
+      "title": "Description",
+      "description": "Description of this component",
+      "maxLength": 1024,
+      "ui:widget": "textarea",
+      "ui:placeholder": "Cisco Catalyst 9300 - Core Switch"
+    },
+    "serialNumber": {
+      "type": "string",
+      "title": "Serial Number",
+      "description": "Device serial number",
+      "maxLength": 128,
+      "ui:placeholder": "FCW2345L0AB"
+    },
+    "ipHostNumber": {
+      "type": "array",
+      "title": "IP Addresses",
+      "description": "Management IP addresses",
+      "items": {
+        "type": "string"
+      },
+      "ui:widget": "tags",
+      "ui:placeholder": "Add IP address"
+    },
+    "macAddress": {
+      "type": "array",
+      "title": "MAC Addresses",
+      "description": "Device MAC addresses",
+      "items": {
+        "type": "string",
+        "pattern": "^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$"
+      },
+      "ui:widget": "tags",
+      "ui:placeholder": "Add MAC address"
+    },
+    "l": {
+      "type": "string",
+      "title": "Location",
+      "description": "Physical location of the component",
+      "maxLength": 128,
+      "ui:placeholder": "Datacenter A, Rack 5"
+    }
+  },
+  "required": ["cn"],
+  "ui:order": ["cn", "description", "serialNumber", "ipHostNumber", "macAddress", "l"]
+}

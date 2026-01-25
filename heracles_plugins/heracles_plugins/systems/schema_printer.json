@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Printer",
+  "description": "Schema for network printer management",
+  "type": "object",
+  "properties": {
+    "cn": {
+      "type": "string",
+      "title": "Printer Name",
+      "description": "Printer hostname or identifier",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$",
+      "ui:placeholder": "printer-floor2",
+      "ui:autofocus": true
+    },
+    "description": {
+      "type": "string",
+      "title": "Description",
+      "description": "Description of this printer",
+      "maxLength": 1024,
+      "ui:widget": "textarea",
+      "ui:placeholder": "HP LaserJet Pro M404dn - Floor 2"
+    },
+    "labeledURI": {
+      "type": "string",
+      "title": "Printer URI",
+      "description": "Print queue URI (e.g., ipp://printer/queue)",
+      "maxLength": 1024,
+      "ui:placeholder": "ipp://printer-floor2.example.com/printers/main"
+    },
+    "ipHostNumber": {
+      "type": "array",
+      "title": "IP Addresses",
+      "description": "Printer IP addresses",
+      "items": {
+        "type": "string"
+      },
+      "ui:widget": "tags",
+      "ui:placeholder": "Add IP address"
+    },
+    "macAddress": {
+      "type": "array",
+      "title": "MAC Addresses",
+      "description": "Printer MAC addresses",
+      "items": {
+        "type": "string",
+        "pattern": "^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$"
+      },
+      "ui:widget": "tags",
+      "ui:placeholder": "Add MAC address"
+    },
+    "hrcMode": {
+      "type": "string",
+      "title": "Mode",
+      "description": "Printer operational mode",
+      "enum": ["active", "locked"],
+      "default": "active",
+      "ui:widget": "select"
+    },
+    "l": {
+      "type": "string",
+      "title": "Location",
+      "description": "Physical location of the printer",
+      "maxLength": 128,
+      "ui:placeholder": "Building A, Floor 2, Near Kitchen"
+    },
+    "hrcPrinterWindowsInfFile": {
+      "type": "string",
+      "title": "Windows INF File",
+      "description": "Path to Windows driver INF file",
+      "maxLength": 512,
+      "ui:placeholder": "/path/to/driver.inf"
+    },
+    "hrcPrinterWindowsDriverDir": {
+      "type": "string",
+      "title": "Windows Driver Directory",
+      "description": "Path to Windows driver directory",
+      "maxLength": 512,
+      "ui:placeholder": "/share/drivers/hp-m404"
+    },
+    "hrcPrinterWindowsDriverName": {
+      "type": "string",
+      "title": "Windows Driver Name",
+      "description": "Windows driver display name",
+      "maxLength": 256,
+      "ui:placeholder": "HP LaserJet Pro M404dn"
+    }
+  },
+  "required": ["cn"],
+  "ui:order": ["cn", "description", "labeledURI", "ipHostNumber", "macAddress", "hrcMode", "l", "hrcPrinterWindowsInfFile", "hrcPrinterWindowsDriverDir", "hrcPrinterWindowsDriverName"]
+}

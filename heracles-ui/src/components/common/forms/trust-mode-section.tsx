@@ -8,7 +8,6 @@
 import type { Control, FieldValues, Path } from 'react-hook-form'
 import { useWatch } from 'react-hook-form'
 import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
 import {
   FormControl,
   FormDescription,
@@ -24,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { HostSelector } from '../host-selector'
 import type { TrustMode } from '@/types/posix'
 
 interface TrustModeSectionProps<T extends FieldValues> {
@@ -117,23 +117,15 @@ export function TrustModeSection<T extends FieldValues>({
             <FormItem>
               <FormLabel>Allowed Hosts *</FormLabel>
               <FormControl>
-                <Input
-                  placeholder="server1.example.com, server2.example.com"
-                  value={
-                    Array.isArray(field.value)
-                      ? (field.value as string[]).join(', ')
-                      : ''
-                  }
-                  onChange={(e) => {
-                    const hosts = e.target.value
-                      .split(',')
-                      .map((h) => h.trim())
-                      .filter((h) => h.length > 0)
-                    field.onChange(hosts.length > 0 ? hosts : [])
-                  }}
+                <HostSelector
+                  value={Array.isArray(field.value) ? field.value : []}
+                  onChange={field.onChange}
+                  placeholder="Select allowed hosts..."
                 />
               </FormControl>
-              <FormDescription>Comma-separated list of hostnames</FormDescription>
+              <FormDescription>
+                Select the systems this group can access
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}

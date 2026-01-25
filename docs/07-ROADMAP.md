@@ -1,8 +1,8 @@
 # HERACLES - Roadmap
 
 > **Référence**: Ce document définit le planning de développement d'Heracles.
-> **Mise à jour**: 24 Janvier 2026
-> **Statut**: Phase 1 ✅ TERMINÉ | Phase 2 ✅ TERMINÉ | Phase 3 Sprint 13-14 ✅ TERMINÉ
+> **Mise à jour**: 25 Janvier 2026
+> **Statut**: Phase 1 ✅ TERMINÉ | Phase 2 ✅ TERMINÉ | Phase 3 Sprint 13-16 ✅ TERMINÉ
 
 ---
 
@@ -202,18 +202,22 @@ Version: v0.5.0-beta
 
 **Livrable**: Plugin sudo ✅ | Plugin ssh ✅ | Tests complets ✅
 
-### 4.2 Sprint 15-16: Systems (4 semaines)
+### 4.2 Sprint 15-16: Systems (4 semaines) ✅ TERMINÉ
 
-| Tâche | Priorité | Estimation | Critères d'acceptation |
-|-------|----------|------------|------------------------|
-| Plugin `systems` backend | P0 | 5j | Server, Workstation, Terminal |
-| Modèles fdServer, etc. | P0 | 3j | Compatibilité schémas FD |
-| UI: Liste systèmes | P0 | 3j | Filtrage par type |
-| UI: Formulaire système | P0 | 4j | IP, MAC, description |
-| Intégration DNS/DHCP (prep) | P1 | 2j | Structure pour phase suivante |
-| Tests | P0 | 3j | |
+| Tâche | Priorité | Estimation | Statut |
+|-------|----------|------------|--------|
+| Plugin `systems` backend | P0 | 5j | ✅ Terminé (schemas, service, routes, 24 tests) |
+| Modèles 7 types systèmes | P0 | 3j | ✅ Terminé (server, workstation, terminal, printer, component, phone, mobile) |
+| LDAP schema systems | P0 | 1j | ✅ Terminé (heracles-systems.schema) |
+| LDAP schema ldapns | P0 | 1j | ✅ Terminé (hostObject pour system trust) |
+| UI: Liste systèmes | P0 | 3j | ✅ Terminé (DataTable, filtrage par type, recherche) |
+| UI: Formulaire système | P0 | 4j | ✅ Terminé (create dialog, type-specific fields) |
+| UI: Page détail système | P0 | 2j | ✅ Terminé (edit form, delete) |
+| UI: Host Selector component | P1 | 2j | ✅ Terminé (multi-select pour POSIX trust) |
+| Intégration POSIX hostObject | P0 | 2j | ✅ Terminé (validation hosts, selector UI) |
+| Tests | P0 | 3j | ✅ Terminé (24 unit tests) |
 
-**Livrable**: Plugin systems
+**Livrable**: Plugin systems complet ✅
 
 ### 4.3 Sprint 17-18: DNS & DHCP (4 semaines)
 
@@ -232,7 +236,8 @@ Version: v0.5.0-beta
 ```
 ✅ Plugin sudo (règles sudoers) - TERMINÉ
 ✅ Plugin ssh (clés publiques) - TERMINÉ
-🔲 Plugin systems (serveurs, workstations)
+✅ Plugin systems (7 types: server, workstation, terminal, printer, component, phone, mobile) - TERMINÉ
+✅ Host Selector UI component pour POSIX system trust - TERMINÉ
 🔲 Plugin dns (zones, records)
 🔲 Plugin dhcp (subnets, hosts)
 

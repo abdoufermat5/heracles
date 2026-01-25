@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Server",
+  "description": "Schema for server system management",
+  "type": "object",
+  "properties": {
+    "cn": {
+      "type": "string",
+      "title": "Hostname",
+      "description": "Server hostname (FQDN or short name)",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$",
+      "ui:placeholder": "server01.example.com",
+      "ui:autofocus": true
+    },
+    "description": {
+      "type": "string",
+      "title": "Description",
+      "description": "Description of this server",
+      "maxLength": 1024,
+      "ui:widget": "textarea"
+    },
+    "ipHostNumber": {
+      "type": "array",
+      "title": "IP Addresses",
+      "description": "IPv4 or IPv6 addresses",
+      "items": {
+        "type": "string",
+        "pattern": "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$|^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$"
+      },
+      "ui:widget": "tags",
+      "ui:placeholder": "Add IP address (e.g., 192.168.1.10)"
+    },
+    "macAddress": {
+      "type": "array",
+      "title": "MAC Addresses",
+      "description": "Hardware MAC addresses",
+      "items": {
+        "type": "string",
+        "pattern": "^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$"
+      },
+      "ui:widget": "tags",
+      "ui:placeholder": "Add MAC address (e.g., 00:11:22:33:44:55)"
+    },
+    "hrcMode": {
+      "type": "string",
+      "title": "Mode",
+      "description": "Server operational mode",
+      "enum": ["active", "locked", "maintenance"],
+      "default": "active",
+      "ui:widget": "select"
+    },
+    "l": {
+      "type": "string",
+      "title": "Location",
+      "description": "Physical location of the server",
+      "maxLength": 128,
+      "ui:placeholder": "Datacenter A, Rack 12"
+    }
+  },
+  "required": ["cn"],
+  "ui:order": ["cn", "description", "ipHostNumber", "macAddress", "hrcMode", "l"]
+}

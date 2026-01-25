@@ -27,6 +27,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { HostSelector } from '@/components/common'
 import { useAvailableShells, usePosixGroups, useNextIds } from '@/hooks'
 import type { PosixAccountCreate, TrustMode, PrimaryGroupMode } from '@/types/posix'
 
@@ -391,20 +392,14 @@ export function PosixActivateForm({
                 <FormItem>
                   <FormLabel>Allowed Hosts *</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="server1.example.com, server2.example.com"
-                      value={field.value?.join(', ') ?? ''}
-                      onChange={(e) => {
-                        const hosts = e.target.value
-                          .split(',')
-                          .map((h) => h.trim())
-                          .filter((h) => h.length > 0)
-                        field.onChange(hosts.length > 0 ? hosts : [])
-                      }}
+                    <HostSelector
+                      value={field.value ?? []}
+                      onChange={field.onChange}
+                      placeholder="Select allowed hosts..."
                     />
                   </FormControl>
                   <FormDescription>
-                    Comma-separated list of hostnames
+                    Select the systems this user can access
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

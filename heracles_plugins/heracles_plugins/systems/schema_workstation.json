@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Workstation",
+  "description": "Schema for workstation system management",
+  "type": "object",
+  "properties": {
+    "cn": {
+      "type": "string",
+      "title": "Hostname",
+      "description": "Workstation hostname",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$",
+      "ui:placeholder": "ws-dev01.example.com",
+      "ui:autofocus": true
+    },
+    "description": {
+      "type": "string",
+      "title": "Description",
+      "description": "Description of this workstation",
+      "maxLength": 1024,
+      "ui:widget": "textarea"
+    },
+    "ipHostNumber": {
+      "type": "array",
+      "title": "IP Addresses",
+      "description": "IPv4 or IPv6 addresses",
+      "items": {
+        "type": "string"
+      },
+      "ui:widget": "tags",
+      "ui:placeholder": "Add IP address (e.g., 192.168.1.50)"
+    },
+    "macAddress": {
+      "type": "array",
+      "title": "MAC Addresses",
+      "description": "Hardware MAC addresses",
+      "items": {
+        "type": "string",
+        "pattern": "^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$"
+      },
+      "ui:widget": "tags",
+      "ui:placeholder": "Add MAC address (e.g., 00:11:22:33:44:55)"
+    },
+    "hrcMode": {
+      "type": "string",
+      "title": "Mode",
+      "description": "Workstation operational mode",
+      "enum": ["active", "locked"],
+      "default": "active",
+      "ui:widget": "select"
+    },
+    "l": {
+      "type": "string",
+      "title": "Location",
+      "description": "Physical location of the workstation",
+      "maxLength": 128,
+      "ui:placeholder": "Building A, Floor 2, Desk 15"
+    }
+  },
+  "required": ["cn"],
+  "ui:order": ["cn", "description", "ipHostNumber", "macAddress", "hrcMode", "l"]
+}

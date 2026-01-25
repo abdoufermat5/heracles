@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Terminal",
+  "description": "Schema for thin client/terminal management",
+  "type": "object",
+  "properties": {
+    "cn": {
+      "type": "string",
+      "title": "Hostname",
+      "description": "Terminal hostname",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$",
+      "ui:placeholder": "term-lobby01",
+      "ui:autofocus": true
+    },
+    "description": {
+      "type": "string",
+      "title": "Description",
+      "description": "Description of this terminal",
+      "maxLength": 1024,
+      "ui:widget": "textarea"
+    },
+    "ipHostNumber": {
+      "type": "array",
+      "title": "IP Addresses",
+      "description": "IPv4 or IPv6 addresses",
+      "items": {
+        "type": "string"
+      },
+      "ui:widget": "tags",
+      "ui:placeholder": "Add IP address"
+    },
+    "macAddress": {
+      "type": "array",
+      "title": "MAC Addresses",
+      "description": "Hardware MAC addresses for PXE boot",
+      "items": {
+        "type": "string",
+        "pattern": "^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$"
+      },
+      "ui:widget": "tags",
+      "ui:placeholder": "Add MAC address"
+    },
+    "hrcMode": {
+      "type": "string",
+      "title": "Mode",
+      "description": "Terminal operational mode",
+      "enum": ["active", "locked"],
+      "default": "active",
+      "ui:widget": "select"
+    },
+    "l": {
+      "type": "string",
+      "title": "Location",
+      "description": "Physical location of the terminal",
+      "maxLength": 128,
+      "ui:placeholder": "Reception Area"
+    }
+  },
+  "required": ["cn"],
+  "ui:order": ["cn", "description", "ipHostNumber", "macAddress", "hrcMode", "l"]
+}

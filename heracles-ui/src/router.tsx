@@ -11,7 +11,8 @@ import {
   GroupsListPage,
   GroupCreatePage,
   GroupDetailPage,
-  SystemsPage,
+  SystemsListPage,
+  SystemDetailPage,
   SettingsPage,
 } from '@/pages'
 import { PosixGroupsPage, PosixGroupDetailPage, MixedGroupsPage } from '@/pages/posix'
@@ -58,7 +59,8 @@ export function AppRouter() {
         <Route path={PLUGIN_ROUTES.SUDO.ROLE_DETAIL} element={<SudoRoleDetailPage />} />
         
         {/* Systems */}
-        <Route path={ROUTES.SYSTEMS} element={<SystemsPage />} />
+        <Route path={PLUGIN_ROUTES.SYSTEMS.LIST} element={<SystemsListPage />} />
+        <Route path={PLUGIN_ROUTES.SYSTEMS.DETAIL} element={<SystemDetailPage />} />
         
         {/* Settings */}
         <Route path={ROUTES.SETTINGS} element={<SettingsPage />} />

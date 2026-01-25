@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Phone",
+  "description": "Schema for IP phone management",
+  "type": "object",
+  "properties": {
+    "cn": {
+      "type": "string",
+      "title": "Phone Name",
+      "description": "Phone hostname or identifier",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$",
+      "ui:placeholder": "phone-ext1234",
+      "ui:autofocus": true
+    },
+    "description": {
+      "type": "string",
+      "title": "Description",
+      "description": "Description of this phone",
+      "maxLength": 1024,
+      "ui:widget": "textarea",
+      "ui:placeholder": "Cisco IP Phone 8841 - John Doe's desk"
+    },
+    "telephoneNumber": {
+      "type": "string",
+      "title": "Extension",
+      "description": "Phone extension number",
+      "maxLength": 32,
+      "pattern": "^[0-9+\\-\\s()]+$",
+      "ui:placeholder": "1234"
+    },
+    "serialNumber": {
+      "type": "string",
+      "title": "Serial Number",
+      "description": "Device serial number",
+      "maxLength": 128,
+      "ui:placeholder": "FCH2345ABCD"
+    },
+    "ipHostNumber": {
+      "type": "array",
+      "title": "IP Addresses",
+      "description": "Phone IP addresses",
+      "items": {
+        "type": "string"
+      },
+      "ui:widget": "tags",
+      "ui:placeholder": "Add IP address"
+    },
+    "macAddress": {
+      "type": "array",
+      "title": "MAC Addresses",
+      "description": "Phone MAC addresses",
+      "items": {
+        "type": "string",
+        "pattern": "^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$"
+      },
+      "ui:widget": "tags",
+      "ui:placeholder": "Add MAC address"
+    },
+    "l": {
+      "type": "string",
+      "title": "Location",
+      "description": "Physical location of the phone",
+      "maxLength": 128,
+      "ui:placeholder": "Building A, Floor 2, Desk 15"
+    }
+  },
+  "required": ["cn"],
+  "ui:order": ["cn", "description", "telephoneNumber", "serialNumber", "ipHostNumber", "macAddress", "l"]
+}

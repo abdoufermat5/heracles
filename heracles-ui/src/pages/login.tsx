@@ -3,11 +3,12 @@ import { useNavigate, useLocation, Navigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useAuthStore } from '@/stores'
 import { loginSchema, type LoginFormData } from '@/lib/schemas'
 import { ROUTES } from '@/config/constants'
@@ -18,6 +19,7 @@ export function LoginPage() {
   const location = useLocation()
   const { login, isAuthenticated, isLoading } = useAuthStore()
   const [showPassword, setShowPassword] = useState(false)
+  const [loginError, setLoginError] = useState<string | null>(null)
 
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || ROUTES.DASHBOARD
 
@@ -34,12 +36,24 @@ export function LoginPage() {
   }
 
   const onSubmit = async (data: LoginFormData) => {
+    setLoginError(null)
     try {
       await login(data.username, data.password)
       toast.success('Welcome back!')
       navigate(from, { replace: true })
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Login failed')
+      const message = error instanceof Error ? error.message : 'Login failed'
+      // Provide more user-friendly error messages
+      if (message.includes('401') || message.toLowerCase().includes('unauthorized') || message.toLowerCase().includes('invalid')) {
+        setLoginError('Invalid username or password. Please try again.')
+      } else if (message.includes('network') || message.includes('fetch') || message.includes('ECONNREFUSED')) {
+        setLoginError('Unable to connect to the server. Please check your network connection.')
+      } else if (message.includes('timeout')) {
+        setLoginError('Connection timed out. Please try again.')
+      } else {
+        setLoginError(message)
+      }
+      toast.error('Login failed')
     }
   }
 
@@ -55,6 +69,13 @@ export function LoginPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            {loginError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{loginError}</AlertDescription>
+              </Alert>
+            )}
+            
             <div className="space-y-2">
               <Label htmlFor="username">Username</Label>
               <Input
@@ -63,6 +84,7 @@ export function LoginPage() {
                 placeholder="Enter your username"
                 autoComplete="username"
                 {...register('username')}
+                onChange={() => setLoginError(null)}
               />
               {errors.username && (
                 <p className="text-sm text-destructive">{errors.username.message}</p>
@@ -78,6 +100,7 @@ export function LoginPage() {
                   placeholder="Enter your password"
                   autoComplete="current-password"
                   {...register('password')}
+                  onChange={() => setLoginError(null)}
                 />
                 <Button
                   type="button"

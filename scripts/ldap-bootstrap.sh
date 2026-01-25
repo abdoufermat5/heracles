@@ -68,7 +68,31 @@ create_ou "dhcp" "Container for DHCP configuration"
 create_ou "fusiondirectory" "FusionDirectory configuration"
 
 echo ""
-echo "� Creating test user..."
+echo "📦 Creating systems sub-organizational units..."
+
+# Create systems sub-OUs
+create_systems_sub_ou() {
+    local ou_name="$1"
+    local description="$2"
+    echo "  Creating ou=$ou_name,ou=systems..."
+    ldapadd -x -H "ldap://${LDAP_HOST}:${LDAP_PORT}" -D "$LDAP_ADMIN_DN" -w "$LDAP_ADMIN_PASSWORD" <<EOF
+dn: ou=$ou_name,ou=systems,$LDAP_BASE_DN
+objectClass: organizationalUnit
+ou: $ou_name
+description: $description
+EOF
+}
+
+create_systems_sub_ou "servers" "Container for servers"
+create_systems_sub_ou "workstations" "Container for workstations"
+create_systems_sub_ou "terminals" "Container for terminals"
+create_systems_sub_ou "printers" "Container for printers"
+create_systems_sub_ou "components" "Container for network components"
+create_systems_sub_ou "phones" "Container for phones"
+create_systems_sub_ou "mobile" "Container for mobile phones"
+
+echo ""
+echo "👤 Creating test user..."
 ldapadd -x -H "ldap://${LDAP_HOST}:${LDAP_PORT}" -D "$LDAP_ADMIN_DN" -w "$LDAP_ADMIN_PASSWORD" <<EOF
 dn: uid=testuser,ou=people,$LDAP_BASE_DN
 objectClass: inetOrgPerson

@@ -13,7 +13,7 @@ import {
 import { PageHeader, LoadingPage, ErrorDisplay } from '@/components/common'
 import { useUsers, useGroups } from '@/hooks'
 import { useAuthStore } from '@/stores'
-import { ROUTES } from '@/config/constants'
+import { ROUTES, PLUGIN_ROUTES } from '@/config/constants'
 
 export function DashboardPage() {
   const { user } = useAuthStore()
@@ -58,7 +58,7 @@ export function DashboardPage() {
       icon: Server,
       color: 'text-purple-600',
       bgColor: 'bg-purple-100',
-      href: ROUTES.SYSTEMS,
+      href: PLUGIN_ROUTES.SYSTEMS.LIST,
     },
     {
       title: 'Activity',

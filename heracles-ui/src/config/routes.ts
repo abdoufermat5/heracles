@@ -32,6 +32,17 @@ export const PLUGIN_ROUTES = {
     ROLES: '/sudo/roles',
     ROLE_DETAIL: '/sudo/roles/:cn',
   },
+  SYSTEMS: {
+    LIST: '/systems',
+    DETAIL: '/systems/:type/:cn',
+    SERVERS: '/systems/servers',
+    WORKSTATIONS: '/systems/workstations',
+    TERMINALS: '/systems/terminals',
+    PRINTERS: '/systems/printers',
+    COMPONENTS: '/systems/components',
+    PHONES: '/systems/phones',
+    MOBILES: '/systems/mobiles',
+  },
   SSH: {
     // SSH routes will be added when SSH pages are implemented
   },
@@ -81,6 +92,17 @@ export function mixedGroupPath(cn: string): string {
  */
 export function sudoRolePath(cn: string): string {
   return PLUGIN_ROUTES.SUDO.ROLE_DETAIL.replace(':cn', encodeURIComponent(cn))
+}
+
+/**
+ * Build the System detail route
+ * @param type - System type
+ * @param cn - System CN (hostname)
+ */
+export function systemDetailPath(type: string, cn: string): string {
+  return PLUGIN_ROUTES.SYSTEMS.DETAIL
+    .replace(':type', encodeURIComponent(type))
+    .replace(':cn', encodeURIComponent(cn))
 }
 
 // Query parameters for create dialogs
