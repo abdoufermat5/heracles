@@ -257,7 +257,7 @@ Version: v0.8.0-beta
 | Tâche | Priorité | Estimation | Critères d'acceptation |
 |-------|----------|------------|------------------------|
 | Service audit | P0 | 4j | Logging PostgreSQL |
-| Audit LDAP (optionnel) | P2 | 3j | Compatible fdAudit |
+| Audit LDAP (optionnel) | P2 | 3j | Compatible hrcAudit |
 | Endpoint `/audit/logs` | P0 | 2j | Recherche, filtres |
 | UI: Page audit | P0 | 3j | Timeline, filtres |
 | Masquage données sensibles | P0 | 2j | Configurable |

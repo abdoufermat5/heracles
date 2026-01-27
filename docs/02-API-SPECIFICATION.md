@@ -468,10 +468,10 @@ Retire des membres d'un groupe.
 
 | Type | Description | objectClass |
 |------|-------------|-------------|
-| server | Serveur | fdServer |
-| workstation | Station de travail | fdWorkstation |
-| terminal | Terminal | fdTerminal |
-| printer | Imprimante | fdPrinter |
+| server | Serveur | hrcServer |
+| workstation | Station de travail | hrcWorkstation |
+| terminal | Terminal | hrcTerminal |
+| printer | Imprimante | hrcPrinter |
 
 ### 5.2 GET /systems
 

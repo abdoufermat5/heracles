@@ -713,23 +713,23 @@ Le plugin POSIX expose ses fonctionnalités à travers:
 3. **Dialogue de Création** - Formulaire dynamique selon type
 
 ```
-src/features/users/
-├── components/
-│   └── posix-user-tab.tsx       # Onglet Unix
-│   
-src/features/groups/
-├── components/
-│   ├── group-list.tsx           # Liste avec dropdown type
-│   ├── group-create-dialog.tsx  # Dialog avec switch type
-│   └── group-type-badge.tsx     # Badge (LDAP/POSIX/Mixed)
-└── hooks/
-    └── use-groups.ts            # React Query hooks
+src/components/plugins/posix/
+├── posix-user-tab.tsx           # Onglet Unix (User Detail)
+└── groups/
+  ├── posix-groups-table.tsx   # Liste POSIX
+  ├── mixed-groups-table.tsx   # Liste Mixed
+  ├── create-posix-group-dialog.tsx
+  └── create-mixed-group-dialog.tsx
+
+src/pages/posix/
+├── groups.tsx                   # Page listes POSIX
+└── mixed-groups.tsx             # Page listes Mixed
 ```
 
 ### 5.2 Composant Onglet (Tab) - Pattern Réel
 
 ```tsx
-// src/features/users/components/posix-user-tab.tsx
+// src/components/plugins/posix/posix-user-tab.tsx
 
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -737,7 +737,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Terminal, Shield, Check, AlertCircle } from "lucide-react";
 
-import { usePosixAccount, useActivatePosix } from "@/features/posix/hooks";
+import { useUserPosix, useActivateUserPosix, useDeactivateUserPosix } from "@/hooks/use-posix";
 
 interface PosixUserTabProps {
   userDn: string;
@@ -746,9 +746,9 @@ interface PosixUserTabProps {
 
 export function PosixUserTab({ userDn, uid }: PosixUserTabProps) {
   // Hooks pour l'état et mutations
-  const { data: posixData, isLoading, error } = usePosixAccount(userDn);
-  const activateMutation = useActivatePosix();
-  const deactivateMutation = useDeactivatePosix();
+  const { data: posixData, isLoading, error } = useUserPosix(uid);
+  const activateMutation = useActivateUserPosix(uid);
+  const deactivateMutation = useDeactivateUserPosix(uid);
   
   // État local
   const [isActivating, setIsActivating] = useState(false);
@@ -863,29 +863,27 @@ function AccountStatusBadge({ status }: { status: string }) {
 ### 5.3 Hooks React Query
 
 ```tsx
-// src/features/posix/hooks/use-posix-account.ts
+// src/hooks/use-posix.ts
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { posixApi } from "@/lib/api";
 
-export function usePosixAccount(userDn: string) {
+export function useUserPosix(uid: string) {
   return useQuery({
-    queryKey: ["posix-account", userDn],
-    queryFn: () => api.posix.getAccount(userDn),
-    enabled: !!userDn,
+    queryKey: ["posix", "user", uid],
+    queryFn: () => posixApi.getUserPosix(uid),
+    enabled: !!uid,
   });
 }
 
-export function useActivatePosix() {
+export function useActivateUserPosix(uid: string) {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ dn, data }: { dn: string; data: PosixActivateInput }) => 
-      api.posix.activate(dn, data),
-    onSuccess: (_, { dn }) => {
+    mutationFn: (data: PosixAccountCreate) => posixApi.activateUserPosix(uid, data),
+    onSuccess: () => {
       // Invalider le cache pour rafraîchir
-      queryClient.invalidateQueries({ queryKey: ["posix-account", dn] });
-      queryClient.invalidateQueries({ queryKey: ["user", dn] });
+      queryClient.invalidateQueries({ queryKey: ["posix", "user", uid] });
     },
   });
 }
@@ -901,7 +899,7 @@ export function usePosixGroups(type?: "posix" | "mixed") {
 ### 5.4 Formulaire de Création de Groupe
 
 ```tsx
-// src/features/groups/components/group-create-dialog.tsx
+// src/components/plugins/posix/groups/create-posix-group-dialog.tsx
 
 export function GroupCreateDialog({ open, onOpenChange }: Props) {
   const [groupType, setGroupType] = useState<"ldap" | "posix" | "mixed">("ldap");
@@ -1051,7 +1049,7 @@ heracles_plugins/
 
 ```toml
 [project]
-name = "heracles-plugins"
+name = "heracles_plugins"
 version = "0.1.0"
 description = "Heracles LDAP Manager Plugins"
 
@@ -1380,7 +1378,7 @@ olcObjectClasses: ( 1.3.6.1.4.1.99999.1.2.1
 |--------|--------|
 | **Nom** | `systems` |
 | **Statut** | 📋 Planifié (Sprint 17-18) |
-| **ObjectClasses** | `fdServer`, `fdWorkstation`, `ipHost`, `ieee802Device` |
+| **ObjectClasses** | `hrcServer`, `hrcWorkstation`, `ipHost`, `ieee802Device` |
 | **Dépendances** | `core` |
 | **Type** | Management |
 

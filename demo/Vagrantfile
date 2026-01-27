@@ -1,0 +1,112 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+#
+# Heracles Demo Environment
+# =========================
+# Multi-VM environment for testing SSH, Sudo, POSIX, and Systems plugins
+# with real LDAP authentication via SSSD.
+#
+# Prerequisites:
+#   - VirtualBox installed
+#   - Vagrant installed
+#   - Heracles infrastructure running (make dev-infra)
+#
+# Usage:
+#   cd demo
+#   vagrant up
+#   vagrant ssh server1   # Test as server
+#   vagrant ssh workstation1  # Test as workstation
+#
+
+# Configuration
+LDAP_SERVER_IP = "192.168.56.1"  # Host machine (Docker LDAP exposed)
+LDAP_PORT = "389"
+LDAP_BASE_DN = "dc=heracles,dc=local"
+LDAP_BIND_DN = "cn=admin,dc=heracles,dc=local"
+LDAP_BIND_PASSWORD = "admin_secret"
+
+# Box configuration
+BOX_NAME = "debian/bookworm64"
+BOX_VERSION = "12.20240905.1"
+
+Vagrant.configure("2") do |config|
+  # Common configuration for all VMs
+  config.vm.box = BOX_NAME
+  config.vm.box_version = BOX_VERSION
+  
+  # Disable default synced folder, use explicit ones
+  config.vm.synced_folder ".", "/vagrant", disabled: true
+  config.vm.synced_folder "./provision", "/vagrant/provision", type: "virtualbox"
+
+  # ==========================================================================
+  # VM 1: server1 - Simulates a server system
+  # ==========================================================================
+  config.vm.define "server1", primary: true do |server|
+    server.vm.hostname = "server1.heracles.local"
+    
+    # Private network for host communication
+    server.vm.network "private_network", ip: "192.168.56.10"
+    
+    # VirtualBox specific settings
+    server.vm.provider "virtualbox" do |vb|
+      vb.name = "heracles-server1"
+      vb.memory = "1024"
+      vb.cpus = 1
+      vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+    end
+    
+    # Provisioning
+    server.vm.provision "shell", inline: <<-SHELL
+      echo "==> Setting up server1 for Heracles testing..."
+      echo "#{LDAP_SERVER_IP} ldap.heracles.local" >> /etc/hosts
+    SHELL
+    
+    server.vm.provision "shell", 
+      path: "provision/setup-sssd.sh",
+      args: [LDAP_SERVER_IP, LDAP_PORT, LDAP_BASE_DN, LDAP_BIND_DN, LDAP_BIND_PASSWORD, "server1"]
+    
+    server.vm.provision "shell",
+      path: "provision/setup-ssh.sh",
+      args: [LDAP_SERVER_IP, LDAP_PORT, LDAP_BASE_DN, LDAP_BIND_DN, LDAP_BIND_PASSWORD]
+    
+    server.vm.provision "shell",
+      path: "provision/setup-sudo.sh",
+      args: [LDAP_SERVER_IP, LDAP_PORT, LDAP_BASE_DN, LDAP_BIND_DN, LDAP_BIND_PASSWORD]
+  end
+
+  # ==========================================================================
+  # VM 2: workstation1 - Simulates a workstation system
+  # ==========================================================================
+  config.vm.define "workstation1" do |ws|
+    ws.vm.hostname = "workstation1.heracles.local"
+    
+    # Private network for host communication
+    ws.vm.network "private_network", ip: "192.168.56.11"
+    
+    # VirtualBox specific settings
+    ws.vm.provider "virtualbox" do |vb|
+      vb.name = "heracles-workstation1"
+      vb.memory = "1024"
+      vb.cpus = 1
+      vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+    end
+    
+    # Provisioning
+    ws.vm.provision "shell", inline: <<-SHELL
+      echo "==> Setting up workstation1 for Heracles testing..."
+      echo "#{LDAP_SERVER_IP} ldap.heracles.local" >> /etc/hosts
+    SHELL
+    
+    ws.vm.provision "shell", 
+      path: "provision/setup-sssd.sh",
+      args: [LDAP_SERVER_IP, LDAP_PORT, LDAP_BASE_DN, LDAP_BIND_DN, LDAP_BIND_PASSWORD, "workstation1"]
+    
+    ws.vm.provision "shell",
+      path: "provision/setup-ssh.sh",
+      args: [LDAP_SERVER_IP, LDAP_PORT, LDAP_BASE_DN, LDAP_BIND_DN, LDAP_BIND_PASSWORD]
+    
+    ws.vm.provision "shell",
+      path: "provision/setup-sudo.sh",
+      args: [LDAP_SERVER_IP, LDAP_PORT, LDAP_BASE_DN, LDAP_BIND_DN, LDAP_BIND_PASSWORD]
+  end
+end

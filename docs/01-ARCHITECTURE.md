@@ -12,10 +12,9 @@ heracles/
 ├── heracles-core/          # Bibliothèque Rust (LDAP, crypto)
 ├── heracles-api/           # Backend Python/FastAPI
 ├── heracles-ui/            # Frontend React
-├── heracles-plugins/       # Plugins Python
+├── heracles_plugins/       # Plugins Python
 ├── docker/                 # Configurations Docker
-├── docs/                   # Documentation (ce dossier)
-└── tests/                  # Tests E2E
+└── docs/                   # Documentation (ce dossier)
 ```
 
 ---
@@ -248,57 +247,43 @@ heracles-ui/
 ├── package.json
 ├── tsconfig.json
 ├── vite.config.ts
-├── tailwind.config.js
 ├── index.html
 ├── public/
 │   └── assets/
 ├── src/
 │   ├── main.tsx            # Point d'entrée
 │   ├── App.tsx             # Router principal
-│   ├── api/
-│   │   ├── client.ts       # Configuration fetch/query
-│   │   ├── users.ts        # API users
-│   │   ├── groups.ts       # API groups
-│   │   └── types.ts        # Types API
 │   ├── components/
-│   │   ├── ui/             # Composants de base (shadcn)
-│   │   │   ├── button.tsx
-│   │   │   ├── input.tsx
-│   │   │   └── ...
-│   │   ├── layout/
-│   │   │   ├── Header.tsx
-│   │   │   ├── Sidebar.tsx
-│   │   │   └── Layout.tsx
-│   │   └── shared/
-│   │       ├── DataTable.tsx
-│   │       ├── FormField.tsx
-│   │       └── LoadingSpinner.tsx
-│   ├── features/
-│   │   ├── auth/
-│   │   │   ├── LoginPage.tsx
-│   │   │   ├── useAuth.ts
-│   │   │   └── AuthContext.tsx
-│   │   ├── users/
-│   │   │   ├── UserListPage.tsx
-│   │   │   ├── UserEditPage.tsx
-│   │   │   ├── UserForm.tsx
-│   │   │   └── useUsers.ts
-│   │   └── groups/
-│   │       └── ...
-│   ├── hooks/
-│   │   ├── useApi.ts
-│   │   └── usePermissions.ts
-│   ├── store/
-│   │   ├── index.ts
-│   │   └── slices/
-│   │       └── uiSlice.ts
+│   │   ├── auth/            # Auth (ProtectedRoute)
+│   │   ├── common/          # UI partagés (tables, dialogs, forms)
+│   │   ├── groups/          # Widgets groupes LDAP
+│   │   ├── layout/          # Layout app (header/sidebar)
+│   │   ├── plugins/         # UI plugins (posix/ssh/sudo/systems)
+│   │   ├── ui/              # Composants de base (shadcn)
+│   │   └── users/           # Widgets utilisateurs
+│   ├── config/
+│   │   ├── constants.ts     # Constantes UI
+│   │   └── routes.ts        # Routes applicatives
+│   ├── hooks/               # Hooks React Query et UI
 │   ├── lib/
-│   │   ├── utils.ts
-│   │   └── constants.ts
-│   └── types/
-│       └── index.ts
-└── tests/
-    └── ...
+│   │   ├── api/             # Clients API par domaine
+│   │   ├── api-client.ts    # Client HTTP partagé
+│   │   ├── errors.ts        # Gestion d'erreurs
+│   │   ├── schemas.ts       # Zod schemas
+│   │   ├── string-helpers.ts
+│   │   └── utils.ts
+│   ├── pages/               # Pages routées
+│   │   ├── users/           # list/create/detail
+│   │   ├── groups/          # list/create/detail
+│   │   ├── posix/           # groupes/mixed
+│   │   ├── sudo/            # roles
+│   │   ├── systems/         # list/detail
+│   │   ├── dashboard.tsx
+│   │   ├── login.tsx
+│   │   └── settings.tsx
+│   ├── router.tsx           # Routes React Router
+│   ├── stores/              # Zustand stores
+│   └── types/               # Types API/Plugins
 ```
 
 ### 4.3 Règles de Développement React
@@ -316,7 +301,7 @@ heracles-ui/
 ### 4.4 Exemple de Composant Conforme
 
 ```typescript
-// src/features/users/UserListPage.tsx
+// src/pages/users/list.tsx
 import { useQuery } from '@tanstack/react-query';
 import { DataTable } from '@/components/shared/DataTable';
 import { Button } from '@/components/ui/button';

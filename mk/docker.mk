@@ -65,13 +65,17 @@ prod:
 stop:
 	$(call log_info,Stopping all services...)
 	$(DOCKER_COMPOSE) $(DOCKER_PROFILE_FULL) $(DOCKER_PROFILE_PROD) down
-	$(call log_success,All services stopped)
+	$(call log_success,Docker services stopped)
+	@echo ""
+	@echo "  [i] To also stop Vagrant VMs: make demo-down"
 
 # Clean all volumes
 clean:
 	$(call log_warning,Removing all containers and volumes...)
 	$(DOCKER_COMPOSE) $(DOCKER_PROFILE_FULL) $(DOCKER_PROFILE_PROD) down -v
-	$(call log_success,All volumes removed)
+	$(call log_success,Docker volumes removed)
+	@echo ""
+	@echo "  [i] To also destroy Vagrant VMs: make demo-clean"
 
 # ===========================================
 # Build Commands

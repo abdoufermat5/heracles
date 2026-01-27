@@ -74,6 +74,9 @@ htmlcov/
 # Docker
 .docker/
 
+# Vagrant
+.vagrant/
+demo/keys/
 
 # Misc
 *.bak

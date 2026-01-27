@@ -154,7 +154,7 @@ Implications:
 | **acl** | P0 | core | gosaAcl, gosaRole |
 | **sudo** | P1 | posix | sudoRole |
 | **ssh** | P1 | posix | ldapPublicKey |
-| **systems** | P2 | core | fdServer, fdWorkstation |
+| **systems** | P2 | core | hrcServer, hrcWorkstation |
 | **dns** | P2 | systems | dNSZone, dNSRRset |
 | **dhcp** | P2 | systems | dhcpServer, dhcpSubnet |
 

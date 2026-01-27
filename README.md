@@ -68,6 +68,25 @@
 
 ---
 
+## Demo Environment
+
+Un environnement de démonstration complet est disponible avec Vagrant/VirtualBox pour tester les plugins SSH, Sudo et POSIX sur des VMs Linux.
+
+```bash
+# Depuis la racine du projet
+make dev-infra          # Infrastructure Docker
+make demo-keys          # Générer les clés SSH
+make demo-up            # Démarrer les VMs Vagrant
+make demo-users         # Configurer les utilisateurs via API
+
+# Test SSH avec authentification LDAP
+ssh -i demo/keys/testuser testuser@192.168.56.10 'sudo whoami'
+```
+
+Voir [demo/README.md](demo/README.md) pour la documentation complète.
+
+---
+
 ## Quick Start
 
 ### Prerequisites

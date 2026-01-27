@@ -50,12 +50,12 @@ dc=example,dc=com                    # Base DN
 
 ### 2.2 Compatibilité des OUs
 
-Heracles DOIT supporter la configuration des OUs via les mêmes mécanismes que FD:
+Heracles DOIT supporter la configuration des OUs:
 
 ```
-fdUserRDN: ou=people
-fdGroupRDN: ou=groups
-fdSudoRDN: ou=sudoers
+hrcUserRDN: ou=people
+hrcGroupRDN: ou=groups
+hrcSudoRDN: ou=sudoers
 ```
 
 ---
@@ -228,9 +228,9 @@ sudoOrder: 10
 
 | ObjectClass | Type | Utilisation |
 |-------------|------|-------------|
-| fdServer | STRUCTURAL | Serveur |
-| fdWorkstation | STRUCTURAL | Station de travail |
-| fdTerminal | STRUCTURAL | Terminal |
+| hrcServer | STRUCTURAL | Serveur |
+| hrcWorkstation | STRUCTURAL | Station de travail |
+| hrcTerminal | STRUCTURAL | Terminal |
 | ieee802Device | AUXILIARY | Adresse MAC |
 | ipHost | AUXILIARY | Adresse IP |
 
@@ -242,7 +242,7 @@ sudoOrder: 10
 | description | string | ❌ | Description | Web server |
 | ipHostNumber | string[] | ❌ | Adresses IP | 192.168.1.10 |
 | macAddress | string[] | ❌ | Adresses MAC | 00:11:22:33:44:55 |
-| fdMode | string | ❌ | Mode de démarrage | - |
+| hrcMode | string | ❌ | Mode de démarrage | - |
 
 #### DN Pattern
 
@@ -259,7 +259,7 @@ cn={cn},ou=workstations,ou=systems,{base_dn}
 
 | ObjectClass | Source |
 |-------------|--------|
-| gosaRole | core-fd.schema |
+| gosaRole | core-hrc.schema |
 
 #### Attributs
 

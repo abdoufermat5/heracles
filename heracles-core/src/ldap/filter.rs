@@ -223,10 +223,10 @@ pub mod patterns {
     use super::*;
 
     /// Filter for standard LDAP users.
-    pub fn fd_user() -> LdapFilter {
+    pub fn hrc_user() -> LdapFilter {
         FilterBuilder::new()
             .object_class("inetOrgPerson")
-            .object_class("fdAcl")
+            .object_class("hrcAcl")
             .build_and()
     }
 
@@ -265,9 +265,14 @@ pub mod patterns {
 
     /// Filter for systems/servers.
     pub fn system() -> LdapFilter {
-        FilterBuilder::new()
-            .object_class("fdServerService")
-            .build_and()
+        LdapFilter::or(vec![
+            LdapFilter::eq("objectClass", "hrcServer"),
+            LdapFilter::eq("objectClass", "hrcWorkstation"),
+            LdapFilter::eq("objectClass", "hrcTerminal"),
+            LdapFilter::eq("objectClass", "hrcPrinter"),
+            LdapFilter::eq("objectClass", "hrcPhone"),
+            LdapFilter::eq("objectClass", "hrcMobilePhone"),
+        ])
     }
 
     /// Filter for DNS zones.
@@ -389,10 +394,10 @@ mod tests {
     }
 
     #[test]
-    fn test_pattern_fd_user() {
-        let filter = patterns::fd_user();
+    fn test_pattern_hrc_user() {
+        let filter = patterns::hrc_user();
         assert!(filter.to_string().contains("inetOrgPerson"));
-        assert!(filter.to_string().contains("fdAcl"));
+        assert!(filter.to_string().contains("hrcAcl"));
     }
 
     #[test]
