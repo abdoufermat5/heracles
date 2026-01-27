@@ -45,11 +45,30 @@ ssh -i keys/testuser testuser@192.168.56.10 'whoami && sudo whoami'
 
 ## Utilisateurs de test
 
-| Utilisateur | Mot de passe | Clé SSH | Sudo |
-|-------------|--------------|---------|------|
-| testuser | testpassword123 | keys/testuser | ALL NOPASSWD |
-| devuser | devpassword123 | keys/devuser | apt, systemctl, journalctl |
-| opsuser | opspassword123 | keys/opsuser | ALL (mot de passe) |
+| Utilisateur | Mot de passe | Clé SSH | Sudo | Accès Hôtes |
+|-------------|--------------|---------|------|-------------|
+| testuser | testpassword123 | keys/testuser | ALL NOPASSWD | Tous (fullaccess) |
+| devuser | devpassword123 | keys/devuser | apt, systemctl, journalctl | server1 uniquement |
+| opsuser | opspassword123 | keys/opsuser | ALL (mot de passe) | Tous (fullaccess) |
+
+### Host-based Access Control
+
+Le plugin POSIX permet de restreindre l'accès des utilisateurs à certains systèmes via l'attribut `host` et le `trustMode` :
+
+- **fullaccess** : L'utilisateur peut accéder à tous les systèmes (`host: *`)
+- **byhost** : L'utilisateur ne peut accéder qu'aux systèmes listés dans `host`
+
+Exemple de test :
+
+```bash
+# testuser peut accéder partout
+ssh -i keys/testuser testuser@192.168.56.10  # ✓ server1
+ssh -i keys/testuser testuser@192.168.56.11  # ✓ workstation1
+
+# devuser ne peut accéder qu'à server1
+ssh -i keys/devuser devuser@192.168.56.10    # ✓ server1
+ssh -i keys/devuser devuser@192.168.56.11    # ✗ REFUSÉ
+```
 
 ## Commandes Vagrant
 

@@ -173,36 +173,40 @@ echo "==========================================================================
 echo "[*] STEP 3: Activate POSIX for Users"
 echo "=========================================================================="
 
-# Activate POSIX for testuser
+# Activate POSIX for testuser (with full host access)
 echo ""
-echo "[*] Activating POSIX for testuser..."
+echo "[*] Activating POSIX for testuser (trustMode: fullaccess)..."
 result=$(api_call POST "/api/v1/users/testuser/posix" '{
     "uidNumber": 10001,
     "gidNumber": 10001,
     "homeDirectory": "/home/testuser",
-    "loginShell": "/bin/bash"
+    "loginShell": "/bin/bash",
+    "trustMode": "fullaccess"
 }')
 echo "$result" | jq -r '.hasPosix // .detail // .' 2>/dev/null || echo "$result"
 
-# Activate POSIX for devuser
+# Activate POSIX for devuser (restricted to server1 only)
 echo ""
-echo "[*] Activating POSIX for devuser..."
+echo "[*] Activating POSIX for devuser (trustMode: byhost - server1 only)..."
 result=$(api_call POST "/api/v1/users/devuser/posix" '{
     "uidNumber": 10002,
     "gidNumber": 10002,
     "homeDirectory": "/home/devuser",
-    "loginShell": "/bin/bash"
+    "loginShell": "/bin/bash",
+    "trustMode": "byhost",
+    "host": ["server1"]
 }')
 echo "$result" | jq -r '.hasPosix // .detail // .' 2>/dev/null || echo "$result"
 
-# Activate POSIX for opsuser
+# Activate POSIX for opsuser (with full host access)
 echo ""
-echo "[*] Activating POSIX for opsuser..."
+echo "[*] Activating POSIX for opsuser (trustMode: fullaccess)..."
 result=$(api_call POST "/api/v1/users/opsuser/posix" '{
     "uidNumber": 10003,
     "gidNumber": 10003,
     "homeDirectory": "/home/opsuser",
-    "loginShell": "/bin/bash"
+    "loginShell": "/bin/bash",
+    "trustMode": "fullaccess"
 }')
 echo "$result" | jq -r '.hasPosix // .detail // .' 2>/dev/null || echo "$result"
 
@@ -300,6 +304,35 @@ echo "$result" | jq -r '.cn // .detail // .' 2>/dev/null || echo "$result"
 
 echo ""
 echo "=========================================================================="
+echo "[*] STEP 7: Register Systems"
+echo "=========================================================================="
+
+# Create server1
+echo ""
+echo "[*] Registering server1..."
+result=$(api_call POST "/api/v1/systems" '{
+    "cn": "server1",
+    "systemType": "server",
+    "description": "Demo server VM - Debian Bookworm",
+    "ipHostNumber": ["192.168.56.10"],
+    "l": "Demo Environment"
+}')
+echo "$result" | jq -r '.cn // .detail // .' 2>/dev/null || echo "$result"
+
+# Create workstation1
+echo ""
+echo "[*] Registering workstation1..."
+result=$(api_call POST "/api/v1/systems" '{
+    "cn": "workstation1",
+    "systemType": "workstation",
+    "description": "Demo workstation VM - Debian Bookworm",
+    "ipHostNumber": ["192.168.56.11"],
+    "l": "Demo Environment"
+}')
+echo "$result" | jq -r '.cn // .detail // .' 2>/dev/null || echo "$result"
+
+echo ""
+echo "=========================================================================="
 echo "[+] Demo Setup Complete!"
 echo "=========================================================================="
 echo ""
@@ -311,6 +344,14 @@ echo "   │ testuser    │ testpassword123  │ ALL (NOPASSWD)                
 echo "   │ devuser     │ devpassword123   │ apt, systemctl status, journalctl   │"
 echo "   │ opsuser     │ opspassword123   │ ALL (with password)                 │"
 echo "   └─────────────┴──────────────────┴─────────────────────────────────────┘"
+echo ""
+echo "[i] Systems registered:"
+echo "   ┌──────────────┬─────────────┬────────────────┐"
+echo "   │ Hostname     │ Type        │ IP Address     │"
+echo "   ├──────────────┼─────────────┼────────────────┤"
+echo "   │ server1      │ server      │ 192.168.56.10  │"
+echo "   │ workstation1 │ workstation │ 192.168.56.11  │"
+echo "   └──────────────┴─────────────┴────────────────┘"
 echo ""
 echo "[*] SSH Keys location: $KEYS_DIR"
 echo ""

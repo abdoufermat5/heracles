@@ -139,12 +139,12 @@ ldap_sudo_full_refresh_interval = 86400
 ldap_sudo_smart_refresh_interval = 900
 
 # Host-based access control (System Trust via hostObject)
-# For demo/testing: use 'permit' to allow all LDAP users
-# For production: use 'ldap' with host attribute filtering
-# access_provider = ldap
-# ldap_access_order = host
-# ldap_access_filter = (|(host=*)(host=ALL)(host=${HOSTNAME}))
-access_provider = permit
+# Uses LDAP 'host' attribute to control which systems a user can access
+# - host=* allows access to all systems (trustMode: fullaccess)
+# - host=hostname allows access only to specific systems (trustMode: byhost)
+# - Users without host attribute will be DENIED access
+access_provider = ldap
+ldap_access_order = host
 
 # Cache settings
 cache_credentials = true
