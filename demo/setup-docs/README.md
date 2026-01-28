@@ -18,6 +18,7 @@ cd /chemin/vers/heracles
 make dev-infra
 make ldap-schemas
 make bootstrap
+make dns-bootstrap    # Zones DNS de démo
 
 # 2. Générer les clés SSH de test
 cd demo
@@ -29,9 +30,20 @@ vagrant up
 # 4. Configurer les utilisateurs de démo
 ./scripts/setup-demo-users.sh
 
-# 5. Tester
+# 5. Test SSH
 ssh -i keys/testuser testuser@192.168.56.10 'whoami && sudo whoami'
+
+# 6. Test DNS
+dig @192.168.56.20 server1.heracles.local
 ```
+
+## VMs de l'environnement
+
+| VM | IP | Rôle |
+|----|-------|------|
+| ns1 | 192.168.56.20 | Serveur DNS BIND9 (zones depuis LDAP) |
+| server1 | 192.168.56.10 | Serveur de test SSSD |
+| workstation1 | 192.168.56.11 | Workstation de test SSSD |
 
 ## Utilisateurs de test
 
@@ -41,18 +53,32 @@ ssh -i keys/testuser testuser@192.168.56.10 'whoami && sudo whoami'
 | devuser | devpassword123 | apt, systemctl, journalctl |
 | opsuser | opspassword123 | ALL (avec mot de passe) |
 
+## Zones DNS de démo
+
+| Zone | Type | Description |
+|------|------|-------------|
+| heracles.local | Forward | Zone principale de démo |
+| 56.168.192.in-addr.arpa | Reverse | Zone inverse pour 192.168.56.0/24 |
+
+Enregistrements pré-configurés :
+- `ns1.heracles.local` → 192.168.56.20
+- `server1.heracles.local` → 192.168.56.10
+- `workstation1.heracles.local` → 192.168.56.11
+- `ldap.heracles.local` → 192.168.56.1
+
 ## Structure du dossier demo
 
 ```
 demo/
-├── Vagrantfile           # Configuration Vagrant
+├── Vagrantfile           # Configuration Vagrant (ns1, server1, workstation1)
 ├── README.md             # Documentation rapide
 ├── .gitignore            # Exclusions Git
 ├── keys/                 # Clés SSH (générées, non versionnées)
 ├── provision/            # Scripts de provisioning VM
-│   ├── setup-sssd.sh
-│   ├── setup-ssh.sh
-│   └── setup-sudo.sh
+│   ├── setup-sssd.sh     # Configuration SSSD
+│   ├── setup-ssh.sh      # Configuration SSH LDAP
+│   ├── setup-sudo.sh     # Configuration sudo LDAP
+│   └── setup-bind.sh     # Configuration BIND9 DNS
 ├── scripts/              # Scripts utilitaires
 │   ├── generate-keys.sh
 │   └── setup-demo-users.sh

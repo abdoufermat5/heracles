@@ -46,6 +46,10 @@ export const PLUGIN_ROUTES = {
   SSH: {
     // SSH routes will be added when SSH pages are implemented
   },
+  DNS: {
+    ZONES: '/dns',
+    ZONE_DETAIL: '/dns/:zoneName',
+  },
 } as const
 
 // Route Builder Functions
@@ -103,6 +107,17 @@ export function systemDetailPath(type: string, cn: string): string {
   return PLUGIN_ROUTES.SYSTEMS.DETAIL
     .replace(':type', encodeURIComponent(type))
     .replace(':cn', encodeURIComponent(cn))
+}
+
+/**
+ * Build the DNS zone detail route
+ * @param zoneName - Zone name
+ */
+export function dnsZonePath(zoneName: string): string {
+  return PLUGIN_ROUTES.DNS.ZONE_DETAIL.replace(
+    ':zoneName',
+    encodeURIComponent(zoneName)
+  )
 }
 
 // Query parameters for create dialogs

@@ -27,8 +27,8 @@ import {
   Settings,
   LogOut,
   ChevronUp,
-
   ShieldCheck,
+  Globe,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores'
 import { ROUTES, PLUGIN_ROUTES } from '@/config/constants'
@@ -58,6 +58,11 @@ const mainNavItems = [
     title: 'Systems',
     url: PLUGIN_ROUTES.SYSTEMS.LIST,
     icon: Server,
+  },
+  {
+    title: 'DNS',
+    url: PLUGIN_ROUTES.DNS.ZONES,
+    icon: Globe,
   },
 ]
 

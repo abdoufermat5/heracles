@@ -59,28 +59,34 @@
 | Plugin | Description | Status |
 |--------|-------------|--------|
 | `core` | Base user/group management | 🔲 Planned |
-| `posix` | Unix accounts (posixAccount, shadowAccount) | 🔲 Planned |
-| `sudo` | Sudo rules management | 🔲 Planned |
-| `ssh` | SSH public keys | 🔲 Planned |
-| `systems` | Servers, workstations | 🔲 Planned |
-| `dns` | DNS zones and records | 🔲 Planned |
+| `posix` | Unix accounts (posixAccount, shadowAccount) | ✅ Implemented |
+| `sudo` | Sudo rules management | ✅ Implemented |
+| `ssh` | SSH public keys | ✅ Implemented |
+| `systems` | Servers, workstations | ✅ Implemented |
+| `dns` | DNS zones and records (FusionDirectory compatible) | ✅ Implemented |
 | `dhcp` | DHCP configuration | 🔲 Planned |
 
 ---
 
 ## Demo Environment
 
-Un environnement de démonstration complet est disponible avec Vagrant/VirtualBox pour tester les plugins SSH, Sudo et POSIX sur des VMs Linux.
+Un environnement de démonstration complet est disponible avec Vagrant/VirtualBox pour tester les plugins SSH, Sudo, POSIX et DNS sur des VMs Linux.
 
 ```bash
 # Depuis la racine du projet
 make dev-infra          # Infrastructure Docker
+make ldap-schemas       # Charger les schémas LDAP (DNS, sudo, etc.)
+make bootstrap          # Initialiser LDAP (OUs, admin user)
+make dns-bootstrap      # Créer les zones DNS de démo
 make demo-keys          # Générer les clés SSH
 make demo-up            # Démarrer les VMs Vagrant
 make demo-users         # Configurer les utilisateurs via API
 
 # Test SSH avec authentification LDAP
 ssh -i demo/keys/testuser testuser@192.168.56.10 'sudo whoami'
+
+# Test DNS (depuis ns1 VM)
+dig @192.168.56.20 server1.heracles.local
 ```
 
 Voir [demo/README.md](demo/README.md) pour la documentation complète.

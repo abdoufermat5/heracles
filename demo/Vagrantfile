@@ -24,6 +24,7 @@ LDAP_PORT = "389"
 LDAP_BASE_DN = "dc=heracles,dc=local"
 LDAP_BIND_DN = "cn=admin,dc=heracles,dc=local"
 LDAP_BIND_PASSWORD = "admin_secret"
+DNS_SERVER_IP = "192.168.56.20"  # ns1 DNS server
 
 # Box configuration
 BOX_NAME = "debian/bookworm64"
@@ -37,6 +38,34 @@ Vagrant.configure("2") do |config|
   # Disable default synced folder, use explicit ones
   config.vm.synced_folder ".", "/vagrant", disabled: true
   config.vm.synced_folder "./provision", "/vagrant/provision", type: "virtualbox"
+
+  # ==========================================================================
+  # VM 0: ns1 - DNS Server (BIND9 with LDAP backend)
+  # ==========================================================================
+  config.vm.define "ns1" do |dns|
+    dns.vm.hostname = "ns1.heracles.local"
+    
+    # Private network for host communication
+    dns.vm.network "private_network", ip: DNS_SERVER_IP
+    
+    # VirtualBox specific settings
+    dns.vm.provider "virtualbox" do |vb|
+      vb.name = "heracles-ns1"
+      vb.memory = "512"
+      vb.cpus = 1
+      vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+    end
+    
+    # Provisioning
+    dns.vm.provision "shell", inline: <<-SHELL
+      echo "==> Setting up ns1 DNS server for Heracles..."
+      echo "#{LDAP_SERVER_IP} ldap.heracles.local" >> /etc/hosts
+    SHELL
+    
+    dns.vm.provision "shell", 
+      path: "provision/setup-bind.sh",
+      args: [LDAP_SERVER_IP, LDAP_PORT, LDAP_BASE_DN, LDAP_BIND_DN, LDAP_BIND_PASSWORD]
+  end
 
   # ==========================================================================
   # VM 1: server1 - Simulates a server system
@@ -59,6 +88,24 @@ Vagrant.configure("2") do |config|
     server.vm.provision "shell", inline: <<-SHELL
       echo "==> Setting up server1 for Heracles testing..."
       echo "#{LDAP_SERVER_IP} ldap.heracles.local" >> /etc/hosts
+      echo "#{DNS_SERVER_IP} ns1.heracles.local" >> /etc/hosts
+      
+      # Configure DNS resolver to use ns1 (persistent)
+      # Disable systemd-resolved if present to prevent overwriting resolv.conf
+      if systemctl is-active --quiet systemd-resolved 2>/dev/null; then
+        systemctl disable --now systemd-resolved
+        rm -f /etc/resolv.conf
+      fi
+      
+      # Create persistent resolv.conf
+      cat > /etc/resolv.conf << EOF
+nameserver #{DNS_SERVER_IP}
+nameserver 8.8.8.8
+search heracles.local
+EOF
+      
+      # Prevent DHCP from overwriting resolv.conf
+      chattr +i /etc/resolv.conf 2>/dev/null || true
     SHELL
     
     server.vm.provision "shell", 
@@ -95,6 +142,24 @@ Vagrant.configure("2") do |config|
     ws.vm.provision "shell", inline: <<-SHELL
       echo "==> Setting up workstation1 for Heracles testing..."
       echo "#{LDAP_SERVER_IP} ldap.heracles.local" >> /etc/hosts
+      echo "#{DNS_SERVER_IP} ns1.heracles.local" >> /etc/hosts
+      
+      # Configure DNS resolver to use ns1 (persistent)
+      # Disable systemd-resolved if present to prevent overwriting resolv.conf
+      if systemctl is-active --quiet systemd-resolved 2>/dev/null; then
+        systemctl disable --now systemd-resolved
+        rm -f /etc/resolv.conf
+      fi
+      
+      # Create persistent resolv.conf
+      cat > /etc/resolv.conf << EOF
+nameserver #{DNS_SERVER_IP}
+nameserver 8.8.8.8
+search heracles.local
+EOF
+      
+      # Prevent DHCP from overwriting resolv.conf
+      chattr +i /etc/resolv.conf 2>/dev/null || true
     SHELL
     
     ws.vm.provision "shell", 

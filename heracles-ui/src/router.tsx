@@ -17,6 +17,7 @@ import {
 } from '@/pages'
 import { PosixGroupsPage, PosixGroupDetailPage, MixedGroupsPage } from '@/pages/posix'
 import { SudoRolesPage, SudoRoleDetailPage } from '@/pages/sudo'
+import { DnsZonesListPage, DnsZoneDetailPage } from '@/pages/dns'
 import { ROUTES, PLUGIN_ROUTES } from '@/config/constants'
 
 export function AppRouter() {
@@ -61,7 +62,11 @@ export function AppRouter() {
         {/* Systems */}
         <Route path={PLUGIN_ROUTES.SYSTEMS.LIST} element={<SystemsListPage />} />
         <Route path={PLUGIN_ROUTES.SYSTEMS.DETAIL} element={<SystemDetailPage />} />
-        
+
+        {/* DNS */}
+        <Route path={PLUGIN_ROUTES.DNS.ZONES} element={<DnsZonesListPage />} />
+        <Route path={PLUGIN_ROUTES.DNS.ZONE_DETAIL} element={<DnsZoneDetailPage />} />
+
         {/* Settings */}
         <Route path={ROUTES.SETTINGS} element={<SettingsPage />} />
       </Route>

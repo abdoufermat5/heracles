@@ -113,8 +113,19 @@ demo: dev-infra
 	@sleep 5
 	@$(MAKE) bootstrap || true
 	@$(MAKE) ldap-schemas || true
+	@$(MAKE) dns-bootstrap || true
 	@$(MAKE) demo-keys
 	@$(MAKE) demo-up
 	@sleep 10
 	@$(MAKE) demo-users
 	$(call log_success,Demo environment ready!)
+
+# Bootstrap DNS zones in LDAP
+dns-bootstrap:
+	$(call log_info,Bootstrapping DNS zones in LDAP...)
+	@./scripts/ldap-dns-bootstrap.sh
+	$(call log_success,DNS zones bootstrapped!)
+
+# SSH into ns1 DNS server
+demo-ssh-ns1:
+	@cd demo && vagrant ssh ns1

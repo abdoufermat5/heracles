@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Heracles** is a modern LDAP identity management system. It provides a performant, maintainable, and extensible solution while maintaining **100% compatibility** with existing LDAP deployments and standard schemas.
 
-**Current Status (January 2026):** Sprint 13-14 complete - SSH plugin fully implemented. POSIX, Sudo, and SSH plugins all operational.
+**Current Status (January 2026):** Sprint 17 complete - DNS plugin fully implemented. POSIX, Sudo, SSH, Systems, and DNS plugins all operational.
 
 ## Architecture
 
@@ -144,8 +144,10 @@ Plugins provide tabs (attach to existing object types) or management capabilitie
 - ✅ **posix** - Unix accounts, POSIX groups, Mixed groups, System Trust
 - ✅ **sudo** - Sudoers rules management (sudoRole objectClass)
 - ✅ **ssh** - SSH public key management (ldapPublicKey objectClass)
+- ✅ **systems** - System management (servers, workstations, etc.)
+- ✅ **dns** - DNS zone and record management (dNSZone objectClass)
 
-**Planned Plugins:** systems, dns, dhcp
+**Planned Plugins:** dhcp
 
 ## POSIX Plugin Reference
 

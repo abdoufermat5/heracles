@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     TEST_EMAIL_DOMAINS: List[str] = ["heracles.local", "test.local", "localhost"]
     
     # Plugins
-    PLUGINS_ENABLED: List[str] = ["posix", "sudo", "ssh", "systems"]
+    PLUGINS_ENABLED: List[str] = ["posix", "sudo", "ssh", "systems", "dns"]
     
     # POSIX Plugin Settings
     POSIX_UID_MIN: int = 10000

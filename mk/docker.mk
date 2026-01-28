@@ -61,21 +61,38 @@ prod:
 	@echo "  🖥️  UI:   http://localhost:80"
 	@echo "  🚀 API:  http://localhost:$(API_PORT)"
 
-# Stop all services
+# Stop all services (Docker + Vagrant)
 stop:
 	$(call log_info,Stopping all services...)
 	$(DOCKER_COMPOSE) $(DOCKER_PROFILE_FULL) $(DOCKER_PROFILE_PROD) down
-	$(call log_success,Docker services stopped)
-	@echo ""
-	@echo "  [i] To also stop Vagrant VMs: make demo-down"
+	@if [ -f demo/Vagrantfile ] && command -v vagrant >/dev/null 2>&1; then \
+		echo "Stopping Vagrant VMs..."; \
+		cd demo && vagrant halt 2>/dev/null || true; \
+	fi
+	$(call log_success,All services stopped!)
 
-# Clean all volumes
+# Stop Docker only
+stop-docker:
+	$(call log_info,Stopping Docker services...)
+	$(DOCKER_COMPOSE) $(DOCKER_PROFILE_FULL) $(DOCKER_PROFILE_PROD) down
+	$(call log_success,Docker services stopped!)
+
+# Clean everything (Docker + Vagrant + build artifacts)
 clean:
-	$(call log_warning,Removing all containers and volumes...)
+	$(call log_warning,Removing all containers, volumes, VMs and build artifacts...)
+	$(DOCKER_COMPOSE) $(DOCKER_PROFILE_FULL) $(DOCKER_PROFILE_PROD) down -v 2>/dev/null || true
+	@if [ -f demo/Vagrantfile ] && command -v vagrant >/dev/null 2>&1; then \
+		echo "Destroying Vagrant VMs..."; \
+		cd demo && vagrant destroy -f 2>/dev/null || true; \
+	fi
+	@rm -rf demo/keys 2>/dev/null || true
+	$(call log_success,All cleaned!)
+
+# Clean Docker only
+clean-docker:
+	$(call log_warning,Removing all Docker containers and volumes...)
 	$(DOCKER_COMPOSE) $(DOCKER_PROFILE_FULL) $(DOCKER_PROFILE_PROD) down -v
-	$(call log_success,Docker volumes removed)
-	@echo ""
-	@echo "  [i] To also destroy Vagrant VMs: make demo-clean"
+	$(call log_success,Docker volumes removed!)
 
 # ===========================================
 # Build Commands

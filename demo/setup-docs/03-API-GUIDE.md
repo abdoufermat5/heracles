@@ -113,6 +113,75 @@ curl -X POST "http://localhost:8000/api/v1/sudo/roles" \
   }'
 ```
 
+### DNS
+
+Le plugin DNS est compatible avec FusionDirectory et stocke les zones dans LDAP avec l'objectClass `dNSZone`.
+
+| Méthode | Endpoint | Description |
+|---------|----------|-------------|
+| GET | `/api/v1/dns/zones` | Lister les zones DNS |
+| POST | `/api/v1/dns/zones` | Créer une zone |
+| GET | `/api/v1/dns/zones/{zoneName}` | Détails d'une zone |
+| PUT | `/api/v1/dns/zones/{zoneName}` | Modifier SOA |
+| DELETE | `/api/v1/dns/zones/{zoneName}` | Supprimer une zone |
+| GET | `/api/v1/dns/zones/{zoneName}/records` | Lister les enregistrements |
+| POST | `/api/v1/dns/zones/{zoneName}/records` | Créer un enregistrement |
+| DELETE | `/api/v1/dns/zones/{zoneName}/records/{name}/{type}?value=X` | Supprimer un enregistrement |
+
+**Lister les zones :**
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/v1/dns/zones
+```
+
+**Créer une zone :**
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/dns/zones" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "zoneName": "example.org",
+    "soaPrimaryNs": "ns1.example.org.",
+    "soaAdminEmail": "admin.example.org.",
+    "defaultTtl": 3600
+  }'
+```
+
+**Ajouter un enregistrement A :**
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/dns/zones/example.org/records" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "www",
+    "record_type": "A",
+    "value": "192.168.1.100",
+    "ttl": 3600
+  }'
+```
+
+**Modifier le SOA (auto-incrémente le serial) :**
+
+```bash
+curl -X PUT "http://localhost:8000/api/v1/dns/zones/example.org" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "soa_refresh": 7200,
+    "soa_retry": 1800,
+    "default_ttl": 86400
+  }'
+```
+
+**Supprimer un enregistrement :**
+
+```bash
+curl -X DELETE "http://localhost:8000/api/v1/dns/zones/example.org/records/www/A?value=192.168.1.100" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
 ## Documentation interactive
 
 Accédez à Swagger UI : http://localhost:8000/api/docs
