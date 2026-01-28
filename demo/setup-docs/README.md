@@ -35,6 +35,9 @@ ssh -i keys/testuser testuser@192.168.56.10 'whoami && sudo whoami'
 
 # 6. Test DNS
 dig @192.168.56.20 server1.heracles.local
+
+# 7. Test DHCP
+vagrant ssh server1 -c 'sudo dhclient -v eth1'
 ```
 
 ## VMs de l'environnement
@@ -42,6 +45,7 @@ dig @192.168.56.20 server1.heracles.local
 | VM | IP | Rôle |
 |----|-------|------|
 | ns1 | 192.168.56.20 | Serveur DNS BIND9 (zones depuis LDAP) |
+| dhcp1 | 192.168.56.21 | Serveur DHCP ISC (config depuis LDAP) |
 | server1 | 192.168.56.10 | Serveur de test SSSD |
 | workstation1 | 192.168.56.11 | Workstation de test SSSD |
 
@@ -62,15 +66,33 @@ dig @192.168.56.20 server1.heracles.local
 
 Enregistrements pré-configurés :
 - `ns1.heracles.local` → 192.168.56.20
+- `dhcp1.heracles.local` → 192.168.56.21
 - `server1.heracles.local` → 192.168.56.10
 - `workstation1.heracles.local` → 192.168.56.11
 - `ldap.heracles.local` → 192.168.56.1
+
+## Configuration DHCP de démo
+
+| Paramètre | Valeur |
+|-----------|--------|
+| Subnet | 192.168.56.0/24 |
+| Pool dynamique | 192.168.56.100 - 192.168.56.199 |
+| Routeur | 192.168.56.1 |
+| Serveur DNS | 192.168.56.20 |
+| Domaine | heracles.local |
+| Durée de bail | 3600s (1 heure) |
+
+Réservations statiques :
+- `server1` → 192.168.56.10
+- `workstation1` → 192.168.56.11
+- `ns1` → 192.168.56.20
+- `dhcp1` → 192.168.56.21
 
 ## Structure du dossier demo
 
 ```
 demo/
-├── Vagrantfile           # Configuration Vagrant (ns1, server1, workstation1)
+├── Vagrantfile           # Configuration Vagrant (ns1, dhcp1, server1, workstation1)
 ├── README.md             # Documentation rapide
 ├── .gitignore            # Exclusions Git
 ├── keys/                 # Clés SSH (générées, non versionnées)
@@ -78,10 +100,17 @@ demo/
 │   ├── setup-sssd.sh     # Configuration SSSD
 │   ├── setup-ssh.sh      # Configuration SSH LDAP
 │   ├── setup-sudo.sh     # Configuration sudo LDAP
-│   └── setup-bind.sh     # Configuration BIND9 DNS
+│   ├── setup-bind.sh     # Configuration BIND9 DNS
+│   └── setup-dhcp.sh     # Configuration ISC DHCP
 ├── scripts/              # Scripts utilitaires
 │   ├── generate-keys.sh
 │   └── setup-demo-users.sh
+├── config/               # Configuration et templates
+│   ├── demo.conf         # Variables de configuration
+│   └── templates/        # Templates de configuration
+│       ├── dhcpd.conf.template
+│       ├── ldap-dhcp-sync.sh.template
+│       └── ...
 └── setup-docs/           # Documentation détaillée
     ├── README.md
     ├── 01-INSTALLATION.md

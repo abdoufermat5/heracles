@@ -71,6 +71,20 @@ class PluginRegistry:
             service = tab.service_class(self._ldap_service, plugin_config)
             self._services[tab.id] = service
         
+        # Also register standalone service if plugin provides service_class()
+        # and no tabs registered a service with the plugin name
+        if hasattr(plugin, 'service_class') and info.name not in self._services:
+            service_cls = plugin.service_class()
+            if service_cls is not None:
+                plugin_config = plugin._config
+                service = service_cls(self._ldap_service, plugin_config)
+                self._services[info.name] = service
+                logger.debug(
+                    "plugin_standalone_service_registered",
+                    name=info.name,
+                    service_class=service_cls.__name__,
+                )
+        
         logger.info(
             "plugin_registered",
             name=info.name,

@@ -7,7 +7,7 @@ This service uses heracles-core (Rust) for all LDAP operations.
 """
 
 import asyncio
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any, Tuple, Union
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -200,7 +200,7 @@ class LdapService:
         self,
         search_base: str = None,
         search_filter: str = "(objectClass=*)",
-        scope: SearchScope = SearchScope.SUBTREE,
+        scope: Union[SearchScope, str] = SearchScope.SUBTREE,
         attributes: List[str] = None,
         size_limit: int = 0,
     ) -> List[LdapEntry]:
@@ -210,7 +210,7 @@ class LdapService:
         Args:
             search_base: Base DN for search (defaults to configured base)
             search_filter: LDAP filter string
-            scope: Search scope
+            scope: Search scope (SearchScope enum or string: 'base', 'onelevel', 'subtree')
             attributes: List of attributes to return (None = all)
             size_limit: Maximum entries to return (0 = unlimited)
             
@@ -221,10 +221,12 @@ class LdapService:
         
         try:
             base = search_base or self.base_dn
+            # Handle both enum and string for scope
+            scope_value = scope.value if isinstance(scope, SearchScope) else scope
             entries = await conn.search(
                 base=base,
                 filter=search_filter,
-                scope=scope.value,
+                scope=scope_value,
                 attributes=attributes,
                 size_limit=size_limit,
             )

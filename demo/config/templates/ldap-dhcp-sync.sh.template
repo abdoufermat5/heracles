@@ -1,0 +1,202 @@
+#!/bin/bash
+# =============================================================================
+# Heracles LDAP to DHCP Sync Script
+# =============================================================================
+# This script reads DHCP configuration from LDAP and generates dhcpd.conf
+# It is designed to run periodically via cron or systemd timer.
+#
+# Template variables are replaced during provisioning from demo.conf
+# =============================================================================
+
+set -e
+
+# Configuration (replaced from demo.conf)
+LDAP_URI="${LDAP_URI}"
+LDAP_BASE_DN="${LDAP_BASE_DN}"
+LDAP_BIND_DN="${LDAP_BIND_DN}"
+LDAP_BIND_PASSWORD="${LDAP_BIND_PASSWORD}"
+LDAP_DHCP_DN="${LDAP_DHCP_DN}"
+DHCP_SERVICE_CN="${DHCP_SERVICE_CN}"
+DOMAIN="${DOMAIN}"
+
+# File paths
+DHCPD_CONF="/etc/dhcp/dhcpd.conf"
+DHCPD_CONF_BASE="/etc/dhcp/dhcpd.conf.base"
+DHCPD_CONF_TMP="/tmp/dhcpd.conf.tmp"
+
+# Logging
+log() {
+    logger -t ldap-dhcp-sync "$1"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+}
+
+log "Starting LDAP DHCP sync..."
+
+# Check LDAP connectivity
+if ! ldapsearch -x -H "$LDAP_URI" -b "$LDAP_BASE_DN" -D "$LDAP_BIND_DN" -w "$LDAP_BIND_PASSWORD" "(objectClass=organization)" dn >/dev/null 2>&1; then
+    log "ERROR: Cannot connect to LDAP server at $LDAP_URI"
+    exit 1
+fi
+
+# Check if DHCP service exists
+DHCP_SERVICE_DN="cn=${DHCP_SERVICE_CN},${LDAP_DHCP_DN}"
+if ! ldapsearch -x -H "$LDAP_URI" -b "$DHCP_SERVICE_DN" -D "$LDAP_BIND_DN" -w "$LDAP_BIND_PASSWORD" "(objectClass=dhcpService)" dn >/dev/null 2>&1; then
+    log "WARNING: DHCP service not found in LDAP. Run 'make dhcp-bootstrap' first."
+    exit 0
+fi
+
+log "Found DHCP service: $DHCP_SERVICE_DN"
+
+# Start with base configuration
+cp "$DHCPD_CONF_BASE" "$DHCPD_CONF_TMP"
+
+echo "" >> "$DHCPD_CONF_TMP"
+echo "# Generated from LDAP on $(date)" >> "$DHCPD_CONF_TMP"
+echo "" >> "$DHCPD_CONF_TMP"
+
+# -----------------------------------------------------------------------------
+# Generate subnet configurations
+# -----------------------------------------------------------------------------
+log "Processing subnets..."
+
+# Find all subnets under the DHCP service
+ldapsearch -x -H "$LDAP_URI" -b "$DHCP_SERVICE_DN" -D "$LDAP_BIND_DN" -w "$LDAP_BIND_PASSWORD" \
+    "(objectClass=dhcpSubnet)" cn dhcpNetMask dhcpStatements dhcpOption dhcpComments 2>/dev/null | \
+while read -r line; do
+    if [[ "$line" =~ ^dn:\ (.+) ]]; then
+        SUBNET_DN="${BASH_REMATCH[1]}"
+    elif [[ "$line" =~ ^cn:\ (.+) ]]; then
+        SUBNET_CN="${BASH_REMATCH[1]}"
+    elif [[ "$line" =~ ^dhcpNetMask:\ (.+) ]]; then
+        NETMASK="${BASH_REMATCH[1]}"
+    fi
+    
+    # When we have all the data, generate subnet block
+    if [[ -n "$SUBNET_CN" && -n "$NETMASK" && "$line" == "" ]]; then
+        # Calculate subnet mask from CIDR
+        case "$NETMASK" in
+            24) MASK="255.255.255.0" ;;
+            16) MASK="255.255.0.0" ;;
+            8)  MASK="255.0.0.0" ;;
+            *)  MASK="255.255.255.0" ;;
+        esac
+        
+        log "  Processing subnet: $SUBNET_CN/$NETMASK"
+        
+        echo "# Subnet: $SUBNET_CN" >> "$DHCPD_CONF_TMP"
+        echo "subnet $SUBNET_CN netmask $MASK {" >> "$DHCPD_CONF_TMP"
+        
+        # Get subnet options
+        ldapsearch -x -H "$LDAP_URI" -b "$SUBNET_DN" -D "$LDAP_BIND_DN" -w "$LDAP_BIND_PASSWORD" \
+            -s base "(objectClass=dhcpSubnet)" dhcpStatements dhcpOption 2>/dev/null | \
+        grep -E "^(dhcpStatements|dhcpOption):" | while read -r opt_line; do
+            if [[ "$opt_line" =~ ^dhcpStatements:\ (.+) ]]; then
+                echo "    ${BASH_REMATCH[1]};" >> "$DHCPD_CONF_TMP"
+            elif [[ "$opt_line" =~ ^dhcpOption:\ (.+) ]]; then
+                echo "    option ${BASH_REMATCH[1]};" >> "$DHCPD_CONF_TMP"
+            fi
+        done
+        
+        # Process pools in this subnet
+        ldapsearch -x -H "$LDAP_URI" -b "$SUBNET_DN" -D "$LDAP_BIND_DN" -w "$LDAP_BIND_PASSWORD" \
+            "(objectClass=dhcpPool)" cn dhcpRange dhcpPermitList dhcpStatements 2>/dev/null | \
+        grep -E "^(cn|dhcpRange|dhcpPermitList|dhcpStatements):" | while read -r pool_line; do
+            if [[ "$pool_line" =~ ^dhcpRange:\ (.+) ]]; then
+                RANGE="${BASH_REMATCH[1]}"
+                echo "" >> "$DHCPD_CONF_TMP"
+                echo "    # Dynamic pool" >> "$DHCPD_CONF_TMP"
+                echo "    pool {" >> "$DHCPD_CONF_TMP"
+                echo "        range $RANGE;" >> "$DHCPD_CONF_TMP"
+            elif [[ "$pool_line" =~ ^dhcpPermitList:\ (.+) ]]; then
+                echo "        ${BASH_REMATCH[1]};" >> "$DHCPD_CONF_TMP"
+            elif [[ "$pool_line" =~ ^dhcpStatements:\ (.+) ]]; then
+                echo "        ${BASH_REMATCH[1]};" >> "$DHCPD_CONF_TMP"
+            fi
+        done
+        
+        # Close pool if opened
+        if grep -q "pool {" "$DHCPD_CONF_TMP" 2>/dev/null; then
+            echo "    }" >> "$DHCPD_CONF_TMP"
+        fi
+        
+        echo "}" >> "$DHCPD_CONF_TMP"
+        echo "" >> "$DHCPD_CONF_TMP"
+        
+        # Reset variables for next subnet
+        SUBNET_CN=""
+        NETMASK=""
+        SUBNET_DN=""
+    fi
+done
+
+# -----------------------------------------------------------------------------
+# Generate host reservations
+# -----------------------------------------------------------------------------
+log "Processing host reservations..."
+
+ldapsearch -x -H "$LDAP_URI" -b "$DHCP_SERVICE_DN" -D "$LDAP_BIND_DN" -w "$LDAP_BIND_PASSWORD" \
+    "(objectClass=dhcpHost)" cn dhcpHWAddress dhcpStatements dhcpOption 2>/dev/null | \
+{
+    HOST_CN=""
+    HW_ADDR=""
+    FIXED_ADDR=""
+    HOST_NAME=""
+    
+    while read -r line; do
+        if [[ "$line" =~ ^cn:\ (.+) ]]; then
+            HOST_CN="${BASH_REMATCH[1]}"
+        elif [[ "$line" =~ ^dhcpHWAddress:\ (.+) ]]; then
+            HW_ADDR="${BASH_REMATCH[1]}"
+        elif [[ "$line" =~ ^dhcpStatements:\ fixed-address\ (.+) ]]; then
+            FIXED_ADDR="${BASH_REMATCH[1]}"
+        elif [[ "$line" =~ ^dhcpOption:\ host-name\ \"(.+)\" ]]; then
+            HOST_NAME="${BASH_REMATCH[1]}"
+        fi
+        
+        # When we have a complete host entry
+        if [[ -n "$HOST_CN" && -n "$HW_ADDR" && "$line" == "" ]]; then
+            log "  Processing host: $HOST_CN"
+            
+            echo "# Host: $HOST_CN" >> "$DHCPD_CONF_TMP"
+            echo "host $HOST_CN {" >> "$DHCPD_CONF_TMP"
+            echo "    hardware $HW_ADDR;" >> "$DHCPD_CONF_TMP"
+            
+            if [[ -n "$FIXED_ADDR" ]]; then
+                echo "    fixed-address $FIXED_ADDR;" >> "$DHCPD_CONF_TMP"
+            fi
+            
+            if [[ -n "$HOST_NAME" ]]; then
+                echo "    option host-name \"$HOST_NAME\";" >> "$DHCPD_CONF_TMP"
+            fi
+            
+            echo "}" >> "$DHCPD_CONF_TMP"
+            echo "" >> "$DHCPD_CONF_TMP"
+            
+            # Reset
+            HOST_CN=""
+            HW_ADDR=""
+            FIXED_ADDR=""
+            HOST_NAME=""
+        fi
+    done
+}
+
+# -----------------------------------------------------------------------------
+# Validate and apply configuration
+# -----------------------------------------------------------------------------
+log "Validating generated configuration..."
+
+if dhcpd -t -cf "$DHCPD_CONF_TMP" 2>/dev/null; then
+    log "Configuration is valid, applying..."
+    cp "$DHCPD_CONF_TMP" "$DHCPD_CONF"
+    rm -f "$DHCPD_CONF_TMP"
+    log "DHCP configuration updated successfully"
+else
+    log "ERROR: Generated configuration is invalid!"
+    log "Keeping existing configuration"
+    cat "$DHCPD_CONF_TMP"
+    rm -f "$DHCPD_CONF_TMP"
+    exit 1
+fi
+
+log "LDAP DHCP sync completed"

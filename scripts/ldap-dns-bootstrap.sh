@@ -122,6 +122,7 @@ EOF
 
 # A records for infrastructure
 add_dns_record "$DNS_ZONE" "ns1" "$DNS_TTL" "aRecord" "192.168.56.20"
+add_dns_record "$DNS_ZONE" "dhcp1" "$DNS_TTL" "aRecord" "192.168.56.21"
 add_dns_record "$DNS_ZONE" "ldap" "$DNS_TTL" "aRecord" "192.168.56.1"
 add_dns_record "$DNS_ZONE" "server1" "$DNS_TTL" "aRecord" "192.168.56.10"
 add_dns_record "$DNS_ZONE" "workstation1" "$DNS_TTL" "aRecord" "192.168.56.11"

@@ -59,7 +59,44 @@ Vagrant.configure("2") do |config|
   end
 
   # ==========================================================================
-  # VM 1: server1 - Simulates a server system
+  # VM 1: dhcp1 - DHCP Server (ISC DHCP with LDAP sync)
+  # ==========================================================================
+  config.vm.define "dhcp1" do |dhcp|
+    dhcp.vm.hostname = "dhcp1.#{DEMO['DOMAIN']}"
+    dhcp.vm.network "private_network", ip: DEMO["DHCP1_IP"]
+    
+    dhcp.vm.provider "virtualbox" do |vb|
+      vb.name = "heracles-dhcp1"
+      vb.memory = DEMO["VM_MEMORY_DHCP1"]
+      vb.cpus = DEMO["VM_CPUS"]
+      vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+    end
+    
+    # Initial setup - copy config and setup hosts
+    dhcp.vm.provision "shell", inline: <<-SHELL
+      echo "==> Setting up dhcp1 DHCP server for Heracles..."
+      echo "#{DEMO['HOST_IP']} ldap.#{DEMO['DOMAIN']}" >> /etc/hosts
+      echo "#{DEMO['NS1_IP']} ns1.#{DEMO['DOMAIN']}" >> /etc/hosts
+      
+      # Configure DNS resolver to use ns1
+      if systemctl is-active --quiet systemd-resolved 2>/dev/null; then
+        systemctl disable --now systemd-resolved
+        rm -f /etc/resolv.conf
+      fi
+      
+      cat > /etc/resolv.conf << EOF
+nameserver #{DEMO['NS1_IP']}
+nameserver #{DEMO['DNS_FORWARDER']}
+search #{DEMO['DOMAIN']}
+EOF
+      chattr +i /etc/resolv.conf 2>/dev/null || true
+    SHELL
+    
+    dhcp.vm.provision "shell", path: "provision/setup-dhcp.sh"
+  end
+
+  # ==========================================================================
+  # VM 2: server1 - Simulates a server system
   # ==========================================================================
   config.vm.define "server1", primary: true do |server|
     server.vm.hostname = "server1.#{DEMO['DOMAIN']}"
@@ -80,6 +117,7 @@ Vagrant.configure("2") do |config|
       # Add hosts entries
       echo "#{DEMO['HOST_IP']} ldap.#{DEMO['DOMAIN']}" >> /etc/hosts
       echo "#{DEMO['NS1_IP']} ns1.#{DEMO['DOMAIN']}" >> /etc/hosts
+      echo "#{DEMO['DHCP1_IP']} dhcp1.#{DEMO['DOMAIN']}" >> /etc/hosts
       
       # Configure persistent DNS resolver
       if systemctl is-active --quiet systemd-resolved 2>/dev/null; then
@@ -101,7 +139,7 @@ EOF
   end
 
   # ==========================================================================
-  # VM 2: workstation1 - Simulates a workstation system
+  # VM 3: workstation1 - Simulates a workstation system
   # ==========================================================================
   config.vm.define "workstation1" do |ws|
     ws.vm.hostname = "workstation1.#{DEMO['DOMAIN']}"
@@ -122,6 +160,7 @@ EOF
       # Add hosts entries
       echo "#{DEMO['HOST_IP']} ldap.#{DEMO['DOMAIN']}" >> /etc/hosts
       echo "#{DEMO['NS1_IP']} ns1.#{DEMO['DOMAIN']}" >> /etc/hosts
+      echo "#{DEMO['DHCP1_IP']} dhcp1.#{DEMO['DOMAIN']}" >> /etc/hosts
       
       # Configure persistent DNS resolver
       if systemctl is-active --quiet systemd-resolved 2>/dev/null; then

@@ -29,6 +29,7 @@ import {
   ChevronUp,
   ShieldCheck,
   Globe,
+  Network,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores'
 import { ROUTES, PLUGIN_ROUTES } from '@/config/constants'
@@ -63,6 +64,11 @@ const mainNavItems = [
     title: 'DNS',
     url: PLUGIN_ROUTES.DNS.ZONES,
     icon: Globe,
+  },
+  {
+    title: 'DHCP',
+    url: PLUGIN_ROUTES.DHCP.SERVICES,
+    icon: Network,
   },
 ]
 

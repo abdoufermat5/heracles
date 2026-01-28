@@ -114,6 +114,7 @@ demo: dev-infra
 	@$(MAKE) bootstrap || true
 	@$(MAKE) ldap-schemas || true
 	@$(MAKE) dns-bootstrap || true
+	@$(MAKE) dhcp-bootstrap || true
 	@$(MAKE) demo-keys
 	@$(MAKE) demo-up
 	@sleep 10
@@ -126,6 +127,16 @@ dns-bootstrap:
 	@./scripts/ldap-dns-bootstrap.sh
 	$(call log_success,DNS zones bootstrapped!)
 
+# Bootstrap DHCP configuration in LDAP
+dhcp-bootstrap:
+	$(call log_info,Bootstrapping DHCP configuration in LDAP...)
+	@./scripts/ldap-dhcp-bootstrap.sh
+	$(call log_success,DHCP configuration bootstrapped!)
+
 # SSH into ns1 DNS server
 demo-ssh-ns1:
 	@cd demo && vagrant ssh ns1
+
+# SSH into dhcp1 DHCP server
+demo-ssh-dhcp1:
+	@cd demo && vagrant ssh dhcp1

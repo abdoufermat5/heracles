@@ -50,6 +50,10 @@ export const PLUGIN_ROUTES = {
     ZONES: '/dns',
     ZONE_DETAIL: '/dns/:zoneName',
   },
+  DHCP: {
+    SERVICES: '/dhcp',
+    SERVICE_DETAIL: '/dhcp/:serviceCn',
+  },
 } as const
 
 // Route Builder Functions
@@ -117,6 +121,17 @@ export function dnsZonePath(zoneName: string): string {
   return PLUGIN_ROUTES.DNS.ZONE_DETAIL.replace(
     ':zoneName',
     encodeURIComponent(zoneName)
+  )
+}
+
+/**
+ * Build the DHCP service detail route
+ * @param serviceCn - Service CN
+ */
+export function dhcpServicePath(serviceCn: string): string {
+  return PLUGIN_ROUTES.DHCP.SERVICE_DETAIL.replace(
+    ':serviceCn',
+    encodeURIComponent(serviceCn)
   )
 }
 
