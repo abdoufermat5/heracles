@@ -1,0 +1,47 @@
+# =============================================================================
+# BIND9 Options Configuration
+# =============================================================================
+# Template file - Variables are substituted during provisioning
+# Variables: @DNS_FORWARDER@
+# =============================================================================
+
+options {
+    directory "/var/cache/bind";
+
+    // Forward unknown queries to upstream DNS
+    forwarders {
+        @DNS_FORWARDER@;
+        8.8.4.4;
+    };
+    forward only;
+
+    // Listen on all interfaces
+    listen-on { any; };
+    listen-on-v6 { any; };
+
+    // Allow queries from demo network
+    allow-query { 
+        localhost;
+        192.168.56.0/24;
+        10.0.0.0/8;
+    };
+
+    // Allow recursion for internal clients
+    allow-recursion {
+        localhost;
+        192.168.56.0/24;
+        10.0.0.0/8;
+    };
+
+    // Disable zone transfers (not needed for demo)
+    allow-transfer { none; };
+
+    // DNSSEC validation (disabled for demo simplicity)
+    dnssec-validation no;
+
+    // Query logging (enable for debugging)
+    querylog no;
+
+    // Version hiding
+    version "not disclosed";
+};

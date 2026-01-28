@@ -1,0 +1,53 @@
+#!/bin/bash
+# =============================================================================
+# SSH LDAP Public Key Fetcher
+# =============================================================================
+# Retrieves SSH public keys from LDAP for a given user.
+# Used by SSH AuthorizedKeysCommand directive.
+#
+# Template file - Variables are substituted during provisioning
+# Variables: @LDAP_HOST@, @LDAP_PORT@, @LDAP_BASE_DN@, @LDAP_BIND_DN@, 
+#            @LDAP_BIND_PASSWORD@
+# =============================================================================
+
+USERNAME="$1"
+
+if [ -z "$USERNAME" ]; then
+    exit 1
+fi
+
+# LDAP configuration (substituted during provisioning)
+LDAP_HOST="@LDAP_HOST@"
+LDAP_PORT="@LDAP_PORT@"
+LDAP_BASE_DN="@LDAP_BASE_DN@"
+LDAP_BIND_DN="@LDAP_BIND_DN@"
+LDAP_BIND_PASSWORD="@LDAP_BIND_PASSWORD@"
+
+# Function to unfold LDIF continuation lines (lines starting with space are continuations)
+ldap_unfold() {
+    awk '
+    /^[^ ]/ { 
+        if (buffer != "") print buffer
+        buffer = $0
+    }
+    /^ / {
+        # Remove leading space and append to buffer
+        buffer = buffer substr($0, 2)
+    }
+    END { if (buffer != "") print buffer }
+    '
+}
+
+# Search for user's SSH public keys
+ldapsearch -x \
+    -H "ldap://${LDAP_HOST}:${LDAP_PORT}" \
+    -D "${LDAP_BIND_DN}" \
+    -w "${LDAP_BIND_PASSWORD}" \
+    -b "ou=people,${LDAP_BASE_DN}" \
+    "(uid=${USERNAME})" \
+    sshPublicKey 2>/dev/null | \
+    ldap_unfold | \
+    grep "^sshPublicKey:" | \
+    sed 's/^sshPublicKey: //'
+
+exit 0

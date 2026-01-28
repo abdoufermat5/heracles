@@ -1,0 +1,176 @@
+#!/bin/bash
+# =============================================================================
+# LDAP DNS Sync Script
+# =============================================================================
+# Synchronizes DNS zones from LDAP to BIND zone files.
+# Run via cron or systemd timer to keep zones in sync.
+#
+# Template file - Variables are substituted during provisioning
+# Variables: @LDAP_HOST@, @LDAP_PORT@, @LDAP_BASE_DN@, @LDAP_BIND_DN@, 
+#            @LDAP_BIND_PASSWORD@, @DNS_FORWARD_ZONE@, @DNS_REVERSE_ZONE@
+# =============================================================================
+
+set -e
+
+# LDAP configuration
+LDAP_HOST="@LDAP_HOST@"
+LDAP_PORT="@LDAP_PORT@"
+LDAP_BASE_DN="@LDAP_BASE_DN@"
+LDAP_BIND_DN="@LDAP_BIND_DN@"
+LDAP_BIND_PASSWORD="@LDAP_BIND_PASSWORD@"
+
+# DNS configuration
+DNS_FORWARD_ZONE="@DNS_FORWARD_ZONE@"
+DNS_REVERSE_ZONE="@DNS_REVERSE_ZONE@"
+
+# Zone files directory
+ZONE_DIR="/var/lib/bind"
+
+# Logging
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+}
+
+# Function to unfold LDAP continuation lines (lines starting with space)
+ldap_unfold() {
+    awk '
+    BEGIN { line = "" }
+    /^[^ ]/ {
+        if (line != "") print line
+        line = $0
+    }
+    /^ / {
+        line = line substr($0, 2)
+    }
+    END { if (line != "") print line }
+    '
+}
+
+# Function to sync a zone from LDAP
+sync_zone() {
+    local zone_name="$1"
+    local zone_file="$ZONE_DIR/${zone_name}.zone"
+    local temp_file=$(mktemp)
+    
+    log "Syncing zone: $zone_name"
+    
+    # Search for zone in LDAP
+    local zone_data=$(ldapsearch -x \
+        -H "ldap://${LDAP_HOST}:${LDAP_PORT}" \
+        -D "${LDAP_BIND_DN}" \
+        -w "${LDAP_BIND_PASSWORD}" \
+        -b "ou=dns,${LDAP_BASE_DN}" \
+        "(zoneName=${zone_name})" \
+        2>/dev/null | ldap_unfold)
+    
+    if [ -z "$zone_data" ]; then
+        log "  Zone not found in LDAP, skipping"
+        rm -f "$temp_file"
+        return 1
+    fi
+    
+    # Extract SOA record
+    local soa_record=$(echo "$zone_data" | grep "^sOARecord:" | head -1 | sed 's/^sOARecord: //')
+    
+    if [ -z "$soa_record" ]; then
+        log "  No SOA record found, skipping"
+        rm -f "$temp_file"
+        return 1
+    fi
+    
+    # Write zone file header
+    cat > "$temp_file" << EOF
+; Zone file for ${zone_name}
+; Generated from LDAP by ldap-dns-sync.sh
+; $(date)
+\$TTL 86400
+\$ORIGIN ${zone_name}.
+
+; SOA Record
+@    IN    SOA    ${soa_record}
+
+EOF
+    
+    # Extract NS records
+    echo "$zone_data" | grep "^nSRecord:" | sed 's/^nSRecord: //' | while read ns; do
+        echo "@    IN    NS    ${ns}" >> "$temp_file"
+    done
+    
+    # Extract A records from zone apex
+    echo "$zone_data" | grep "^aRecord:" | sed 's/^aRecord: //' | while read ip; do
+        echo "@    IN    A     ${ip}" >> "$temp_file"
+    done
+    
+    # Extract MX records
+    echo "$zone_data" | grep "^mXRecord:" | sed 's/^mXRecord: //' | while read mx; do
+        echo "@    IN    MX    ${mx}" >> "$temp_file"
+    done
+    
+    echo "" >> "$temp_file"
+    echo "; Child records" >> "$temp_file"
+    
+    # Search for child records
+    ldapsearch -x \
+        -H "ldap://${LDAP_HOST}:${LDAP_PORT}" \
+        -D "${LDAP_BIND_DN}" \
+        -w "${LDAP_BIND_PASSWORD}" \
+        -b "zoneName=${zone_name},ou=dns,${LDAP_BASE_DN}" \
+        "(relativeDomainName=*)" \
+        relativeDomainName aRecord pTRRecord cNAMERecord mXRecord tXTRecord 2>/dev/null | ldap_unfold | \
+    awk '
+        /^dn:/ { 
+            if (name != "" && name != "@") {
+                for (i in a_records) print name "    IN    A     " a_records[i]
+                for (i in ptr_records) print name "    IN    PTR   " ptr_records[i]
+                for (i in cname_records) print name "    IN    CNAME " cname_records[i]
+                for (i in mx_records) print name "    IN    MX    " mx_records[i]
+                for (i in txt_records) print name "    IN    TXT   \"" txt_records[i] "\""
+            }
+            name = ""
+            delete a_records
+            delete ptr_records
+            delete cname_records
+            delete mx_records
+            delete txt_records
+            a_count = 0
+            ptr_count = 0
+            cname_count = 0
+            mx_count = 0
+            txt_count = 0
+        }
+        /^relativeDomainName:/ { name = $2 }
+        /^aRecord:/ { a_records[++a_count] = $2 }
+        /^pTRRecord:/ { ptr_records[++ptr_count] = $2 }
+        /^cNAMERecord:/ { cname_records[++cname_count] = $2 }
+        /^mXRecord:/ { mx_records[++mx_count] = $2 " " $3 }
+        /^tXTRecord:/ { gsub(/^tXTRecord: /, ""); txt_records[++txt_count] = $0 }
+        END {
+            if (name != "" && name != "@") {
+                for (i in a_records) print name "    IN    A     " a_records[i]
+                for (i in ptr_records) print name "    IN    PTR   " ptr_records[i]
+                for (i in cname_records) print name "    IN    CNAME " cname_records[i]
+                for (i in mx_records) print name "    IN    MX    " mx_records[i]
+                for (i in txt_records) print name "    IN    TXT   \"" txt_records[i] "\""
+            }
+        }
+    ' >> "$temp_file"
+    
+    # Move temp file to zone file
+    mv "$temp_file" "$zone_file"
+    chown bind:bind "$zone_file"
+    chmod 644 "$zone_file"
+    
+    log "  Zone file written: $zone_file"
+    return 0
+}
+
+# Main
+log "Starting LDAP DNS sync..."
+
+# Sync forward zone
+sync_zone "$DNS_FORWARD_ZONE" || true
+
+# Sync reverse zone
+sync_zone "$DNS_REVERSE_ZONE" || true
+
+log "Sync complete"

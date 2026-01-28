@@ -1,0 +1,41 @@
+# =============================================================================
+# SSH Daemon Configuration for Heracles LDAP Authentication
+# =============================================================================
+# Template file - Variables are substituted during provisioning
+# Variables: @LDAP_HOST@, @LDAP_PORT@, @LDAP_BASE_DN@, @LDAP_BIND_DN@, 
+#            @LDAP_BIND_PASSWORD@
+# =============================================================================
+
+# Basic settings
+Port 22
+Protocol 2
+AddressFamily any
+
+# Authentication
+PubkeyAuthentication yes
+PasswordAuthentication yes
+PermitEmptyPasswords no
+ChallengeResponseAuthentication no
+
+# Use PAM (for SSSD integration)
+UsePAM yes
+
+# LDAP Public Key Command
+# Fetch SSH public keys from LDAP sshPublicKey attribute
+AuthorizedKeysCommand /usr/local/bin/ldap-ssh-keys.sh
+AuthorizedKeysCommandUser nobody
+
+# Disable root login
+PermitRootLogin prohibit-password
+
+# Security settings
+X11Forwarding no
+PrintMotd no
+AcceptEnv LANG LC_*
+
+# Subsystem
+Subsystem sftp /usr/lib/openssh/sftp-server
+
+# Logging
+SyslogFacility AUTH
+LogLevel INFO

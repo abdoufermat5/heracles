@@ -1,0 +1,16 @@
+# =============================================================================
+# Sudo LDAP Configuration
+# =============================================================================
+# Template file - Variables are substituted during provisioning
+# Variables: @LDAP_HOST@, @LDAP_PORT@, @LDAP_BASE_DN@, @LDAP_BIND_DN@, 
+#            @LDAP_BIND_PASSWORD@
+# =============================================================================
+# Note: This is a backup config. Primary sudo auth is via SSSD.
+# =============================================================================
+
+uri ldap://@LDAP_HOST@:@LDAP_PORT@
+sudoers_base ou=sudoers,@LDAP_BASE_DN@
+binddn @LDAP_BIND_DN@
+bindpw @LDAP_BIND_PASSWORD@
+ssl no
+tls_checkpeer no

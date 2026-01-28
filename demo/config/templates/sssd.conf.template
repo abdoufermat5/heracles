@@ -1,0 +1,106 @@
+# =============================================================================
+# SSSD Configuration for Heracles LDAP
+# =============================================================================
+# Template file - Variables are substituted during provisioning
+# Variables: @LDAP_HOST@, @LDAP_PORT@, @LDAP_BASE_DN@, @LDAP_BIND_DN@, 
+#            @LDAP_BIND_PASSWORD@, @SSSD_CACHE_TIMEOUT@
+# =============================================================================
+
+[sssd]
+config_file_version = 2
+services = nss, pam, sudo
+domains = heracles.local
+
+# Debug level (0-10, set higher for troubleshooting)
+debug_level = 3
+
+[nss]
+filter_groups = root
+filter_users = root
+# Home directory fallback if not set in LDAP
+fallback_homedir = /home/%u
+# Default shell if not set in LDAP
+default_shell = /bin/bash
+
+[pam]
+# Offline authentication (cached credentials)
+offline_credentials_expiration = 7
+offline_failed_login_attempts = 3
+offline_failed_login_delay = 60
+
+[sudo]
+# Enable sudo rules from LDAP
+# Rules are fetched from ou=sudoers,BASE_DN
+
+[domain/heracles.local]
+# Identity provider
+id_provider = ldap
+auth_provider = ldap
+chpass_provider = ldap
+sudo_provider = ldap
+
+# LDAP server configuration
+ldap_uri = ldap://@LDAP_HOST@:@LDAP_PORT@
+ldap_search_base = @LDAP_BASE_DN@
+
+# Bind credentials (for searching)
+ldap_default_bind_dn = @LDAP_BIND_DN@
+ldap_default_authtok_type = password
+ldap_default_authtok = @LDAP_BIND_PASSWORD@
+
+# TLS/SSL settings (disabled for demo)
+ldap_tls_reqcert = never
+ldap_id_use_start_tls = false
+
+# Schema type (RFC2307 for posixGroup with memberUid)
+ldap_schema = rfc2307
+
+# User search settings
+ldap_user_search_base = ou=people,@LDAP_BASE_DN@
+ldap_user_object_class = posixAccount
+ldap_user_name = uid
+ldap_user_uid_number = uidNumber
+ldap_user_gid_number = gidNumber
+ldap_user_home_directory = homeDirectory
+ldap_user_shell = loginShell
+ldap_user_gecos = cn
+
+# Group search settings (using posixGroup with memberUid)
+ldap_group_search_base = ou=groups,@LDAP_BASE_DN@
+ldap_group_object_class = posixGroup
+ldap_group_name = cn
+ldap_group_gid_number = gidNumber
+ldap_group_member = memberUid
+
+# Group nesting not used with RFC2307
+ldap_group_nesting_level = 0
+
+# Sudo settings
+ldap_sudo_search_base = ou=sudoers,@LDAP_BASE_DN@
+ldap_sudo_full_refresh_interval = 86400
+ldap_sudo_smart_refresh_interval = 900
+
+# Host-based access control (System Trust via hostObject)
+# Uses LDAP 'host' attribute to control which systems a user can access
+# - host=* allows access to all systems (trustMode: fullaccess)
+# - host=hostname allows access only to specific systems (trustMode: byhost)
+# - Users without host attribute will be DENIED access
+access_provider = ldap
+ldap_access_order = host
+
+# Cache settings
+cache_credentials = true
+entry_cache_timeout = @SSSD_CACHE_TIMEOUT@
+ldap_enumeration_refresh_timeout = 300
+
+# Account expiration (shadowAccount support)
+ldap_account_expire_policy = shadow
+ldap_user_shadow_expire = shadowExpire
+ldap_user_shadow_last_change = shadowLastChange
+
+# Performance tuning
+ldap_connection_expire_timeout = 600
+ldap_opt_timeout = 10
+
+# Debug (set higher for troubleshooting: 0-10)
+debug_level = 3

@@ -1,0 +1,20 @@
+# =============================================================================
+# BIND9 Local Zones Configuration
+# =============================================================================
+# Template file - Variables are substituted during provisioning
+# Variables: @DOMAIN@, @DNS_FORWARD_ZONE@, @DNS_REVERSE_ZONE@
+# =============================================================================
+
+// Forward zone for @DOMAIN@
+zone "@DNS_FORWARD_ZONE@" {
+    type master;
+    file "/var/lib/bind/@DNS_FORWARD_ZONE@.zone";
+    allow-update { none; };
+};
+
+// Reverse zone for 192.168.56.0/24
+zone "@DNS_REVERSE_ZONE@" {
+    type master;
+    file "/var/lib/bind/@DNS_REVERSE_ZONE@.zone";
+    allow-update { none; };
+};

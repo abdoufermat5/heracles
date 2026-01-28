@@ -3,7 +3,7 @@
 #
 # Heracles Demo Environment
 # =========================
-# Multi-VM environment for testing SSH, Sudo, POSIX, and Systems plugins
+# Multi-VM environment for testing SSH, Sudo, POSIX, DNS and Systems plugins
 # with real LDAP authentication via SSSD.
 #
 # Prerequisites:
@@ -14,164 +14,131 @@
 # Usage:
 #   cd demo
 #   vagrant up
-#   vagrant ssh server1   # Test as server
-#   vagrant ssh workstation1  # Test as workstation
+#   vagrant ssh server1      # Test as server
+#   vagrant ssh workstation1 # Test as workstation
+#   vagrant ssh ns1          # DNS server
+#
+# Configuration:
+#   All settings are in config/demo.conf
 #
 
-# Configuration
-LDAP_SERVER_IP = "192.168.56.1"  # Host machine (Docker LDAP exposed)
-LDAP_PORT = "389"
-LDAP_BASE_DN = "dc=heracles,dc=local"
-LDAP_BIND_DN = "cn=admin,dc=heracles,dc=local"
-LDAP_BIND_PASSWORD = "admin_secret"
-DNS_SERVER_IP = "192.168.56.20"  # ns1 DNS server
-
-# Box configuration
-BOX_NAME = "debian/bookworm64"
-BOX_VERSION = "12.20240905.1"
+# Load configuration from demo.conf
+require_relative 'config/vagrant_helper'
 
 Vagrant.configure("2") do |config|
   # Common configuration for all VMs
-  config.vm.box = BOX_NAME
-  config.vm.box_version = BOX_VERSION
+  config.vm.box = DEMO["VAGRANT_BOX"]
+  config.vm.box_version = DEMO["VAGRANT_BOX_VERSION"]
   
-  # Disable default synced folder, use explicit ones
+  # Synced folders
   config.vm.synced_folder ".", "/vagrant", disabled: true
   config.vm.synced_folder "./provision", "/vagrant/provision", type: "virtualbox"
+  config.vm.synced_folder "./config", "/vagrant/config", type: "virtualbox"
 
   # ==========================================================================
-  # VM 0: ns1 - DNS Server (BIND9 with LDAP backend)
+  # VM 0: ns1 - DNS Server (BIND9 with LDAP sync)
   # ==========================================================================
   config.vm.define "ns1" do |dns|
-    dns.vm.hostname = "ns1.heracles.local"
+    dns.vm.hostname = "ns1.#{DEMO['DOMAIN']}"
+    dns.vm.network "private_network", ip: DEMO["NS1_IP"]
     
-    # Private network for host communication
-    dns.vm.network "private_network", ip: DNS_SERVER_IP
-    
-    # VirtualBox specific settings
     dns.vm.provider "virtualbox" do |vb|
       vb.name = "heracles-ns1"
-      vb.memory = "512"
-      vb.cpus = 1
+      vb.memory = DEMO["VM_MEMORY_NS1"]
+      vb.cpus = DEMO["VM_CPUS"]
       vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
     end
     
-    # Provisioning
+    # Initial setup - copy config and setup hosts
     dns.vm.provision "shell", inline: <<-SHELL
       echo "==> Setting up ns1 DNS server for Heracles..."
-      echo "#{LDAP_SERVER_IP} ldap.heracles.local" >> /etc/hosts
+      echo "#{DEMO['HOST_IP']} ldap.#{DEMO['DOMAIN']}" >> /etc/hosts
     SHELL
     
-    dns.vm.provision "shell", 
-      path: "provision/setup-bind.sh",
-      args: [LDAP_SERVER_IP, LDAP_PORT, LDAP_BASE_DN, LDAP_BIND_DN, LDAP_BIND_PASSWORD]
+    dns.vm.provision "shell", path: "provision/setup-bind.sh"
   end
 
   # ==========================================================================
   # VM 1: server1 - Simulates a server system
   # ==========================================================================
   config.vm.define "server1", primary: true do |server|
-    server.vm.hostname = "server1.heracles.local"
+    server.vm.hostname = "server1.#{DEMO['DOMAIN']}"
+    server.vm.network "private_network", ip: DEMO["SERVER1_IP"]
     
-    # Private network for host communication
-    server.vm.network "private_network", ip: "192.168.56.10"
-    
-    # VirtualBox specific settings
     server.vm.provider "virtualbox" do |vb|
       vb.name = "heracles-server1"
-      vb.memory = "1024"
-      vb.cpus = 1
+      vb.memory = DEMO["VM_MEMORY_SERVER"]
+      vb.cpus = DEMO["VM_CPUS"]
       vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
     end
     
-    # Provisioning
+    # Network and DNS setup
     server.vm.provision "shell", inline: <<-SHELL
       echo "==> Setting up server1 for Heracles testing..."
-      echo "#{LDAP_SERVER_IP} ldap.heracles.local" >> /etc/hosts
-      echo "#{DNS_SERVER_IP} ns1.heracles.local" >> /etc/hosts
+      source /vagrant/config/demo.conf
       
-      # Configure DNS resolver to use ns1 (persistent)
-      # Disable systemd-resolved if present to prevent overwriting resolv.conf
+      # Add hosts entries
+      echo "#{DEMO['HOST_IP']} ldap.#{DEMO['DOMAIN']}" >> /etc/hosts
+      echo "#{DEMO['NS1_IP']} ns1.#{DEMO['DOMAIN']}" >> /etc/hosts
+      
+      # Configure persistent DNS resolver
       if systemctl is-active --quiet systemd-resolved 2>/dev/null; then
         systemctl disable --now systemd-resolved
         rm -f /etc/resolv.conf
       fi
       
-      # Create persistent resolv.conf
       cat > /etc/resolv.conf << EOF
-nameserver #{DNS_SERVER_IP}
-nameserver 8.8.8.8
-search heracles.local
+nameserver #{DEMO['NS1_IP']}
+nameserver #{DEMO['DNS_FORWARDER']}
+search #{DEMO['DOMAIN']}
 EOF
-      
-      # Prevent DHCP from overwriting resolv.conf
       chattr +i /etc/resolv.conf 2>/dev/null || true
     SHELL
     
-    server.vm.provision "shell", 
-      path: "provision/setup-sssd.sh",
-      args: [LDAP_SERVER_IP, LDAP_PORT, LDAP_BASE_DN, LDAP_BIND_DN, LDAP_BIND_PASSWORD, "server1"]
-    
-    server.vm.provision "shell",
-      path: "provision/setup-ssh.sh",
-      args: [LDAP_SERVER_IP, LDAP_PORT, LDAP_BASE_DN, LDAP_BIND_DN, LDAP_BIND_PASSWORD]
-    
-    server.vm.provision "shell",
-      path: "provision/setup-sudo.sh",
-      args: [LDAP_SERVER_IP, LDAP_PORT, LDAP_BASE_DN, LDAP_BIND_DN, LDAP_BIND_PASSWORD]
+    server.vm.provision "shell", path: "provision/setup-sssd.sh", args: ["server1"]
+    server.vm.provision "shell", path: "provision/setup-ssh.sh"
+    server.vm.provision "shell", path: "provision/setup-sudo.sh"
   end
 
   # ==========================================================================
   # VM 2: workstation1 - Simulates a workstation system
   # ==========================================================================
   config.vm.define "workstation1" do |ws|
-    ws.vm.hostname = "workstation1.heracles.local"
+    ws.vm.hostname = "workstation1.#{DEMO['DOMAIN']}"
+    ws.vm.network "private_network", ip: DEMO["WORKSTATION1_IP"]
     
-    # Private network for host communication
-    ws.vm.network "private_network", ip: "192.168.56.11"
-    
-    # VirtualBox specific settings
     ws.vm.provider "virtualbox" do |vb|
       vb.name = "heracles-workstation1"
-      vb.memory = "1024"
-      vb.cpus = 1
+      vb.memory = DEMO["VM_MEMORY_WORKSTATION"]
+      vb.cpus = DEMO["VM_CPUS"]
       vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
     end
     
-    # Provisioning
+    # Network and DNS setup
     ws.vm.provision "shell", inline: <<-SHELL
       echo "==> Setting up workstation1 for Heracles testing..."
-      echo "#{LDAP_SERVER_IP} ldap.heracles.local" >> /etc/hosts
-      echo "#{DNS_SERVER_IP} ns1.heracles.local" >> /etc/hosts
+      source /vagrant/config/demo.conf
       
-      # Configure DNS resolver to use ns1 (persistent)
-      # Disable systemd-resolved if present to prevent overwriting resolv.conf
+      # Add hosts entries
+      echo "#{DEMO['HOST_IP']} ldap.#{DEMO['DOMAIN']}" >> /etc/hosts
+      echo "#{DEMO['NS1_IP']} ns1.#{DEMO['DOMAIN']}" >> /etc/hosts
+      
+      # Configure persistent DNS resolver
       if systemctl is-active --quiet systemd-resolved 2>/dev/null; then
         systemctl disable --now systemd-resolved
         rm -f /etc/resolv.conf
       fi
       
-      # Create persistent resolv.conf
       cat > /etc/resolv.conf << EOF
-nameserver #{DNS_SERVER_IP}
-nameserver 8.8.8.8
-search heracles.local
+nameserver #{DEMO['NS1_IP']}
+nameserver #{DEMO['DNS_FORWARDER']}
+search #{DEMO['DOMAIN']}
 EOF
-      
-      # Prevent DHCP from overwriting resolv.conf
       chattr +i /etc/resolv.conf 2>/dev/null || true
     SHELL
     
-    ws.vm.provision "shell", 
-      path: "provision/setup-sssd.sh",
-      args: [LDAP_SERVER_IP, LDAP_PORT, LDAP_BASE_DN, LDAP_BIND_DN, LDAP_BIND_PASSWORD, "workstation1"]
-    
-    ws.vm.provision "shell",
-      path: "provision/setup-ssh.sh",
-      args: [LDAP_SERVER_IP, LDAP_PORT, LDAP_BASE_DN, LDAP_BIND_DN, LDAP_BIND_PASSWORD]
-    
-    ws.vm.provision "shell",
-      path: "provision/setup-sudo.sh",
-      args: [LDAP_SERVER_IP, LDAP_PORT, LDAP_BASE_DN, LDAP_BIND_DN, LDAP_BIND_PASSWORD]
+    ws.vm.provision "shell", path: "provision/setup-sssd.sh", args: ["workstation1"]
+    ws.vm.provision "shell", path: "provision/setup-ssh.sh"
+    ws.vm.provision "shell", path: "provision/setup-sudo.sh"
   end
 end
