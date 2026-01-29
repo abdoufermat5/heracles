@@ -9,6 +9,9 @@ Ce dossier contient la documentation complète pour l'environnement de démonstr
 3. [Guide API](03-API-GUIDE.md) - Utilisation de l'API Heracles
 4. [Tests](04-TESTS.md) - Procédures de test des plugins
 5. [Dépannage](05-DEPANNAGE.md) - Résolution des problèmes courants
+6. [Architecture](06-ARCHITECTURE.md) - Architecture détaillée et flux de données
+7. [Guide DNS/DHCP](07-DNS-DHCP-GUIDE.md) - Configuration DNS et DHCP avancée
+8. [Scénarios](08-SCENARIOS.md) - Scénarios de démonstration pas-à-pas
 
 ## Démarrage rapide
 
