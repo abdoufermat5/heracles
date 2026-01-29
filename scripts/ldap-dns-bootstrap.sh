@@ -127,10 +127,13 @@ add_dns_record "$DNS_ZONE" "ldap" "$DNS_TTL" "aRecord" "192.168.56.1"
 add_dns_record "$DNS_ZONE" "server1" "$DNS_TTL" "aRecord" "192.168.56.10"
 add_dns_record "$DNS_ZONE" "workstation1" "$DNS_TTL" "aRecord" "192.168.56.11"
 
-# CNAME aliases
+# Aliases and service A records pointing to host (where Docker services run)
 add_dns_record "$DNS_ZONE" "dns" "$DNS_TTL" "cNAMERecord" "ns1.$DNS_ZONE."
-add_dns_record "$DNS_ZONE" "api" "$DNS_TTL" "cNAMERecord" "ldap.$DNS_ZONE."
-add_dns_record "$DNS_ZONE" "ui" "$DNS_TTL" "cNAMERecord" "ldap.$DNS_ZONE."
+add_dns_record "$DNS_ZONE" "api" "$DNS_TTL" "aRecord" "192.168.56.1"
+add_dns_record "$DNS_ZONE" "ui" "$DNS_TTL" "aRecord" "192.168.56.1"
+add_dns_record "$DNS_ZONE" "phpldapadmin" "$DNS_TTL" "aRecord" "192.168.56.1"
+add_dns_record "$DNS_ZONE" "postgres" "$DNS_TTL" "aRecord" "192.168.56.1"
+add_dns_record "$DNS_ZONE" "redis" "$DNS_TTL" "aRecord" "192.168.56.1"
 
 # MX record for mail (pointing to ldap for demo)
 echo "    Adding mail.$DNS_ZONE..."

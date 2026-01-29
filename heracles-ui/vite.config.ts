@@ -14,9 +14,15 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
+    // Allow heracles.local domains for development
+    allowedHosts: [
+      'localhost',
+      'ui.heracles.local',
+      '.heracles.local',
+    ],
     proxy: {
       '/api': {
-        target: process.env.VITE_API_URL || 'http://api:8000',
+        target: process.env.VITE_API_URL || 'http://api.heracles.local:8000',
         changeOrigin: true,
       },
     },

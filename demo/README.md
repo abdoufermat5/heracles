@@ -103,6 +103,54 @@ vagrant ssh ns1 -c 'sudo /usr/local/bin/ldap-dns-sync.sh && sudo systemctl reloa
 | heracles.local | Forward | Zone principale |
 | 56.168.192.in-addr.arpa | Reverse | Résolution inverse |
 
+## Accès aux services Docker via DNS
+
+Les services Docker (API, UI, LDAP, PostgreSQL, Redis, phpLDAPadmin) sont accessibles via des noms DNS dans la zone `heracles.local` :
+
+| Service         | URL d'accès (depuis l'hôte ou les VMs)         |
+|----------------|-----------------------------------------------|
+| UI             | http://ui.heracles.local:3000                  |
+| API            | http://api.heracles.local:8000                 |
+| phpLDAPadmin   | http://phpldapadmin.heracles.local:8080        |
+| LDAP           | ldap://ldap.heracles.local:389                 |
+| PostgreSQL     | postgres.heracles.local:5432                   |
+| Redis          | redis.heracles.local:6379                      |
+
+> **Note** : Les enregistrements DNS sont générés automatiquement par le script `scripts/ldap-dns-bootstrap.sh` (A records pointant vers 192.168.56.1).
+
+### Configuration Vite (UI)
+
+Le fichier `heracles-ui/vite.config.ts` autorise les accès via les domaines `.heracles.local` et configure le proxy API :
+
+```js
+server: {
+  port: 3000,
+  host: true,
+  allowedHosts: [
+    'localhost',
+    'ui.heracles.local',
+    '.heracles.local',
+  ],
+  proxy: {
+    '/api': {
+      target: process.env.VITE_API_URL || 'http://api.heracles.local:8000',
+      changeOrigin: true,
+    },
+  },
+},
+```
+
+### Synchronisation DNS
+
+- Les enregistrements DNS sont stockés dans LDAP et synchronisés automatiquement sur la VM `ns1` (BIND9) via le script `/usr/local/bin/ldap-dns-sync.sh`.
+- Pour forcer une synchronisation :
+
+```bash
+vagrant ssh ns1 -c 'sudo /usr/local/bin/ldap-dns-sync.sh && sudo systemctl reload named'
+```
+
+- Les enregistrements A pour `ui`, `api`, `phpldapadmin`, `postgres`, `redis` pointent tous vers l’IP de l’hôte Docker (`192.168.56.1`).
+
 ## Commandes Vagrant
 
 ```bash
