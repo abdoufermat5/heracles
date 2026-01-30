@@ -3,13 +3,11 @@ import { AppRouter } from './router'
 import { useAuthStore } from '@/stores'
 
 function App() {
-  const { isAuthenticated, fetchUser } = useAuthStore()
+  const { fetchUser } = useAuthStore()
 
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchUser()
-    }
-  }, [isAuthenticated, fetchUser])
+    fetchUser()
+  }, [fetchUser])
 
   return <AppRouter />
 }

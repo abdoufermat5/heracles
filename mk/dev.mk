@@ -108,7 +108,7 @@ demo-users:
 	$(call log_success,Demo users configured!)
 
 # Full demo setup: infra + bootstrap + schemas + VMs + users
-demo: dev-infra
+demo: dev
 	$(call log_info,Setting up complete demo environment...)
 	@sleep 5
 	@$(MAKE) bootstrap || true

@@ -139,6 +139,33 @@ class AuthService:
         
         return token, jti
     
+    def get_cookie_settings(self, token_type: str = "access") -> Dict[str, Any]:
+        """
+        Get cookie settings for a token type.
+        
+        Args:
+            token_type: access or refresh
+            
+        Returns:
+            Dict of cookie settings (httponly, secure, etc.)
+        """
+        is_access = token_type == "access"
+        max_age = (
+            JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60 
+            if is_access 
+            else JWT_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+        )
+        
+        return {
+            "key": "access_token" if is_access else "refresh_token",
+            "httponly": True,
+            "secure": False, # TODO: Set to True in production (requires HTTPS)
+            "samesite": "lax",
+            "domain": settings.COOKIE_DOMAIN,
+            "max_age": max_age,
+            "path": "/" if is_access else "/api/v1/auth/refresh",
+        }
+    
     def verify_token(self, token: str, token_type: str = "access") -> TokenPayload:
         """
         Verify and decode JWT token.

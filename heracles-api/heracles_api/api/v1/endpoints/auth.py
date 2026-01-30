@@ -5,7 +5,9 @@ Authentication Endpoints
 Handles user authentication (login, logout, password reset).
 """
 
-from fastapi import APIRouter, HTTPException, status
+from typing import Annotated, Optional
+
+from fastapi import APIRouter, HTTPException, status, Response, Cookie, Depends
 
 from heracles_api.core.dependencies import (
     CurrentUser,
@@ -40,11 +42,12 @@ async def login(
     ldap: LdapDep,
     auth: AuthDep,
     user_repo: UserRepoDep,
+    response: Response,
 ):
     """
     Authenticate user with LDAP credentials.
     
-    Returns JWT tokens for subsequent API calls.
+    Sets HttpOnly cookies for session management.
     """
     try:
         # Authenticate with LDAP
@@ -90,6 +93,17 @@ async def login(
         
         logger.info("login_success", uid=uid, user_dn=user.dn)
         
+        # Set cookies
+        access_cookie = auth.get_cookie_settings("access")
+        refresh_cookie = auth.get_cookie_settings("refresh")
+        
+        response.set_cookie(value=access_token, **access_cookie)
+        response.set_cookie(value=refresh_token, **refresh_cookie)
+        
+        logger.info("login_success", uid=uid, user_dn=user.dn)
+        
+        # Return tokens in body for non-browser clients (scripts/CLI)
+        # UI will use cookies and ignore these
         return TokenResponse(
             access_token=access_token,
             refresh_token=refresh_token,
@@ -106,16 +120,28 @@ async def login(
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(
-    request: RefreshRequest,
     auth: AuthDep,
     user_repo: UserRepoDep,
+    response: Response,
+    refresh_token: Annotated[Optional[str], Cookie()] = None,
+    body: Optional[RefreshRequest] = None,
 ):
     """
-    Refresh access token using refresh token.
+    Refresh access token using refresh token from cookie or body.
     """
     try:
+        token_to_verify = refresh_token
+        if not token_to_verify and body:
+            token_to_verify = body.refresh_token
+            
+        if not token_to_verify:
+             raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Refresh token missing",
+            )
+
         # Verify refresh token
-        payload = auth.verify_token(request.refresh_token, token_type="refresh")
+        payload = auth.verify_token(token_to_verify, token_type="refresh")
         
         # Get fresh user data from LDAP
         user = await user_repo.find_by_dn(payload.sub)
@@ -157,6 +183,15 @@ async def refresh_token(
         
         logger.info("token_refreshed", uid=uid)
         
+        # Set new cookies
+        access_cookie = auth.get_cookie_settings("access")
+        refresh_cookie = auth.get_cookie_settings("refresh")
+        
+        response.set_cookie(value=access_token, **access_cookie)
+        response.set_cookie(value=refresh_token, **refresh_cookie)
+        
+        logger.info("token_refreshed", uid=uid)
+        
         return TokenResponse(
             access_token=access_token,
             refresh_token=refresh_token,
@@ -174,13 +209,19 @@ async def refresh_token(
 async def logout(
     current_user: CurrentUser,
     auth: AuthDep,
+    response: Response,
 ):
     """
     Logout current user.
     
-    Invalidates the current session.
+    Invalidates the current session and clears cookies.
     """
     await auth.invalidate_session(current_user.token_jti)
+    
+    # Clear cookies
+    response.delete_cookie("access_token")
+    response.delete_cookie("refresh_token")
+    
     logger.info("logout_success", uid=current_user.uid)
 
 
@@ -188,13 +229,19 @@ async def logout(
 async def logout_all_sessions(
     current_user: CurrentUser,
     auth: AuthDep,
+    response: Response,
 ):
     """
     Logout from all sessions.
     
-    Invalidates all sessions for the current user.
+    Invalidates all sessions for the current user and clears cookies.
     """
     count = await auth.invalidate_all_user_sessions(current_user.uid)
+    
+    # Clear cookies
+    response.delete_cookie("access_token")
+    response.delete_cookie("refresh_token")
+    
     logger.info("logout_all_success", uid=current_user.uid, sessions_invalidated=count)
 
 

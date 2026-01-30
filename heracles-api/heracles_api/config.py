@@ -5,7 +5,7 @@ Heracles API Configuration
 Application settings loaded from environment variables.
 """
 
-from typing import List
+from typing import List, Optional
 from pydantic_settings import BaseSettings
 
 
@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     
     # Session
     SESSION_TIMEOUT: int = 3600  # 1 hour
+    COOKIE_DOMAIN: Optional[str] = None  # Set to .heracles.local for sharing between api. and ui.
     
     # Password
     PASSWORD_HASH_METHOD: str = "ssha"

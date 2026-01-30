@@ -1,4 +1,4 @@
-import { API_BASE_URL, TOKEN_STORAGE_KEY, REFRESH_TOKEN_KEY } from '@/config/constants'
+import { API_BASE_URL } from '@/config/constants'
 import { AppError, ErrorCode } from '@/lib/errors'
 
 const DEFAULT_TIMEOUT = 30000 // 30 seconds
@@ -18,40 +18,20 @@ class ApiClient {
     this.defaultTimeout = timeout
   }
 
-  private getToken(): string | null {
-    return localStorage.getItem(TOKEN_STORAGE_KEY)
-  }
-
-  private getRefreshToken(): string | null {
-    return localStorage.getItem(REFRESH_TOKEN_KEY)
-  }
-
-  private setTokens(accessToken: string, refreshToken: string): void {
-    localStorage.setItem(TOKEN_STORAGE_KEY, accessToken)
-    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
-  }
-
+  // Tokens are now handled by HttpOnly cookies
   clearTokens(): void {
-    localStorage.removeItem(TOKEN_STORAGE_KEY)
-    localStorage.removeItem(REFRESH_TOKEN_KEY)
+    // No-op
   }
 
   private async refreshAccessToken(): Promise<boolean> {
-    const refreshToken = this.getRefreshToken()
-    if (!refreshToken) return false
-
     try {
       const response = await fetch(`${this.baseUrl}/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: refreshToken }),
+        credentials: 'include',
       })
 
-      if (!response.ok) return false
-
-      const data = await response.json()
-      this.setTokens(data.access_token, data.refresh_token)
-      return true
+      return response.ok
     } catch {
       return false
     }
@@ -62,14 +42,9 @@ class ApiClient {
     options: RequestInit = {},
     timeout: number = this.defaultTimeout
   ): Promise<T> {
-    const token = this.getToken()
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       ...options.headers,
-    }
-
-    if (token) {
-      (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`
     }
 
     // Create abort controller for timeout
@@ -81,6 +56,7 @@ class ApiClient {
       response = await fetch(`${this.baseUrl}${endpoint}`, {
         ...options,
         headers,
+        credentials: 'include',
         signal: controller.signal,
       })
     } catch (error) {
@@ -90,11 +66,9 @@ class ApiClient {
     clearTimeout(timeoutId)
 
     // Try to refresh token on 401
-    if (response.status === 401 && token) {
+    if (response.status === 401) {
       const refreshed = await this.refreshAccessToken()
       if (refreshed) {
-        const newToken = this.getToken()
-        ;(headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`
 
         const retryController = new AbortController()
         const retryTimeoutId = setTimeout(() => retryController.abort(), timeout)
@@ -103,6 +77,7 @@ class ApiClient {
           response = await fetch(`${this.baseUrl}${endpoint}`, {
             ...options,
             headers,
+            credentials: 'include',
             signal: retryController.signal,
           })
         } catch (error) {

@@ -7,7 +7,7 @@ Common dependencies for API endpoints.
 
 from typing import Annotated, Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request, Cookie
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from redis.asyncio import Redis
 
@@ -63,15 +63,21 @@ async def get_group_repository(ldap: Annotated[LdapService, Depends(get_ldap)]) 
 
 
 async def get_current_user(
-    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(security)],
+    request: Request,
     auth: Annotated[AuthService, Depends(get_auth)],
+    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(security)] = None,
 ) -> UserSession:
     """
-    Get current authenticated user from JWT token.
+    Get current authenticated user from JWT token (Cookie or Bearer).
     
     Raises HTTPException 401 if not authenticated.
     """
-    if credentials is None:
+    token = request.cookies.get("access_token")
+    
+    if not token and credentials:
+        token = credentials.credentials
+        
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
@@ -80,7 +86,7 @@ async def get_current_user(
     
     try:
         # Verify token
-        payload = auth.verify_token(credentials.credentials, token_type="access")
+        payload = auth.verify_token(token, token_type="access")
         
         # Check if token is revoked
         if await auth.is_token_revoked(payload.jti):
@@ -113,19 +119,25 @@ async def get_current_user(
 
 
 async def get_optional_user(
-    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(security)],
+    request: Request,
     auth: Annotated[AuthService, Depends(get_auth)],
+    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(security)] = None,
 ) -> Optional[UserSession]:
     """
     Get current user if authenticated, None otherwise.
     
     Does not raise exception if not authenticated.
     """
-    if credentials is None:
+    token = request.cookies.get("access_token")
+    
+    if not token and credentials:
+        token = credentials.credentials
+        
+    if not token:
         return None
     
     try:
-        payload = auth.verify_token(credentials.credentials, token_type="access")
+        payload = auth.verify_token(token, token_type="access")
         
         if await auth.is_token_revoked(payload.jti):
             return None

@@ -4,10 +4,7 @@ import type { TokenResponse, UserInfo, LoginCredentials, PasswordChangeData } fr
 
 export const authApi = {
   login: async (credentials: LoginCredentials): Promise<TokenResponse> => {
-    const response = await apiClient.post<TokenResponse>('/auth/login', credentials)
-    localStorage.setItem(TOKEN_STORAGE_KEY, response.access_token)
-    localStorage.setItem(REFRESH_TOKEN_KEY, response.refresh_token)
-    return response
+    return apiClient.post<TokenResponse>('/auth/login', credentials)
   },
 
   logout: async (): Promise<void> => {
