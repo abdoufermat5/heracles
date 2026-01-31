@@ -24,24 +24,32 @@ const BASE_PATH = '/dns'
 /**
  * List all DNS zones
  */
-export async function listZones(): Promise<DnsZoneListResponse> {
-  return apiClient.get<DnsZoneListResponse>(`${BASE_PATH}/zones`)
+export async function listZones(params?: { base?: string }): Promise<DnsZoneListResponse> {
+  const searchParams = new URLSearchParams()
+  if (params?.base) searchParams.set('base_dn', params.base)
+
+  const query = searchParams.toString()
+  const url = query ? `${BASE_PATH}/zones?${query}` : `${BASE_PATH}/zones`
+
+  return apiClient.get<DnsZoneListResponse>(url)
 }
 
 /**
  * Get a single DNS zone by name
  */
-export async function getZone(zoneName: string): Promise<DnsZone> {
+export async function getZone(zoneName: string, baseDn?: string): Promise<DnsZone> {
+  const query = baseDn ? `?base_dn=${encodeURIComponent(baseDn)}` : ''
   return apiClient.get<DnsZone>(
-    `${BASE_PATH}/zones/${encodeURIComponent(zoneName)}`
+    `${BASE_PATH}/zones/${encodeURIComponent(zoneName)}${query}`
   )
 }
 
 /**
  * Create a new DNS zone
  */
-export async function createZone(data: DnsZoneCreate): Promise<DnsZone> {
-  return apiClient.post<DnsZone>(`${BASE_PATH}/zones`, data)
+export async function createZone(data: DnsZoneCreate, baseDn?: string): Promise<DnsZone> {
+  const query = baseDn ? `?base_dn=${encodeURIComponent(baseDn)}` : ''
+  return apiClient.post<DnsZone>(`${BASE_PATH}/zones${query}`, data)
 }
 
 /**
@@ -49,10 +57,12 @@ export async function createZone(data: DnsZoneCreate): Promise<DnsZone> {
  */
 export async function updateZone(
   zoneName: string,
-  data: DnsZoneUpdate
+  data: DnsZoneUpdate,
+  baseDn?: string
 ): Promise<DnsZone> {
+  const query = baseDn ? `?base_dn=${encodeURIComponent(baseDn)}` : ''
   return apiClient.put<DnsZone>(
-    `${BASE_PATH}/zones/${encodeURIComponent(zoneName)}`,
+    `${BASE_PATH}/zones/${encodeURIComponent(zoneName)}${query}`,
     data
   )
 }
@@ -60,9 +70,10 @@ export async function updateZone(
 /**
  * Delete a DNS zone
  */
-export async function deleteZone(zoneName: string): Promise<void> {
+export async function deleteZone(zoneName: string, baseDn?: string): Promise<void> {
+  const query = baseDn ? `?base_dn=${encodeURIComponent(baseDn)}` : ''
   return apiClient.delete(
-    `${BASE_PATH}/zones/${encodeURIComponent(zoneName)}`
+    `${BASE_PATH}/zones/${encodeURIComponent(zoneName)}${query}`
   )
 }
 

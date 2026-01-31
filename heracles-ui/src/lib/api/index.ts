@@ -1,6 +1,7 @@
 export { authApi } from './auth'
 export { usersApi } from './users'
 export { groupsApi } from './groups'
+export { departmentsApi } from './departments'
 export { posixApi } from './posix'
 export { sudoApi } from './sudo'
 export { sshApi } from './ssh'

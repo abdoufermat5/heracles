@@ -35,6 +35,7 @@ import { useCreateSudoRole } from '@/hooks/use-sudo'
 import { stringToArray } from '@/lib/string-helpers'
 import { SUDO_OPTIONS, COMMON_COMMANDS } from '@/types/sudo'
 import { toast } from 'sonner'
+import { useDepartmentStore } from '@/stores'
 
 // Form schema for creating a new sudo role
 const createRoleSchema = z.object({
@@ -68,6 +69,7 @@ export function CreateSudoRoleDialog({
   onOpenChange,
 }: CreateSudoRoleDialogProps) {
   const createMutation = useCreateSudoRole()
+  const { currentBase } = useDepartmentStore()
 
   const form = useForm<CreateRoleFormData>({
     resolver: zodResolver(createRoleSchema),
@@ -87,15 +89,18 @@ export function CreateSudoRoleDialog({
   const handleCreate = async (data: CreateRoleFormData) => {
     try {
       await createMutation.mutateAsync({
-        cn: data.cn,
-        description: data.description,
-        sudoUser: stringToArray(data.sudoUser),
-        sudoHost: stringToArray(data.sudoHost),
-        sudoCommand: stringToArray(data.sudoCommand),
-        sudoRunAsUser: stringToArray(data.sudoRunAsUser),
-        sudoRunAsGroup: stringToArray(data.sudoRunAsGroup),
-        sudoOption: data.sudoOption,
-        sudoOrder: data.sudoOrder,
+        data: {
+          cn: data.cn,
+          description: data.description,
+          sudoUser: stringToArray(data.sudoUser),
+          sudoHost: stringToArray(data.sudoHost),
+          sudoCommand: stringToArray(data.sudoCommand),
+          sudoRunAsUser: stringToArray(data.sudoRunAsUser),
+          sudoRunAsGroup: stringToArray(data.sudoRunAsGroup),
+          sudoOption: data.sudoOption,
+          sudoOrder: data.sudoOrder,
+        },
+        baseDn: currentBase || undefined,
       })
       toast.success(`Sudo role "${data.cn}" created successfully`)
       onOpenChange(false)

@@ -50,6 +50,7 @@ import {
 } from '@/hooks/use-dns'
 import type { DnsRecord } from '@/types/dns'
 import { ZONE_TYPE_LABELS } from '@/types/dns'
+import { useDepartmentStore } from '@/stores'
 
 export function DnsZoneDetailPage() {
   const { zoneName } = useParams<{ zoneName: string }>()
@@ -59,6 +60,7 @@ export function DnsZoneDetailPage() {
   const [editSoaOpen, setEditSoaOpen] = useState(false)
   const [deleteZoneOpen, setDeleteZoneOpen] = useState(false)
   const [recordToDelete, setRecordToDelete] = useState<DnsRecord | null>(null)
+  const { currentBase } = useDepartmentStore()
 
   const decodedZoneName = zoneName ? decodeURIComponent(zoneName) : ''
 
@@ -80,7 +82,7 @@ export function DnsZoneDetailPage() {
 
   const handleDeleteZone = async () => {
     try {
-      await deleteZoneMutation.mutateAsync(decodedZoneName)
+      await deleteZoneMutation.mutateAsync({ zoneName: decodedZoneName, baseDn: currentBase || undefined })
       toast.success(`Zone "${decodedZoneName}" deleted successfully`)
       navigate('/dns')
     } catch (error) {

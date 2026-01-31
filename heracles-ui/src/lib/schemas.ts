@@ -67,3 +67,22 @@ export const setPasswordSchema = z.object({
 })
 
 export type SetPasswordFormData = z.infer<typeof setPasswordSchema>
+
+// Department schemas
+export const departmentSchema = z.object({
+  ou: z.string()
+    .min(1, 'Department name is required')
+    .max(64, 'Department name must be at most 64 characters')
+    .regex(/^[a-zA-Z0-9._-]+$/, 'Invalid department name format'),
+  description: z.string().max(256).optional(),
+  parentDn: z.string().optional(),
+  hrcDepartmentCategory: z.string().max(64).optional(),
+  hrcDepartmentManager: z.string().optional(),
+})
+
+export const departmentCreateSchema = departmentSchema
+export const departmentUpdateSchema = departmentSchema.partial().omit({ ou: true, parentDn: true })
+
+export type DepartmentFormData = z.infer<typeof departmentSchema>
+export type DepartmentCreateFormData = z.infer<typeof departmentCreateSchema>
+export type DepartmentUpdateFormData = z.infer<typeof departmentUpdateSchema>

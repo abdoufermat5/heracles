@@ -38,8 +38,22 @@ class GroupRepository:
         self.ldap = ldap
         self.base_dn = settings.LDAP_BASE_DN
     
-    def _build_group_dn(self, cn: str, ou: str = "groups") -> str:
-        """Build group DN from CN."""
+    def _build_group_dn(self, cn: str, ou: str = "groups", department_dn: Optional[str] = None) -> str:
+        """
+        Build group DN from CN.
+
+        Args:
+            cn: Group common name
+            ou: Container OU name (default: "groups")
+            department_dn: Optional department DN to create group within
+
+        Returns:
+            Group DN string
+        """
+        if department_dn:
+            # Create under ou=groups within the department
+            # e.g., cn=dev-team,ou=groups,ou=Engineering,dc=heracles,dc=local
+            return f"cn={cn},ou={ou},{department_dn}"
         return f"cn={cn},ou={ou},{self.base_dn}"
     
     @staticmethod
@@ -81,36 +95,46 @@ class GroupRepository:
         self,
         search_term: Optional[str] = None,
         ou: Optional[str] = None,
+        base_dn: Optional[str] = None,
         limit: int = 0,
     ) -> GroupSearchResult:
         """
         Search groups with optional filtering.
-        
+
         Args:
             search_term: Search in cn, description
-            ou: Filter by organizational unit
+            ou: Filter by organizational unit (legacy, use base_dn for departments)
+            base_dn: Base DN to search from (e.g., department DN for scoped search)
             limit: Maximum results (0 = unlimited)
         """
         base_filter = "(objectClass=groupOfNames)"
-        
+
         if search_term:
             escaped = self.ldap._escape_filter(search_term)
             search_filter = f"(&{base_filter}(|(cn=*{escaped}*)(description=*{escaped}*)))"
         else:
             search_filter = base_filter
-        
-        if ou:
-            search_base = f"ou={ou},{self.base_dn}"
+
+        # Determine search base
+        # We always search from ou=groups within the specified context
+        # to avoid returning groups from all departments when at root level
+        groups_ou = ou or "groups"
+        if base_dn:
+            # Search within department's groups container
+            # e.g., ou=groups,ou=Test,dc=heracles,dc=local
+            search_base = f"ou={groups_ou},{base_dn}"
         else:
-            search_base = self.base_dn
-        
+            # Search only in root-level groups container
+            # e.g., ou=groups,dc=heracles,dc=local
+            search_base = f"ou={groups_ou},{self.base_dn}"
+
         entries = await self.ldap.search(
             search_base=search_base,
             search_filter=search_filter,
             attributes=self.GROUP_ATTRIBUTES,
             size_limit=limit,
         )
-        
+
         return GroupSearchResult(groups=entries, total=len(entries))
     
     async def create(
@@ -118,19 +142,21 @@ class GroupRepository:
         group: GroupCreate,
         member_dns: List[str],
         default_member_dn: str,
+        department_dn: Optional[str] = None,
     ) -> LdapEntry:
         """
         Create a new group.
-        
+
         Args:
             group: Group creation data
             member_dns: List of member DNs (resolved from UIDs)
             default_member_dn: DN to use if no members provided (groupOfNames requires at least one)
-            
+            department_dn: Optional department DN (group will be created under ou=groups within this dept)
+
         Returns:
             Created group entry
         """
-        group_dn = self._build_group_dn(group.cn, group.ou)
+        group_dn = self._build_group_dn(group.cn, group.ou, department_dn)
         
         # groupOfNames requires at least one member
         members = member_dns if member_dns else [default_member_dn]

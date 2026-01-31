@@ -69,10 +69,21 @@ class MixedGroupService:
         self._gid_max = config.get("gid_max", 60000)
         self._groups_ou = config.get("mixed_groups_ou", "ou=groups")
     
-    def _get_groups_base_dn(self) -> str:
-        """Get the base DN for MixedGroups."""
+    def _get_groups_container(self, base_dn: Optional[str] = None) -> str:
+        """Get the groups container DN for the given context.
+        
+        If base_dn is provided (department context), returns ou=groups,{base_dn}.
+        Otherwise returns the default ou=groups,{root_base_dn}.
+        """
+        if base_dn:
+            return f"{self._groups_ou},{base_dn}"
         from heracles_api.config import settings
         return f"{self._groups_ou},{settings.LDAP_BASE_DN}"
+    
+    # Keep legacy method for backward compatibility
+    def _get_groups_base_dn(self) -> str:
+        """Get the base DN for MixedGroups (legacy, use _get_groups_container)."""
+        return self._get_groups_container()
     
     async def _validate_hosts(self, hosts: List[str]) -> List[str]:
         """
@@ -120,19 +131,24 @@ class MixedGroupService:
             logger.debug("plugin_registry_not_available", action="skipping_host_validation")
             return hosts
     
-    def _get_group_dn(self, cn: str) -> str:
+    def _get_group_dn(self, cn: str, base_dn: Optional[str] = None) -> str:
         """Get the DN for a MixedGroup by cn."""
-        return f"cn={cn},{self._get_groups_base_dn()}"
+        container = self._get_groups_container(base_dn)
+        return f"cn={cn},{container}"
     
     # =========================================================================
     # CRUD Operations
     # =========================================================================
     
-    async def list_all(self) -> List[MixedGroupListItem]:
+    async def list_all(self, base_dn: Optional[str] = None) -> List[MixedGroupListItem]:
         """List all MixedGroups."""
         try:
+            # Get the groups container for the given context
+            search_base = self._get_groups_container(base_dn)
+            
             # Search for entries that have both groupOfNames and posixGroupAux
             entries = await self._ldap.search(
+                search_base=search_base,
                 search_filter="(&(objectClass=groupOfNames)(objectClass=posixGroupAux))",
                 attributes=["cn", "gidNumber", "description", "member", "memberUid"],
             )
@@ -162,9 +178,13 @@ class MixedGroupService:
             logger.error("list_mixed_groups_failed", error=str(e))
             raise PosixValidationError(f"Failed to list MixedGroups: {e}")
     
-    async def get(self, cn: str) -> Optional[MixedGroupRead]:
+    async def get(
+        self, 
+        cn: str,
+        base_dn: Optional[str] = None
+    ) -> Optional[MixedGroupRead]:
         """Get a MixedGroup by cn."""
-        dn = self._get_group_dn(cn)
+        dn = self._get_group_dn(cn, base_dn=base_dn)
         
         try:
             entry = await self._ldap.get_by_dn(
@@ -220,9 +240,13 @@ class MixedGroupService:
             logger.error("get_mixed_group_failed", cn=cn, error=str(e))
             return None
     
-    async def create(self, data: MixedGroupCreate) -> MixedGroupRead:
+    async def create(
+        self, 
+        data: MixedGroupCreate,
+        base_dn: Optional[str] = None
+    ) -> MixedGroupRead:
         """Create a new MixedGroup."""
-        dn = self._get_group_dn(data.cn)
+        dn = self._get_group_dn(data.cn, base_dn=base_dn)
         
         # Check if group already exists
         existing = await self._ldap.get_by_dn(dn, attributes=["cn"])
@@ -285,13 +309,18 @@ class MixedGroupService:
             logger.error("create_mixed_group_failed", cn=data.cn, error=str(e))
             raise PosixValidationError(f"Failed to create MixedGroup: {e}")
         
-        return await self.get(data.cn)
+        return await self.get(data.cn, base_dn=base_dn)
     
-    async def update_group(self, cn: str, data: MixedGroupUpdate) -> MixedGroupRead:
+    async def update_group(
+        self, 
+        cn: str, 
+        data: MixedGroupUpdate,
+        base_dn: Optional[str] = None
+    ) -> MixedGroupRead:
         """Update a MixedGroup."""
-        dn = self._get_group_dn(cn)
+        dn = self._get_group_dn(cn, base_dn=base_dn)
         
-        existing = await self.get(cn)
+        existing = await self.get(cn, base_dn=base_dn)
         if existing is None:
             raise PosixValidationError(f"MixedGroup '{cn}' not found")
         
@@ -366,13 +395,17 @@ class MixedGroupService:
                 logger.error("update_mixed_group_failed", cn=cn, error=str(e))
                 raise PosixValidationError(f"Failed to update MixedGroup: {e}")
         
-        return await self.get(cn)
+        return await self.get(cn, base_dn=base_dn)
     
-    async def delete(self, cn: str) -> None:
+    async def delete(
+        self, 
+        cn: str,
+        base_dn: Optional[str] = None
+    ) -> None:
         """Delete a MixedGroup."""
-        dn = self._get_group_dn(cn)
+        dn = self._get_group_dn(cn, base_dn=base_dn)
         
-        existing = await self.get(cn)
+        existing = await self.get(cn, base_dn=base_dn)
         if existing is None:
             raise PosixValidationError(f"MixedGroup '{cn}' not found")
         
@@ -387,11 +420,16 @@ class MixedGroupService:
     # Member Management
     # =========================================================================
     
-    async def add_member(self, cn: str, member_dn: str) -> MixedGroupRead:
+    async def add_member(
+        self, 
+        cn: str, 
+        member_dn: str,
+        base_dn: Optional[str] = None
+    ) -> MixedGroupRead:
         """Add a member (by DN) to a MixedGroup."""
-        dn = self._get_group_dn(cn)
+        dn = self._get_group_dn(cn, base_dn=base_dn)
         
-        group = await self.get(cn)
+        group = await self.get(cn, base_dn=base_dn)
         if group is None:
             raise PosixValidationError(f"MixedGroup '{cn}' not found")
         
@@ -404,13 +442,18 @@ class MixedGroupService:
         except LdapOperationError as e:
             raise PosixValidationError(f"Failed to add member: {e}")
         
-        return await self.get(cn)
+        return await self.get(cn, base_dn=base_dn)
     
-    async def remove_member(self, cn: str, member_dn: str) -> MixedGroupRead:
+    async def remove_member(
+        self, 
+        cn: str, 
+        member_dn: str,
+        base_dn: Optional[str] = None
+    ) -> MixedGroupRead:
         """Remove a member (by DN) from a MixedGroup."""
-        dn = self._get_group_dn(cn)
+        dn = self._get_group_dn(cn, base_dn=base_dn)
         
-        group = await self.get(cn)
+        group = await self.get(cn, base_dn=base_dn)
         if group is None:
             raise PosixValidationError(f"MixedGroup '{cn}' not found")
         
@@ -427,13 +470,18 @@ class MixedGroupService:
         except LdapOperationError as e:
             raise PosixValidationError(f"Failed to remove member: {e}")
         
-        return await self.get(cn)
+        return await self.get(cn, base_dn=base_dn)
     
-    async def add_member_uid(self, cn: str, uid: str) -> MixedGroupRead:
+    async def add_member_uid(
+        self, 
+        cn: str, 
+        uid: str,
+        base_dn: Optional[str] = None
+    ) -> MixedGroupRead:
         """Add a memberUid to a MixedGroup."""
-        dn = self._get_group_dn(cn)
+        dn = self._get_group_dn(cn, base_dn=base_dn)
         
-        group = await self.get(cn)
+        group = await self.get(cn, base_dn=base_dn)
         if group is None:
             raise PosixValidationError(f"MixedGroup '{cn}' not found")
         
@@ -446,13 +494,18 @@ class MixedGroupService:
         except LdapOperationError as e:
             raise PosixValidationError(f"Failed to add memberUid: {e}")
         
-        return await self.get(cn)
+        return await self.get(cn, base_dn=base_dn)
     
-    async def remove_member_uid(self, cn: str, uid: str) -> MixedGroupRead:
+    async def remove_member_uid(
+        self, 
+        cn: str, 
+        uid: str,
+        base_dn: Optional[str] = None
+    ) -> MixedGroupRead:
         """Remove a memberUid from a MixedGroup."""
-        dn = self._get_group_dn(cn)
+        dn = self._get_group_dn(cn, base_dn=base_dn)
         
-        group = await self.get(cn)
+        group = await self.get(cn, base_dn=base_dn)
         if group is None:
             raise PosixValidationError(f"MixedGroup '{cn}' not found")
         
@@ -465,7 +518,7 @@ class MixedGroupService:
         except LdapOperationError as e:
             raise PosixValidationError(f"Failed to remove memberUid: {e}")
         
-        return await self.get(cn)
+        return await self.get(cn, base_dn=base_dn)
     
     # =========================================================================
     # GID Allocation (shared logic with PosixGroupService)

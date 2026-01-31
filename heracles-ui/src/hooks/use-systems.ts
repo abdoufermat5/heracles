@@ -25,6 +25,7 @@ export const systemsQueryKeys = {
     page?: number
     page_size?: number
     search?: string
+    base?: string
   }) => [...systemsQueryKeys.lists(), params] as const,
   details: () => [...systemsQueryKeys.all, 'detail'] as const,
   detail: (systemType: SystemType, cn: string) =>
@@ -44,6 +45,7 @@ export function useSystems(params?: {
   page?: number
   page_size?: number
   search?: string
+  base?: string
 }) {
   return useQuery({
     queryKey: systemsQueryKeys.list(params),
@@ -59,11 +61,11 @@ export function useSystems(params?: {
 export function useSystem(
   systemType: SystemType,
   cn: string,
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean; baseDn?: string }
 ) {
   return useQuery({
-    queryKey: systemsQueryKeys.detail(systemType, cn),
-    queryFn: () => systemsApi.get(systemType, cn),
+    queryKey: [...systemsQueryKeys.detail(systemType, cn), { baseDn: options?.baseDn }] as const,
+    queryFn: () => systemsApi.get(systemType, cn, options?.baseDn),
     enabled: options?.enabled ?? (!!systemType && !!cn),
     staleTime: 30 * 1000,
   })
@@ -91,7 +93,8 @@ export function useCreateSystem() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: SystemCreate) => systemsApi.create(data),
+    mutationFn: ({ data, baseDn }: { data: SystemCreate; baseDn?: string }) =>
+      systemsApi.create(data, baseDn),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: systemsQueryKeys.lists() })
       queryClient.invalidateQueries({ queryKey: systemsQueryKeys.hostnames() })
@@ -110,11 +113,13 @@ export function useUpdateSystem() {
       systemType,
       cn,
       data,
+      baseDn,
     }: {
       systemType: SystemType
       cn: string
       data: SystemUpdate
-    }) => systemsApi.update(systemType, cn, data),
+      baseDn?: string
+    }) => systemsApi.update(systemType, cn, data, baseDn),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
         queryKey: systemsQueryKeys.detail(variables.systemType, variables.cn),
@@ -131,8 +136,8 @@ export function useDeleteSystem() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ systemType, cn }: { systemType: SystemType; cn: string }) =>
-      systemsApi.delete(systemType, cn),
+    mutationFn: ({ systemType, cn, baseDn }: { systemType: SystemType; cn: string; baseDn?: string }) =>
+      systemsApi.delete(systemType, cn, baseDn),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: systemsQueryKeys.lists() })
       queryClient.invalidateQueries({ queryKey: systemsQueryKeys.hostnames() })

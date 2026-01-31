@@ -93,11 +93,22 @@ class DnsService(TabService):
         self._dns_base_dn = f"{self._dns_rdn},{self._base_dn}"
         self._default_ttl = config.get("default_ttl", 3600)
 
-    def _get_zone_dn(self, zone_name: str) -> str:
-        """Get the DN for a zone entry (the @ apex record)."""
-        return f"zoneName={zone_name},{self._dns_base_dn}"
+    def _get_dns_container(self, base_dn: Optional[str] = None) -> str:
+        """Get the DNS container DN for the given context.
+        
+        If base_dn is provided (department context), returns ou=dns,{base_dn}.
+        Otherwise returns the default ou=dns,{root_base_dn}.
+        """
+        if base_dn:
+            return f"{self._dns_rdn},{base_dn}"
+        return self._dns_base_dn
 
-    def _get_record_dn(self, zone_name: str, name: str) -> str:
+    def _get_zone_dn(self, zone_name: str, base_dn: Optional[str] = None) -> str:
+        """Get the DN for a zone entry (the @ apex record)."""
+        container = self._get_dns_container(base_dn)
+        return f"zoneName={zone_name},{container}"
+
+    def _get_record_dn(self, zone_name: str, name: str, base_dn: Optional[str] = None) -> str:
         """
         Get the DN for a record entry.
         
@@ -105,7 +116,7 @@ class DnsService(TabService):
         - @ (apex) records are stored at the zone entry itself (zoneName=X,ou=dns,...)
         - Other records are children (relativeDomainName=www,zoneName=X,ou=dns,...)
         """
-        zone_dn = self._get_zone_dn(zone_name)
+        zone_dn = self._get_zone_dn(zone_name, base_dn=base_dn)
         if name == "@":
             # Apex record is the zone entry itself
             return zone_dn
@@ -136,7 +147,7 @@ class DnsService(TabService):
     # Zone Operations
     # ========================================================================
 
-    async def list_zones(self) -> DnsZoneListResponse:
+    async def list_zones(self, base_dn: Optional[str] = None) -> DnsZoneListResponse:
         """
         List all DNS zones.
 
@@ -144,11 +155,18 @@ class DnsService(TabService):
             DnsZoneListResponse with all zones
         """
         try:
-            await self._ensure_dns_ou()
+            # Get the DNS container for the given context
+            # If base_dn is provided, searches ou=dns,{base_dn}
+            # Otherwise searches the default ou=dns,{root}
+            search_base = self._get_dns_container(base_dn)
+            
+            # Ensure container exists (only for root context)
+            if not base_dn:
+                await self._ensure_dns_ou()
 
             # Search for zone entries (relativeDomainName=@ entries are zone roots)
             entries = await self._ldap.search(
-                search_base=self._dns_base_dn,
+                search_base=search_base,
                 search_filter="(&(objectClass=dNSZone)(relativeDomainName=@))",
                 attributes=["zoneName", "relativeDomainName", "sOARecord", "dNSTTL"],
             )
@@ -181,10 +199,10 @@ class DnsService(TabService):
             logger.error("list_zones_failed", error=str(e))
             raise
 
-    async def _count_zone_records(self, zone_name: str) -> int:
+    async def _count_zone_records(self, zone_name: str, base_dn: Optional[str] = None) -> int:
         """Count records in a zone (excluding the @ entry)."""
         try:
-            zone_dn = self._get_zone_dn(zone_name)
+            zone_dn = self._get_zone_dn(zone_name, base_dn=base_dn)
             entries = await self._ldap.search(
                 search_base=zone_dn,
                 search_filter="(objectClass=dNSZone)",
@@ -195,7 +213,11 @@ class DnsService(TabService):
         except LdapOperationError:
             return 0
 
-    async def get_zone(self, zone_name: str) -> Optional[DnsZoneRead]:
+    async def get_zone(
+        self, 
+        zone_name: str,
+        base_dn: Optional[str] = None
+    ) -> Optional[DnsZoneRead]:
         """
         Get a single zone by name.
         
@@ -203,7 +225,7 @@ class DnsService(TabService):
         with relativeDomainName=@ as an attribute.
         """
         zone_name = zone_name.lower()
-        dn = self._get_zone_dn(zone_name)
+        dn = self._get_zone_dn(zone_name, base_dn=base_dn)
 
         try:
             entry = await self._ldap.get_by_dn(
@@ -217,13 +239,24 @@ class DnsService(TabService):
             rel_domain = self._get_first_value(entry, "relativeDomainName")
             if rel_domain != "@":
                 return None
-
-            return await self._entry_to_zone_read(entry)
+            
+            # For reading record count, we should pass base_dn if needed, 
+            # but _count_zone_records uses _get_zone_dn which might fail if we don't pass base_dn?
+            # We need to update _count_zone_records too or just pass base_dn
+            # See usage in _entry_to_zone_read... it calls _count_zone_records without base_dn.
+            # We handle that by overloading _entry_to_zone_read or updating it?
+            # simpler: _entry_to_zone_read uses self.
+            # But here we are.
+            return await self._entry_to_zone_read(entry, base_dn=base_dn)
 
         except LdapOperationError:
             return None
 
-    async def _entry_to_zone_read(self, entry: LdapEntry) -> DnsZoneRead:
+    async def _entry_to_zone_read(
+        self, 
+        entry: LdapEntry,
+        base_dn: Optional[str] = None
+    ) -> DnsZoneRead:
         """Convert LDAP entry to DnsZoneRead."""
         zone_name = self._get_first_value(entry, "zoneName")
         soa_string = self._get_first_value(entry, "sOARecord")
@@ -234,7 +267,7 @@ class DnsService(TabService):
 
         soa = SoaRecord.from_soa_string(soa_string)
         default_ttl = int(ttl_str) if ttl_str else self._default_ttl
-        record_count = await self._count_zone_records(zone_name)
+        record_count = await self._count_zone_records(zone_name, base_dn=base_dn)
 
         return DnsZoneRead(
             dn=entry.dn if hasattr(entry, 'dn') else entry.get("dn", ""),
@@ -245,18 +278,24 @@ class DnsService(TabService):
             record_count=record_count,
         )
 
-    async def create_zone(self, data: DnsZoneCreate) -> DnsZoneRead:
+    async def create_zone(
+        self, 
+        data: DnsZoneCreate,
+        base_dn: Optional[str] = None
+    ) -> DnsZoneRead:
         """
         Create a new DNS zone.
 
         Creates the zone container and the @ (apex) record with SOA.
         """
-        await self._ensure_dns_ou()
+        # Ensure base structure exists if we are in default mode
+        if not base_dn:
+             await self._ensure_dns_ou()
 
         zone_name = data.zone_name.lower()
 
         # Check if zone already exists
-        existing = await self.get_zone(zone_name)
+        existing = await self.get_zone(zone_name, base_dn=base_dn)
         if existing:
             raise DnsValidationError(f"Zone '{zone_name}' already exists")
 
@@ -277,7 +316,7 @@ class DnsService(TabService):
         # Create the zone apex entry (@ record)
         # FusionDirectory compatibility: zone entry at zoneName=X,ou=dns,...
         # with relativeDomainName=@ as attribute (not in DN)
-        dn = self._get_zone_dn(zone_name)
+        dn = self._get_zone_dn(zone_name, base_dn=base_dn)
 
         attributes = {
             "zoneName": [zone_name],
@@ -300,7 +339,7 @@ class DnsService(TabService):
                 dn=dn
             )
 
-            return await self.get_zone(zone_name)
+            return await self.get_zone(zone_name, base_dn=base_dn)
 
         except LdapOperationError as e:
             logger.error(
@@ -310,16 +349,21 @@ class DnsService(TabService):
             )
             raise DnsValidationError(f"Failed to create zone: {e}")
 
-    async def update_zone(self, zone_name: str, data: DnsZoneUpdate) -> DnsZoneRead:
+    async def update_zone(
+        self, 
+        zone_name: str, 
+        data: DnsZoneUpdate,
+        base_dn: Optional[str] = None
+    ) -> DnsZoneRead:
         """Update a DNS zone (SOA parameters)."""
         zone_name = zone_name.lower()
 
         # Get existing zone
-        existing = await self.get_zone(zone_name)
+        existing = await self.get_zone(zone_name, base_dn=base_dn)
         if not existing:
             raise LdapNotFoundError(f"Zone '{zone_name}' not found")
 
-        dn = self._get_zone_dn(zone_name)
+        dn = self._get_zone_dn(zone_name, base_dn=base_dn)
 
         # Build updated SOA
         soa = existing.soa
@@ -348,7 +392,7 @@ class DnsService(TabService):
                 new_serial=new_soa.serial
             )
 
-            return await self.get_zone(zone_name)
+            return await self.get_zone(zone_name, base_dn=base_dn)
 
         except LdapOperationError as e:
             logger.error(
@@ -358,7 +402,11 @@ class DnsService(TabService):
             )
             raise DnsValidationError(f"Failed to update zone: {e}")
 
-    async def delete_zone(self, zone_name: str) -> None:
+    async def delete_zone(
+        self, 
+        zone_name: str,
+        base_dn: Optional[str] = None
+    ) -> None:
         """
         Delete a DNS zone and all its records.
 
@@ -367,11 +415,11 @@ class DnsService(TabService):
         zone_name = zone_name.lower()
 
         # Check exists
-        existing = await self.get_zone(zone_name)
+        existing = await self.get_zone(zone_name, base_dn=base_dn)
         if not existing:
             raise LdapNotFoundError(f"Zone '{zone_name}' not found")
 
-        zone_dn = self._get_zone_dn(zone_name)
+        zone_dn = self._get_zone_dn(zone_name, base_dn=base_dn)
 
         try:
             # Find all entries in the zone
@@ -407,7 +455,11 @@ class DnsService(TabService):
     # Record Operations
     # ========================================================================
 
-    async def list_records(self, zone_name: str) -> List[DnsRecordListItem]:
+    async def list_records(
+        self, 
+        zone_name: str,
+        base_dn: Optional[str] = None
+    ) -> List[DnsRecordListItem]:
         """
         List all records in a zone.
 
@@ -416,11 +468,11 @@ class DnsService(TabService):
         zone_name = zone_name.lower()
 
         # Verify zone exists
-        zone = await self.get_zone(zone_name)
+        zone = await self.get_zone(zone_name, base_dn=base_dn)
         if not zone:
             raise LdapNotFoundError(f"Zone '{zone_name}' not found")
 
-        zone_dn = self._get_zone_dn(zone_name)
+        zone_dn = self._get_zone_dn(zone_name, base_dn=base_dn)
 
         try:
             entries = await self._ldap.search(
@@ -507,7 +559,8 @@ class DnsService(TabService):
     async def create_record(
         self,
         zone_name: str,
-        data: DnsRecordCreate
+        data: DnsRecordCreate,
+        base_dn: Optional[str] = None
     ) -> DnsRecordRead:
         """
         Create a new DNS record.
@@ -518,7 +571,7 @@ class DnsService(TabService):
         zone_name = zone_name.lower()
 
         # Verify zone exists
-        zone = await self.get_zone(zone_name)
+        zone = await self.get_zone(zone_name, base_dn=base_dn)
         if not zone:
             raise LdapNotFoundError(f"Zone '{zone_name}' not found")
 
@@ -526,7 +579,7 @@ class DnsService(TabService):
         self._validate_record(data)
 
         name = data.name
-        dn = self._get_record_dn(zone_name, name)
+        dn = self._get_record_dn(zone_name, name, base_dn=base_dn)
 
         # Build record value (with priority for MX/SRV)
         record_value = self._build_record_value(data)
@@ -641,7 +694,8 @@ class DnsService(TabService):
         name: str,
         record_type: str,
         old_value: str,
-        data: DnsRecordUpdate
+        data: DnsRecordUpdate,
+        base_dn: Optional[str] = None
     ) -> DnsRecordRead:
         """
         Update a DNS record.
@@ -657,11 +711,11 @@ class DnsService(TabService):
             raise DnsValidationError(f"Invalid record type: {record_type}")
 
         # Verify zone exists
-        zone = await self.get_zone(zone_name)
+        zone = await self.get_zone(zone_name, base_dn=base_dn)
         if not zone:
             raise LdapNotFoundError(f"Zone '{zone_name}' not found")
 
-        dn = self._get_record_dn(zone_name, name)
+        dn = self._get_record_dn(zone_name, name, base_dn=base_dn)
         attr_name = RECORD_TYPE_ATTRS[rtype]
 
         try:
@@ -761,7 +815,8 @@ class DnsService(TabService):
         zone_name: str,
         name: str,
         record_type: str,
-        value: str
+        value: str,
+        base_dn: Optional[str] = None
     ) -> None:
         """
         Delete a DNS record.
@@ -778,11 +833,11 @@ class DnsService(TabService):
             raise DnsValidationError(f"Invalid record type: {record_type}")
 
         # Verify zone exists
-        zone = await self.get_zone(zone_name)
+        zone = await self.get_zone(zone_name, base_dn=base_dn)
         if not zone:
             raise LdapNotFoundError(f"Zone '{zone_name}' not found")
 
-        dn = self._get_record_dn(zone_name, name)
+        dn = self._get_record_dn(zone_name, name, base_dn=base_dn)
         attr_name = RECORD_TYPE_ATTRS[rtype]
 
         try:

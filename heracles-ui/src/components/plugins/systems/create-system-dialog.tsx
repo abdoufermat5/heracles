@@ -46,6 +46,7 @@ import {
   MOBILE_OS_OPTIONS,
   type SystemType,
 } from '@/types/systems'
+import { useDepartmentStore } from '@/stores'
 
 // Hostname validation regex (RFC 1123)
 const hostnameRegex =
@@ -130,6 +131,7 @@ export function CreateSystemDialog({
   defaultType = 'server',
 }: CreateSystemDialogProps) {
   const createMutation = useCreateSystem()
+  const { currentBase } = useDepartmentStore()
 
   const form = useForm<CreateSystemFormData>({
     resolver: zodResolver(createSystemSchema),
@@ -165,27 +167,30 @@ export function CreateSystemDialog({
         : undefined
 
       await createMutation.mutateAsync({
-        cn: data.cn,
-        system_type: data.system_type,
-        description: data.description || undefined,
-        ip_addresses: ipAddresses,
-        mac_addresses: macAddresses,
-        mode: data.mode,
-        location: data.location || undefined,
-        // Printer specific
-        labeled_uri: data.labeled_uri || undefined,
-        windows_inf_file: data.windows_inf_file || undefined,
-        windows_driver_dir: data.windows_driver_dir || undefined,
-        windows_driver_name: data.windows_driver_name || undefined,
-        // Phone specific
-        telephone_number: data.telephone_number || undefined,
-        serial_number: data.serial_number || undefined,
-        // Mobile specific
-        imei: data.imei || undefined,
-        operating_system: data.operating_system || undefined,
-        puk: data.puk || undefined,
-        // Component specific
-        owner: data.owner || undefined,
+        data: {
+          cn: data.cn,
+          system_type: data.system_type,
+          description: data.description || undefined,
+          ip_addresses: ipAddresses,
+          mac_addresses: macAddresses,
+          mode: data.mode,
+          location: data.location || undefined,
+          // Printer specific
+          labeled_uri: data.labeled_uri || undefined,
+          windows_inf_file: data.windows_inf_file || undefined,
+          windows_driver_dir: data.windows_driver_dir || undefined,
+          windows_driver_name: data.windows_driver_name || undefined,
+          // Phone specific
+          telephone_number: data.telephone_number || undefined,
+          serial_number: data.serial_number || undefined,
+          // Mobile specific
+          imei: data.imei || undefined,
+          operating_system: data.operating_system || undefined,
+          puk: data.puk || undefined,
+          // Component specific
+          owner: data.owner || undefined,
+        },
+        baseDn: currentBase || undefined,
       })
       toast.success(`System "${data.cn}" created successfully`)
       onOpenChange(false)

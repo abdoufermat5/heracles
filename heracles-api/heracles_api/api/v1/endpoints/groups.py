@@ -43,12 +43,13 @@ async def list_groups(
     page_size: int = Query(50, ge=1, le=200),
     search: Optional[str] = Query(None, description="Search in cn, description"),
     ou: Optional[str] = Query(None, description="Filter by organizational unit"),
+    base: Optional[str] = Query(None, description="Base DN (e.g., department DN) for scoped search"),
 ):
     """
     List all groups with pagination.
     """
     try:
-        result = await group_repo.search(search_term=search, ou=ou)
+        result = await group_repo.search(search_term=search, ou=ou, base_dn=base)
         
         total = result.total
         
@@ -141,9 +142,10 @@ async def create_group(
             group=group,
             member_dns=member_dns,
             default_member_dn=current_user.user_dn,
+            department_dn=group.department_dn,
         )
-        
-        logger.info("group_created", cn=group.cn, by=current_user.uid)
+
+        logger.info("group_created", cn=group.cn, department_dn=group.department_dn, by=current_user.uid)
         
         members = group.members if group.members else [current_user.uid]
         return _entry_to_response(entry, members)

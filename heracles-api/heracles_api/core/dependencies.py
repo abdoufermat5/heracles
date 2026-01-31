@@ -19,7 +19,7 @@ from heracles_api.services import (
     TokenError,
     UserSession,
 )
-from heracles_api.repositories import UserRepository, GroupRepository
+from heracles_api.repositories import UserRepository, GroupRepository, DepartmentRepository
 from heracles_api.config import settings
 
 # HTTP Bearer token scheme
@@ -60,6 +60,11 @@ async def get_user_repository(ldap: Annotated[LdapService, Depends(get_ldap)]) -
 async def get_group_repository(ldap: Annotated[LdapService, Depends(get_ldap)]) -> GroupRepository:
     """Get Group repository dependency."""
     return GroupRepository(ldap)
+
+
+async def get_department_repository(ldap: Annotated[LdapService, Depends(get_ldap)]) -> DepartmentRepository:
+    """Get Department repository dependency."""
+    return DepartmentRepository(ldap)
 
 
 async def get_current_user(
@@ -160,3 +165,4 @@ AuthDep = Annotated[AuthService, Depends(get_auth)]
 RedisDep = Annotated[Optional[Redis], Depends(get_redis)]
 UserRepoDep = Annotated[UserRepository, Depends(get_user_repository)]
 GroupRepoDep = Annotated[GroupRepository, Depends(get_group_repository)]
+DeptRepoDep = Annotated[DepartmentRepository, Depends(get_department_repository)]

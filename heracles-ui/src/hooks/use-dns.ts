@@ -20,6 +20,7 @@ import type {
 export const dnsQueryKeys = {
   all: ['dns'] as const,
   zones: () => [...dnsQueryKeys.all, 'zones'] as const,
+  zonesList: (params?: { base?: string }) => [...dnsQueryKeys.zones(), 'list', params] as const,
   zone: (zoneName: string) => [...dnsQueryKeys.zones(), zoneName] as const,
   records: (zoneName: string) =>
     [...dnsQueryKeys.zone(zoneName), 'records'] as const,
@@ -32,10 +33,10 @@ export const dnsQueryKeys = {
 /**
  * Hook for listing all DNS zones
  */
-export function useDnsZones() {
+export function useDnsZones(params?: { base?: string }) {
   return useQuery({
-    queryKey: dnsQueryKeys.zones(),
-    queryFn: () => dnsApi.listZones(),
+    queryKey: dnsQueryKeys.zonesList(params),
+    queryFn: () => dnsApi.listZones(params),
     staleTime: 30 * 1000, // 30 seconds
   })
 }
@@ -43,10 +44,10 @@ export function useDnsZones() {
 /**
  * Hook for getting a single DNS zone
  */
-export function useDnsZone(zoneName: string, options?: { enabled?: boolean }) {
+export function useDnsZone(zoneName: string, options?: { enabled?: boolean; baseDn?: string }) {
   return useQuery({
-    queryKey: dnsQueryKeys.zone(zoneName),
-    queryFn: () => dnsApi.getZone(zoneName),
+    queryKey: [...dnsQueryKeys.zone(zoneName), { baseDn: options?.baseDn }] as const,
+    queryFn: () => dnsApi.getZone(zoneName, options?.baseDn),
     enabled: options?.enabled ?? !!zoneName,
     staleTime: 30 * 1000,
   })
@@ -63,7 +64,8 @@ export function useCreateDnsZone() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: DnsZoneCreate) => dnsApi.createZone(data),
+    mutationFn: ({ data, baseDn }: { data: DnsZoneCreate; baseDn?: string }) =>
+      dnsApi.createZone(data, baseDn),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dnsQueryKeys.zones() })
     },
@@ -77,7 +79,8 @@ export function useUpdateDnsZone(zoneName: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: DnsZoneUpdate) => dnsApi.updateZone(zoneName, data),
+    mutationFn: ({ data, baseDn }: { data: DnsZoneUpdate; baseDn?: string }) =>
+      dnsApi.updateZone(zoneName, data, baseDn),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dnsQueryKeys.zone(zoneName) })
       queryClient.invalidateQueries({ queryKey: dnsQueryKeys.zones() })
@@ -92,7 +95,8 @@ export function useDeleteDnsZone() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (zoneName: string) => dnsApi.deleteZone(zoneName),
+    mutationFn: ({ zoneName, baseDn }: { zoneName: string; baseDn?: string }) =>
+      dnsApi.deleteZone(zoneName, baseDn),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dnsQueryKeys.zones() })
     },

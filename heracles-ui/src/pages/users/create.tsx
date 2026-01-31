@@ -19,10 +19,12 @@ import { PageHeader, LoadingSpinner } from '@/components/common'
 import { useCreateUser } from '@/hooks'
 import { userCreateSchema, type UserCreateFormData } from '@/lib/schemas'
 import { ROUTES } from '@/config/constants'
+import { useDepartmentStore } from '@/stores'
 
 export function UserCreatePage() {
   const navigate = useNavigate()
   const createMutation = useCreateUser()
+  const { currentBase } = useDepartmentStore()
 
   const form = useForm<UserCreateFormData>({
     resolver: zodResolver(userCreateSchema),
@@ -45,7 +47,12 @@ export function UserCreatePage() {
       const { confirmPassword, ...userData } = data
       // Compute cn (common name) from givenName and sn
       const cn = `${userData.givenName} ${userData.sn}`.trim()
-      await createMutation.mutateAsync({ ...userData, cn })
+      // Include department context if a department is selected
+      await createMutation.mutateAsync({
+        ...userData,
+        cn,
+        departmentDn: currentBase || undefined
+      })
       toast.success(`User "${data.uid}" created successfully`)
       navigate(ROUTES.USERS)
     } catch (error) {

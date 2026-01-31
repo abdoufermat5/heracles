@@ -92,6 +92,35 @@ def mock_group_repository():
     return repo
 
 
+@pytest.fixture
+def mock_department_repository():
+    """
+    Mock the Department repository.
+
+    Provides async mocks for all department operations.
+    """
+    repo = AsyncMock()
+
+    # Search/Find operations
+    repo.find_by_dn = AsyncMock(return_value=None)
+    repo.search = AsyncMock(return_value=MagicMock(departments=[], total=0))
+    repo.get_tree = AsyncMock(return_value=[])
+    repo.get_root_containers = AsyncMock(return_value=["people", "groups", "sudoers"])
+    repo.get_children_count = AsyncMock(return_value=0)
+    repo.has_children = AsyncMock(return_value=False)
+
+    # CRUD operations
+    repo.create = AsyncMock()
+    repo.update = AsyncMock()
+    repo.delete = AsyncMock(return_value=True)
+
+    # Helper methods
+    repo._entry_to_response = MagicMock()
+    repo._dn_to_path = MagicMock(return_value="/Test")
+
+    return repo
+
+
 # ============================================================================
 # Plugin Repository Fixtures
 # ============================================================================

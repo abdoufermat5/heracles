@@ -17,6 +17,7 @@ from heracles_api.core.dependencies import (
     get_auth,
     get_user_repository,
     get_group_repository,
+    get_department_repository,
     get_redis,
 )
 
@@ -27,6 +28,7 @@ def test_client(
     mock_auth_service,
     mock_user_repository,
     mock_group_repository,
+    mock_department_repository,
     mock_redis,
 ) -> Generator[TestClient, None, None]:
     """
@@ -40,6 +42,7 @@ def test_client(
     app.dependency_overrides[get_auth] = lambda: mock_auth_service
     app.dependency_overrides[get_user_repository] = lambda: mock_user_repository
     app.dependency_overrides[get_group_repository] = lambda: mock_group_repository
+    app.dependency_overrides[get_department_repository] = lambda: mock_department_repository
     app.dependency_overrides[get_redis] = lambda: mock_redis
 
     with TestClient(app) as client:

@@ -13,10 +13,12 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PageHeader, LoadingPage, ErrorDisplay, ConfirmDialog } from '@/components/common'
+import { DepartmentBreadcrumbs } from '@/components/departments'
 import { LdapGroupsTable } from '@/components/groups'
 import { PosixGroupsTable, MixedGroupsTable } from '@/components/plugins/posix/groups'
 import { useGroups, useDeleteGroup } from '@/hooks'
 import { usePosixGroups, useDeletePosixGroup, useMixedGroups, useDeleteMixedGroup } from '@/hooks/use-posix'
+import { useDepartmentStore } from '@/stores'
 import { ROUTES } from '@/config/constants'
 import type { Group } from '@/types'
 import type { PosixGroupListItem, MixedGroupListItem } from '@/types/posix'
@@ -28,17 +30,24 @@ export function GroupsListPage() {
   const [deleteGroup, setDeleteGroup] = useState<Group | null>(null)
   const [deletePosixGroup, setDeletePosixGroup] = useState<PosixGroupListItem | null>(null)
   const [deleteMixedGroup, setDeleteMixedGroup] = useState<MixedGroupListItem | null>(null)
+  const { currentBase, currentPath } = useDepartmentStore()
 
-  // LDAP Groups (groupOfNames)
-  const { data: ldapData, isLoading: ldapLoading, error: ldapError, refetch: refetchLdap } = useGroups()
+  // LDAP Groups (groupOfNames) - filtered by department context
+  const { data: ldapData, isLoading: ldapLoading, error: ldapError, refetch: refetchLdap } = useGroups(
+    currentBase ? { base: currentBase } : undefined
+  )
   const deleteLdapMutation = useDeleteGroup()
 
   // POSIX Groups (posixGroup)
-  const { data: posixData, isLoading: posixLoading, error: posixError, refetch: refetchPosix } = usePosixGroups()
+  const { data: posixData, isLoading: posixLoading, error: posixError, refetch: refetchPosix } = usePosixGroups(
+    currentBase ? { base: currentBase } : undefined
+  )
   const deletePosixMutation = useDeletePosixGroup()
 
   // Mixed Groups (groupOfNames + posixGroup)
-  const { data: mixedData, isLoading: mixedLoading, error: mixedError, refetch: refetchMixed } = useMixedGroups()
+  const { data: mixedData, isLoading: mixedLoading, error: mixedError, refetch: refetchMixed } = useMixedGroups(
+    currentBase ? { base: currentBase } : undefined
+  )
   const deleteMixedMutation = useDeleteMixedGroup()
 
   const handleDeleteLdap = async () => {
@@ -55,7 +64,10 @@ export function GroupsListPage() {
   const handleDeletePosix = async () => {
     if (!deletePosixGroup) return
     try {
-      await deletePosixMutation.mutateAsync(deletePosixGroup.cn)
+      await deletePosixMutation.mutateAsync({
+        cn: deletePosixGroup.cn,
+        baseDn: currentBase || undefined
+      })
       toast.success(`POSIX group "${deletePosixGroup.cn}" deleted successfully`)
       setDeletePosixGroup(null)
     } catch (error) {
@@ -66,7 +78,10 @@ export function GroupsListPage() {
   const handleDeleteMixed = async () => {
     if (!deleteMixedGroup) return
     try {
-      await deleteMixedMutation.mutateAsync(deleteMixedGroup.cn)
+      await deleteMixedMutation.mutateAsync({
+        cn: deleteMixedGroup.cn,
+        baseDn: currentBase || undefined
+      })
       toast.success(`Mixed group "${deleteMixedGroup.cn}" deleted successfully`)
       setDeleteMixedGroup(null)
     } catch (error) {
@@ -90,7 +105,11 @@ export function GroupsListPage() {
     <div>
       <PageHeader
         title="Groups"
-        description="Manage groups in the directory"
+        description={
+          currentBase
+            ? `Manage groups in ${currentPath}`
+            : 'Manage groups in the directory'
+        }
         actions={
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -122,6 +141,12 @@ export function GroupsListPage() {
           </DropdownMenu>
         }
       />
+
+      {currentBase && (
+        <div className="mb-4">
+          <DepartmentBreadcrumbs />
+        </div>
+      )}
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as GroupType)} className="space-y-4">
         <TabsList>

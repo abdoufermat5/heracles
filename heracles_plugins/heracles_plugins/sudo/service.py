@@ -69,6 +69,21 @@ class SudoService(TabService):
         self._base_dn = config.get("base_dn", ldap_service.base_dn)
         self._sudoers_dn = f"{self._sudoers_rdn},{self._base_dn}"
     
+    def _get_sudoers_container(self, base_dn: Optional[str] = None) -> str:
+        """Get the sudoers container DN for the given context.
+        
+        If base_dn is provided (department context), returns ou=sudoers,{base_dn}.
+        Otherwise returns the default ou=sudoers,{root_base_dn}.
+        """
+        if base_dn:
+            return f"{self._sudoers_rdn},{base_dn}"
+        return self._sudoers_dn
+    
+    def _get_role_dn(self, cn: str, base_dn: Optional[str] = None) -> str:
+        """Get the DN for a sudo role."""
+        container = self._get_sudoers_container(base_dn)
+        return f"cn={cn},{container}"
+    
     # ========================================================================
     # CRUD Operations
     # ========================================================================
@@ -76,12 +91,14 @@ class SudoService(TabService):
     async def list_roles(
         self,
         search: Optional[str] = None,
+        base_dn: Optional[str] = None,
         page: int = 1,
         page_size: int = 50,
     ) -> SudoRoleListResponse:
         """List all sudo roles with optional filtering."""
         
-        # Build search filter
+        # Get the sudoers container for the given context
+        search_base = self._get_sudoers_container(base_dn)
         if search:
             escaped_search = self._ldap._escape_filter(search)
             search_filter = f"(&(objectClass=sudoRole)(|(cn=*{escaped_search}*)(description=*{escaped_search}*)(sudoUser=*{escaped_search}*)))"
@@ -90,7 +107,7 @@ class SudoService(TabService):
         
         try:
             entries = await self._ldap.search(
-                search_base=self._sudoers_dn,
+                search_base=search_base,
                 search_filter=search_filter,
                 attributes=self.MANAGED_ATTRIBUTES,
             )
@@ -119,9 +136,13 @@ class SudoService(TabService):
             logger.error("sudo_list_failed", error=str(e))
             raise
     
-    async def get_role(self, cn: str) -> Optional[SudoRoleRead]:
+    async def get_role(
+        self, 
+        cn: str,
+        base_dn: Optional[str] = None
+    ) -> Optional[SudoRoleRead]:
         """Get a single sudo role by CN."""
-        dn = f"cn={cn},{self._sudoers_dn}"
+        dn = self._get_role_dn(cn, base_dn)
         
         try:
             entry = await self._ldap.get_by_dn(dn, attributes=self.MANAGED_ATTRIBUTES)
@@ -131,19 +152,24 @@ class SudoService(TabService):
         except LdapOperationError:
             return None
     
-    async def create_role(self, data: SudoRoleCreate) -> SudoRoleRead:
+    async def create_role(
+        self, 
+        data: SudoRoleCreate,
+        base_dn: Optional[str] = None
+    ) -> SudoRoleRead:
         """Create a new sudo role."""
         
         # Check if role already exists
-        existing = await self.get_role(data.cn)
+        existing = await self.get_role(data.cn, base_dn=base_dn)
         if existing:
             raise SudoValidationError(f"Sudo role '{data.cn}' already exists")
         
-        # Ensure sudoers OU exists
-        await self._ensure_sudoers_ou()
+        # Get the DN for the new role
+        dn = self._get_role_dn(data.cn, base_dn)
         
-        # Build DN
-        dn = f"cn={data.cn},{self._sudoers_dn}"
+        # Ensure sudoers OU exists (only for root context)
+        if not base_dn:
+            await self._ensure_sudoers_ou()
         
         # Build attributes
         attributes = self._build_attributes(data)
@@ -158,13 +184,18 @@ class SudoService(TabService):
             logger.info("sudo_role_created", cn=data.cn, dn=dn)
             
             # Read back and return
-            return await self.get_role(data.cn)
+            return await self.get_role(data.cn, base_dn=base_dn)
             
         except LdapOperationError as e:
             logger.error("sudo_role_create_failed", cn=data.cn, error=str(e))
             raise SudoValidationError(f"Failed to create sudo role: {e}")
     
-    async def update_role(self, cn: str, data: SudoRoleUpdate) -> SudoRoleRead:
+    async def update_role(
+        self, 
+        cn: str, 
+        data: SudoRoleUpdate,
+        base_dn: Optional[str] = None
+    ) -> SudoRoleRead:
         """Update an existing sudo role."""
         
         # Check if it's the defaults entry
@@ -181,12 +212,20 @@ class SudoService(TabService):
                     "Cannot modify users/hosts/commands on the defaults entry"
                 )
         
-        dn = f"cn={cn},{self._sudoers_dn}"
-        
-        # Check exists
-        existing = await self.get_role(cn)
+        # Check exists and get DN
+        existing = await self.get_role(cn, base_dn=base_dn)
         if not existing:
             raise LdapNotFoundError(f"Sudo role '{cn}' not found")
+            
+        if base_dn:
+             # Search to get DN
+             search_filter = f"(&(cn={cn})(objectClass=sudoRole))"
+             entries = await self._ldap.search(base_dn, search_filter, attributes=["cn"])
+             if not entries:
+                 raise LdapNotFoundError(f"Sudo role '{cn}' not found in {base_dn}")
+             dn = entries[0].dn
+        else:
+            dn = f"cn={cn},{self._sudoers_dn}"
         
         # Build changes
         changes = {}
@@ -254,21 +293,33 @@ class SudoService(TabService):
                 logger.error("sudo_role_update_failed", cn=cn, error=str(e))
                 raise SudoValidationError(f"Failed to update sudo role: {e}")
         
-        return await self.get_role(cn)
+        return await self.get_role(cn, base_dn=base_dn)
     
-    async def delete_role(self, cn: str) -> bool:
+    async def delete_role(
+        self, 
+        cn: str,
+        base_dn: Optional[str] = None
+    ) -> bool:
         """Delete a sudo role."""
         
         # Don't allow deleting defaults
         if cn.lower() == "defaults":
             raise SudoValidationError("Cannot delete the defaults entry")
         
-        dn = f"cn={cn},{self._sudoers_dn}"
-        
-        # Check exists
-        existing = await self.get_role(cn)
+        # Check exists and get DN
+        existing = await self.get_role(cn, base_dn=base_dn)
         if not existing:
             raise LdapNotFoundError(f"Sudo role '{cn}' not found")
+
+        if base_dn:
+             # Search to get DN
+             search_filter = f"(&(cn={cn})(objectClass=sudoRole))"
+             entries = await self._ldap.search(base_dn, search_filter, attributes=["cn"])
+             if not entries:
+                 raise LdapNotFoundError(f"Sudo role '{cn}' not found in {base_dn}")
+             dn = entries[0].dn
+        else:
+            dn = f"cn={cn},{self._sudoers_dn}"
         
         try:
             await self._ldap.delete(dn)

@@ -29,6 +29,7 @@ export async function listSystems(params?: {
   page?: number
   page_size?: number
   search?: string
+  base?: string
 }): Promise<SystemListResponse> {
   const searchParams = new URLSearchParams()
   // Backend uses 'type' as alias for system_type parameter
@@ -36,6 +37,7 @@ export async function listSystems(params?: {
   if (params?.page) searchParams.set('page', params.page.toString())
   if (params?.page_size) searchParams.set('page_size', params.page_size.toString())
   if (params?.search) searchParams.set('search', params.search)
+  if (params?.base) searchParams.set('base_dn', params.base)
 
   const query = searchParams.toString()
   const url = query ? `${BASE_PATH}?${query}` : BASE_PATH
@@ -48,18 +50,21 @@ export async function listSystems(params?: {
  */
 export async function getSystem(
   systemType: SystemType,
-  cn: string
+  cn: string,
+  baseDn?: string
 ): Promise<SystemData> {
+  const query = baseDn ? `?base_dn=${encodeURIComponent(baseDn)}` : ''
   return apiClient.get<SystemData>(
-    `${BASE_PATH}/${systemType}/${encodeURIComponent(cn)}`
+    `${BASE_PATH}/${systemType}/${encodeURIComponent(cn)}${query}`
   )
 }
 
 /**
  * Create a new system
  */
-export async function createSystem(data: SystemCreate): Promise<SystemData> {
-  return apiClient.post<SystemData>(BASE_PATH, data)
+export async function createSystem(data: SystemCreate, baseDn?: string): Promise<SystemData> {
+  const query = baseDn ? `?base_dn=${encodeURIComponent(baseDn)}` : ''
+  return apiClient.post<SystemData>(`${BASE_PATH}${query}`, data)
 }
 
 /**
@@ -68,10 +73,12 @@ export async function createSystem(data: SystemCreate): Promise<SystemData> {
 export async function updateSystem(
   systemType: SystemType,
   cn: string,
-  data: SystemUpdate
+  data: SystemUpdate,
+  baseDn?: string
 ): Promise<SystemData> {
+  const query = baseDn ? `?base_dn=${encodeURIComponent(baseDn)}` : ''
   return apiClient.put<SystemData>(
-    `${BASE_PATH}/${systemType}/${encodeURIComponent(cn)}`,
+    `${BASE_PATH}/${systemType}/${encodeURIComponent(cn)}${query}`,
     data
   )
 }
@@ -81,10 +88,12 @@ export async function updateSystem(
  */
 export async function deleteSystem(
   systemType: SystemType,
-  cn: string
+  cn: string,
+  baseDn?: string
 ): Promise<void> {
+  const query = baseDn ? `?base_dn=${encodeURIComponent(baseDn)}` : ''
   return apiClient.delete(
-    `${BASE_PATH}/${systemType}/${encodeURIComponent(cn)}`
+    `${BASE_PATH}/${systemType}/${encodeURIComponent(cn)}${query}`
   )
 }
 

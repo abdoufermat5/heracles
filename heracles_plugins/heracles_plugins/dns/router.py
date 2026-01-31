@@ -61,6 +61,7 @@ from heracles_api.core.dependencies import CurrentUser
 )
 async def list_zones(
     current_user: CurrentUser,
+    base_dn: str = Query(None, description="Base DN context"),
     service: DnsService = Depends(get_dns_service),
 ):
     """
@@ -69,7 +70,7 @@ async def list_zones(
     Returns all zones with their names, types, and record counts.
     """
     try:
-        return await service.list_zones()
+        return await service.list_zones(base_dn=base_dn)
     except Exception as e:
         logger.error("list_zones_failed", error=str(e))
         raise HTTPException(
@@ -87,6 +88,7 @@ async def list_zones(
 async def create_zone(
     data: DnsZoneCreate,
     current_user: CurrentUser,
+    base_dn: str = Query(None, description="Base DN context"),
     service: DnsService = Depends(get_dns_service),
 ):
     """
@@ -96,7 +98,7 @@ async def create_zone(
     entry is created automatically with the SOA record.
     """
     try:
-        return await service.create_zone(data)
+        return await service.create_zone(data, base_dn=base_dn)
     except DnsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -122,11 +124,12 @@ async def create_zone(
 async def get_zone(
     zone_name: str,
     current_user: CurrentUser,
+    base_dn: str = Query(None, description="Base DN context"),
     service: DnsService = Depends(get_dns_service),
 ):
     """Get a specific DNS zone by name."""
     try:
-        zone = await service.get_zone(zone_name)
+        zone = await service.get_zone(zone_name, base_dn=base_dn)
         if zone is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -152,6 +155,7 @@ async def update_zone(
     zone_name: str,
     data: DnsZoneUpdate,
     current_user: CurrentUser,
+    base_dn: str = Query(None, description="Base DN context"),
     service: DnsService = Depends(get_dns_service),
 ):
     """
@@ -161,7 +165,7 @@ async def update_zone(
     incremented on each update.
     """
     try:
-        return await service.update_zone(zone_name, data)
+        return await service.update_zone(zone_name, data, base_dn=base_dn)
     except DnsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -188,6 +192,7 @@ async def update_zone(
 async def delete_zone(
     zone_name: str,
     current_user: CurrentUser,
+    base_dn: str = Query(None, description="Base DN context"),
     service: DnsService = Depends(get_dns_service),
 ):
     """
@@ -196,7 +201,7 @@ async def delete_zone(
     This is a destructive operation that removes all records within the zone.
     """
     try:
-        await service.delete_zone(zone_name)
+        await service.delete_zone(zone_name, base_dn=base_dn)
     except DnsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -227,6 +232,7 @@ async def delete_zone(
 async def list_records(
     zone_name: str,
     current_user: CurrentUser,
+    base_dn: str = Query(None, description="Base DN context"),
     service: DnsService = Depends(get_dns_service),
 ):
     """
@@ -235,7 +241,7 @@ async def list_records(
     Returns records from all relativeDomainName entries within the zone.
     """
     try:
-        return await service.list_records(zone_name)
+        return await service.list_records(zone_name, base_dn=base_dn)
     except Exception as e:
         if "not found" in str(e).lower():
             raise HTTPException(
@@ -259,6 +265,7 @@ async def create_record(
     zone_name: str,
     data: DnsRecordCreate,
     current_user: CurrentUser,
+    base_dn: str = Query(None, description="Base DN context"),
     service: DnsService = Depends(get_dns_service),
 ):
     """
@@ -268,7 +275,7 @@ async def create_record(
     MX and SRV records require a priority value.
     """
     try:
-        return await service.create_record(zone_name, data)
+        return await service.create_record(zone_name, data, base_dn=base_dn)
     except DnsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -304,6 +311,7 @@ async def update_record(
     data: DnsRecordUpdate,
     current_user: CurrentUser,
     old_value: str = Query(..., description="Current record value to update"),
+    base_dn: str = Query(None, description="Base DN context"),
     service: DnsService = Depends(get_dns_service),
 ):
     """
@@ -313,7 +321,7 @@ async def update_record(
     to update when multiple records of the same type exist.
     """
     try:
-        return await service.update_record(zone_name, name, record_type, old_value, data)
+        return await service.update_record(zone_name, name, record_type, old_value, data, base_dn=base_dn)
     except DnsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -349,6 +357,7 @@ async def delete_record(
     record_type: str,
     current_user: CurrentUser,
     value: str = Query(..., description="Record value to delete"),
+    base_dn: str = Query(None, description="Base DN context"),
     service: DnsService = Depends(get_dns_service),
 ):
     """
@@ -358,7 +367,7 @@ async def delete_record(
     to delete when multiple records of the same type exist.
     """
     try:
-        await service.delete_record(zone_name, name, record_type, value)
+        await service.delete_record(zone_name, name, record_type, value, base_dn=base_dn)
     except DnsValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

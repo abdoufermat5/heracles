@@ -16,6 +16,9 @@ export const ROUTES = {
   GROUPS: '/groups',
   GROUP_DETAIL: '/groups/:cn',
   GROUP_CREATE: '/groups/new',
+  DEPARTMENTS: '/departments',
+  DEPARTMENT_DETAIL: '/departments/:dn',
+  DEPARTMENT_CREATE: '/departments/new',
   SYSTEMS: '/systems',
   SETTINGS: '/settings',
 } as const
@@ -133,6 +136,14 @@ export function dhcpServicePath(serviceCn: string): string {
     ':serviceCn',
     encodeURIComponent(serviceCn)
   )
+}
+
+/**
+ * Build the department detail route
+ * @param dn - Department DN
+ */
+export function departmentDetailPath(dn: string): string {
+  return ROUTES.DEPARTMENT_DETAIL.replace(':dn', encodeURIComponent(dn))
 }
 
 // Query parameters for create dialogs

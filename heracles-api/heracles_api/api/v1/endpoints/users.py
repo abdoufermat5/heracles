@@ -49,12 +49,13 @@ async def list_users(
     page_size: int = Query(50, ge=1, le=200),
     search: Optional[str] = Query(None, description="Search in uid, cn, mail"),
     ou: Optional[str] = Query(None, description="Filter by organizational unit"),
+    base: Optional[str] = Query(None, description="Base DN (e.g., department DN) for scoped search"),
 ):
     """
     List all users with pagination.
     """
     try:
-        result = await user_repo.search(search_term=search, ou=ou)
+        result = await user_repo.search(search_term=search, ou=ou, base_dn=base)
         
         total = result.total
         
@@ -131,10 +132,10 @@ async def create_user(
         )
     
     try:
-        entry = await user_repo.create(user)
-        
-        logger.info("user_created", uid=user.uid, by=current_user.uid)
-        
+        entry = await user_repo.create(user, department_dn=user.department_dn)
+
+        logger.info("user_created", uid=user.uid, department_dn=user.department_dn, by=current_user.uid)
+
         return _entry_to_response(entry, [])
         
     except LdapOperationError as e:

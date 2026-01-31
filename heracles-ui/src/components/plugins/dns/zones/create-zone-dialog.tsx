@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/accordion'
 
 import { useCreateDnsZone } from '@/hooks/use-dns'
+import { useDepartmentStore } from '@/stores'
 
 // Zone name validation regex
 const zoneNameRegex = /^[a-z0-9]([a-z0-9\-\.]*[a-z0-9])?$/
@@ -88,6 +89,7 @@ interface CreateZoneDialogProps {
 
 export function CreateZoneDialog({ open, onOpenChange }: CreateZoneDialogProps) {
   const createMutation = useCreateDnsZone()
+  const { currentBase } = useDepartmentStore()
 
   const form = useForm<CreateZoneFormData>({
     resolver: zodResolver(createZoneSchema),
@@ -114,14 +116,17 @@ export function CreateZoneDialog({ open, onOpenChange }: CreateZoneDialogProps) 
         : `${data.soaAdminEmail}.`
 
       await createMutation.mutateAsync({
-        zoneName: data.zoneName.replace(/\.$/, ''), // Remove trailing dot from zone name
-        soaPrimaryNs: primaryNs,
-        soaAdminEmail: adminEmail,
-        defaultTtl: data.defaultTtl,
-        soaRefresh: data.soaRefresh,
-        soaRetry: data.soaRetry,
-        soaExpire: data.soaExpire,
-        soaMinimum: data.soaMinimum,
+        data: {
+          zoneName: data.zoneName.replace(/\.$/, ''), // Remove trailing dot from zone name
+          soaPrimaryNs: primaryNs,
+          soaAdminEmail: adminEmail,
+          defaultTtl: data.defaultTtl,
+          soaRefresh: data.soaRefresh,
+          soaRetry: data.soaRetry,
+          soaExpire: data.soaExpire,
+          soaMinimum: data.soaMinimum,
+        },
+        baseDn: currentBase || undefined,
       })
       toast.success(`Zone "${data.zoneName}" created successfully`)
       onOpenChange(false)

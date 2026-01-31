@@ -35,13 +35,14 @@ const BASE_PATH = '/dhcp'
  * List all DHCP services
  */
 export async function listServices(
-  params?: { search?: string; page?: number; pageSize?: number }
+  params?: { search?: string; page?: number; pageSize?: number; base?: string }
 ): Promise<DhcpServiceListResponse> {
   const searchParams = new URLSearchParams()
   if (params?.search) searchParams.set('search', params.search)
   if (params?.page) searchParams.set('page', params.page.toString())
   if (params?.pageSize) searchParams.set('page_size', params.pageSize.toString())
-  
+  if (params?.base) searchParams.set('base_dn', params.base)
+
   const query = searchParams.toString()
   return apiClient.get<DhcpServiceListResponse>(`${BASE_PATH}${query ? `?${query}` : ''}`)
 }
@@ -49,17 +50,19 @@ export async function listServices(
 /**
  * Get a single DHCP service by name
  */
-export async function getService(serviceCn: string): Promise<DhcpService> {
+export async function getService(serviceCn: string, baseDn?: string): Promise<DhcpService> {
+  const query = baseDn ? `?base_dn=${encodeURIComponent(baseDn)}` : ''
   return apiClient.get<DhcpService>(
-    `${BASE_PATH}/${encodeURIComponent(serviceCn)}`
+    `${BASE_PATH}/${encodeURIComponent(serviceCn)}${query}`
   )
 }
 
 /**
  * Create a new DHCP service
  */
-export async function createService(data: DhcpServiceCreate): Promise<DhcpService> {
-  return apiClient.post<DhcpService>(`${BASE_PATH}`, data)
+export async function createService(data: DhcpServiceCreate, baseDn?: string): Promise<DhcpService> {
+  const query = baseDn ? `?base_dn=${encodeURIComponent(baseDn)}` : ''
+  return apiClient.post<DhcpService>(`${BASE_PATH}${query}`, data)
 }
 
 /**
@@ -67,10 +70,12 @@ export async function createService(data: DhcpServiceCreate): Promise<DhcpServic
  */
 export async function updateService(
   serviceCn: string,
-  data: DhcpServiceUpdate
+  data: DhcpServiceUpdate,
+  baseDn?: string
 ): Promise<DhcpService> {
+  const query = baseDn ? `?base_dn=${encodeURIComponent(baseDn)}` : ''
   return apiClient.patch<DhcpService>(
-    `${BASE_PATH}/${encodeURIComponent(serviceCn)}`,
+    `${BASE_PATH}/${encodeURIComponent(serviceCn)}${query}`,
     data
   )
 }
@@ -78,19 +83,23 @@ export async function updateService(
 /**
  * Delete a DHCP service
  */
-export async function deleteService(serviceCn: string, recursive?: boolean): Promise<void> {
-  const query = recursive ? '?recursive=true' : ''
+export async function deleteService(serviceCn: string, recursive?: boolean, baseDn?: string): Promise<void> {
+  const params = new URLSearchParams()
+  if (recursive) params.set('recursive', 'true')
+  if (baseDn) params.set('base_dn', baseDn)
+  const query = params.toString()
   return apiClient.delete(
-    `${BASE_PATH}/${encodeURIComponent(serviceCn)}${query}`
+    `${BASE_PATH}/${encodeURIComponent(serviceCn)}${query ? `?${query}` : ''}`
   )
 }
 
 /**
  * Get the DHCP tree for a service
  */
-export async function getServiceTree(serviceCn: string): Promise<DhcpTree> {
+export async function getServiceTree(serviceCn: string, baseDn?: string): Promise<DhcpTree> {
+  const query = baseDn ? `?base_dn=${encodeURIComponent(baseDn)}` : ''
   return apiClient.get<DhcpTree>(
-    `${BASE_PATH}/${encodeURIComponent(serviceCn)}/tree`
+    `${BASE_PATH}/${encodeURIComponent(serviceCn)}/tree${query}`
   )
 }
 
@@ -110,7 +119,7 @@ export async function listSubnets(
   if (params?.search) searchParams.set('search', params.search)
   if (params?.page) searchParams.set('page', params.page.toString())
   if (params?.pageSize) searchParams.set('page_size', params.pageSize.toString())
-  
+
   const query = searchParams.toString()
   return apiClient.get<DhcpSubnetListResponse>(
     `${BASE_PATH}/${encodeURIComponent(serviceCn)}/subnets${query ? `?${query}` : ''}`
@@ -132,11 +141,15 @@ export async function getSubnet(serviceCn: string, subnetCn: string, dn: string)
 export async function createSubnet(
   serviceCn: string,
   data: DhcpSubnetCreate,
-  parentDn?: string
+  parentDn?: string,
+  baseDn?: string
 ): Promise<DhcpSubnet> {
-  const query = parentDn ? `?parent_dn=${encodeURIComponent(parentDn)}` : ''
+  const params = new URLSearchParams()
+  if (parentDn) params.set('parent_dn', parentDn)
+  if (baseDn) params.set('base_dn', baseDn)
+  const query = params.toString()
   return apiClient.post<DhcpSubnet>(
-    `${BASE_PATH}/${encodeURIComponent(serviceCn)}/subnets${query}`,
+    `${BASE_PATH}/${encodeURIComponent(serviceCn)}/subnets${query ? `?${query}` : ''}`,
     data
   )
 }
@@ -148,10 +161,13 @@ export async function updateSubnet(
   serviceCn: string,
   subnetCn: string,
   dn: string,
-  data: DhcpSubnetUpdate
+  data: DhcpSubnetUpdate,
+  baseDn?: string
 ): Promise<DhcpSubnet> {
+  const params = new URLSearchParams({ dn })
+  if (baseDn) params.set('base_dn', baseDn)
   return apiClient.patch<DhcpSubnet>(
-    `${BASE_PATH}/${encodeURIComponent(serviceCn)}/subnets/${encodeURIComponent(subnetCn)}?dn=${encodeURIComponent(dn)}`,
+    `${BASE_PATH}/${encodeURIComponent(serviceCn)}/subnets/${encodeURIComponent(subnetCn)}?${params}`,
     data
   )
 }
@@ -163,10 +179,12 @@ export async function deleteSubnet(
   serviceCn: string,
   subnetCn: string,
   dn: string,
-  recursive?: boolean
+  recursive?: boolean,
+  baseDn?: string
 ): Promise<void> {
   const params = new URLSearchParams({ dn })
   if (recursive) params.set('recursive', 'true')
+  if (baseDn) params.set('base_dn', baseDn)
   return apiClient.delete(
     `${BASE_PATH}/${encodeURIComponent(serviceCn)}/subnets/${encodeURIComponent(subnetCn)}?${params}`
   )
@@ -188,7 +206,7 @@ export async function listPools(
   if (params?.search) searchParams.set('search', params.search)
   if (params?.page) searchParams.set('page', params.page.toString())
   if (params?.pageSize) searchParams.set('page_size', params.pageSize.toString())
-  
+
   return apiClient.get<DhcpPoolListResponse>(
     `${BASE_PATH}/${encodeURIComponent(serviceCn)}/pools?${searchParams}`
   )
@@ -200,10 +218,13 @@ export async function listPools(
 export async function createPool(
   serviceCn: string,
   parentDn: string,
-  data: DhcpPoolCreate
+  data: DhcpPoolCreate,
+  baseDn?: string
 ): Promise<DhcpPool> {
+  const params = new URLSearchParams({ parent_dn: parentDn })
+  if (baseDn) params.set('base_dn', baseDn)
   return apiClient.post<DhcpPool>(
-    `${BASE_PATH}/${encodeURIComponent(serviceCn)}/pools?parent_dn=${encodeURIComponent(parentDn)}`,
+    `${BASE_PATH}/${encodeURIComponent(serviceCn)}/pools?${params}`,
     data
   )
 }
@@ -215,10 +236,13 @@ export async function updatePool(
   serviceCn: string,
   poolCn: string,
   dn: string,
-  data: DhcpPoolUpdate
+  data: DhcpPoolUpdate,
+  baseDn?: string
 ): Promise<DhcpPool> {
+  const params = new URLSearchParams({ dn })
+  if (baseDn) params.set('base_dn', baseDn)
   return apiClient.patch<DhcpPool>(
-    `${BASE_PATH}/${encodeURIComponent(serviceCn)}/pools/${encodeURIComponent(poolCn)}?dn=${encodeURIComponent(dn)}`,
+    `${BASE_PATH}/${encodeURIComponent(serviceCn)}/pools/${encodeURIComponent(poolCn)}?${params}`,
     data
   )
 }
@@ -229,10 +253,13 @@ export async function updatePool(
 export async function deletePool(
   serviceCn: string,
   poolCn: string,
-  dn: string
+  dn: string,
+  baseDn?: string
 ): Promise<void> {
+  const params = new URLSearchParams({ dn })
+  if (baseDn) params.set('base_dn', baseDn)
   return apiClient.delete(
-    `${BASE_PATH}/${encodeURIComponent(serviceCn)}/pools/${encodeURIComponent(poolCn)}?dn=${encodeURIComponent(dn)}`
+    `${BASE_PATH}/${encodeURIComponent(serviceCn)}/pools/${encodeURIComponent(poolCn)}?${params}`
   )
 }
 
@@ -252,7 +279,7 @@ export async function listHosts(
   if (params?.search) searchParams.set('search', params.search)
   if (params?.page) searchParams.set('page', params.page.toString())
   if (params?.pageSize) searchParams.set('page_size', params.pageSize.toString())
-  
+
   const query = searchParams.toString()
   return apiClient.get<DhcpHostListResponse>(
     `${BASE_PATH}/${encodeURIComponent(serviceCn)}/hosts${query ? `?${query}` : ''}`
@@ -274,11 +301,15 @@ export async function getHost(serviceCn: string, hostCn: string, dn: string): Pr
 export async function createHost(
   serviceCn: string,
   data: DhcpHostCreate,
-  parentDn?: string
+  parentDn?: string,
+  baseDn?: string
 ): Promise<DhcpHost> {
-  const query = parentDn ? `?parent_dn=${encodeURIComponent(parentDn)}` : ''
+  const params = new URLSearchParams()
+  if (parentDn) params.set('parent_dn', parentDn)
+  if (baseDn) params.set('base_dn', baseDn)
+  const query = params.toString()
   return apiClient.post<DhcpHost>(
-    `${BASE_PATH}/${encodeURIComponent(serviceCn)}/hosts${query}`,
+    `${BASE_PATH}/${encodeURIComponent(serviceCn)}/hosts${query ? `?${query}` : ''}`,
     data
   )
 }
@@ -290,10 +321,13 @@ export async function updateHost(
   serviceCn: string,
   hostCn: string,
   dn: string,
-  data: DhcpHostUpdate
+  data: DhcpHostUpdate,
+  baseDn?: string
 ): Promise<DhcpHost> {
+  const params = new URLSearchParams({ dn })
+  if (baseDn) params.set('base_dn', baseDn)
   return apiClient.patch<DhcpHost>(
-    `${BASE_PATH}/${encodeURIComponent(serviceCn)}/hosts/${encodeURIComponent(hostCn)}?dn=${encodeURIComponent(dn)}`,
+    `${BASE_PATH}/${encodeURIComponent(serviceCn)}/hosts/${encodeURIComponent(hostCn)}?${params}`,
     data
   )
 }
@@ -304,10 +338,13 @@ export async function updateHost(
 export async function deleteHost(
   serviceCn: string,
   hostCn: string,
-  dn: string
+  dn: string,
+  baseDn?: string
 ): Promise<void> {
+  const params = new URLSearchParams({ dn })
+  if (baseDn) params.set('base_dn', baseDn)
   return apiClient.delete(
-    `${BASE_PATH}/${encodeURIComponent(serviceCn)}/hosts/${encodeURIComponent(hostCn)}?dn=${encodeURIComponent(dn)}`
+    `${BASE_PATH}/${encodeURIComponent(serviceCn)}/hosts/${encodeURIComponent(hostCn)}?${params}`
   )
 }
 

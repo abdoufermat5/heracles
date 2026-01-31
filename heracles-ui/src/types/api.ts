@@ -81,6 +81,7 @@ export interface UserCreateData {
   homeDirectory?: string
   loginShell?: string
   password: string
+  departmentDn?: string
 }
 
 export interface UserUpdateData {
@@ -100,6 +101,7 @@ export interface GroupCreateData {
   cn: string
   description?: string
   gidNumber?: number
+  departmentDn?: string
 }
 
 export interface GroupUpdateData {

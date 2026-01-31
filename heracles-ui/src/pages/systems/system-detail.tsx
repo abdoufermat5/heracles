@@ -68,6 +68,7 @@ import {
 } from '@/types/systems'
 import { PLUGIN_ROUTES } from '@/config/routes'
 import { useState } from 'react'
+import { useDepartmentStore } from '@/stores'
 
 // Icon mapping
 const SystemTypeIcon: Record<SystemType, React.ElementType> = {
@@ -126,6 +127,7 @@ export function SystemDetailPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   const systemType = type as SystemType
+  const { currentBase } = useDepartmentStore()
 
   const {
     data: system,
@@ -133,6 +135,7 @@ export function SystemDetailPage() {
     error,
   } = useSystem(systemType, cn ?? '', {
     enabled: !!type && !!cn,
+    baseDn: currentBase || undefined,
   })
 
   const updateMutation = useUpdateSystem()
@@ -142,22 +145,22 @@ export function SystemDetailPage() {
     resolver: zodResolver(updateSystemSchema),
     values: system
       ? {
-          description: system.description ?? '',
-          ip_addresses: system.ipHostNumber?.join(', ') ?? '',
-          mac_addresses: system.macAddress?.join(', ') ?? '',
-          mode: system.hrcMode,
-          location: system.l ?? '',
-          labeled_uri: system.labeledURI ?? '',
-          windows_inf_file: system.hrcPrinterWindowsInfFile ?? '',
-          windows_driver_dir: system.hrcPrinterWindowsDriverDir ?? '',
-          windows_driver_name: system.hrcPrinterWindowsDriverName ?? '',
-          telephone_number: system.telephoneNumber ?? '',
-          serial_number: system.serialNumber ?? '',
-          imei: system.hrcMobileIMEI ?? '',
-          operating_system: system.hrcMobileOS ?? '',
-          puk: system.hrcMobilePUK ?? '',
-          owner: system.owner ?? '',
-        }
+        description: system.description ?? '',
+        ip_addresses: system.ipHostNumber?.join(', ') ?? '',
+        mac_addresses: system.macAddress?.join(', ') ?? '',
+        mode: system.hrcMode,
+        location: system.l ?? '',
+        labeled_uri: system.labeledURI ?? '',
+        windows_inf_file: system.hrcPrinterWindowsInfFile ?? '',
+        windows_driver_dir: system.hrcPrinterWindowsDriverDir ?? '',
+        windows_driver_name: system.hrcPrinterWindowsDriverName ?? '',
+        telephone_number: system.telephoneNumber ?? '',
+        serial_number: system.serialNumber ?? '',
+        imei: system.hrcMobileIMEI ?? '',
+        operating_system: system.hrcMobileOS ?? '',
+        puk: system.hrcMobilePUK ?? '',
+        owner: system.owner ?? '',
+      }
       : undefined,
   })
 
@@ -193,6 +196,7 @@ export function SystemDetailPage() {
           puk: data.puk || undefined,
           owner: data.owner || undefined,
         },
+        baseDn: currentBase || undefined,
       })
       toast.success('System updated successfully')
     } catch (error) {
@@ -209,6 +213,7 @@ export function SystemDetailPage() {
       await deleteMutation.mutateAsync({
         systemType: system.systemType,
         cn: system.cn,
+        baseDn: currentBase || undefined,
       })
       toast.success(`System "${system.cn}" deleted successfully`)
       navigate(PLUGIN_ROUTES.SYSTEMS.LIST)
@@ -316,11 +321,11 @@ export function SystemDetailPage() {
               {(showPrinterFields ||
                 showPhoneFields ||
                 showComponentFields) && (
-                <TabsTrigger value="specific">
-                  <Icon className="h-4 w-4 mr-2" />
-                  {SYSTEM_TYPE_LABELS[system.systemType]} Settings
-                </TabsTrigger>
-              )}
+                  <TabsTrigger value="specific">
+                    <Icon className="h-4 w-4 mr-2" />
+                    {SYSTEM_TYPE_LABELS[system.systemType]} Settings
+                  </TabsTrigger>
+                )}
             </TabsList>
 
             {/* General Tab */}
@@ -476,48 +481,29 @@ export function SystemDetailPage() {
             {(showPrinterFields ||
               showPhoneFields ||
               showComponentFields) && (
-              <TabsContent value="specific">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>
-                      {SYSTEM_TYPE_LABELS[system.systemType]} Settings
-                    </CardTitle>
-                    <CardDescription>
-                      Type-specific configuration options
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {/* Printer Fields */}
-                    {showPrinterFields && (
-                      <>
-                        <FormField
-                          control={form.control}
-                          name="labeled_uri"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Printer URI</FormLabel>
-                              <FormControl>
-                                <Input
-                                  placeholder="ipp://printer.example.com/printers/main"
-                                  {...field}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <Separator />
-                        <h4 className="font-medium text-sm">Windows Driver</h4>
-                        <div className="grid grid-cols-3 gap-4">
+                <TabsContent value="specific">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>
+                        {SYSTEM_TYPE_LABELS[system.systemType]} Settings
+                      </CardTitle>
+                      <CardDescription>
+                        Type-specific configuration options
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Printer Fields */}
+                      {showPrinterFields && (
+                        <>
                           <FormField
                             control={form.control}
-                            name="windows_inf_file"
+                            name="labeled_uri"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>INF File</FormLabel>
+                                <FormLabel>Printer URI</FormLabel>
                                 <FormControl>
                                   <Input
-                                    placeholder="/path/to/driver.inf"
+                                    placeholder="ipp://printer.example.com/printers/main"
                                     {...field}
                                   />
                                 </FormControl>
@@ -525,139 +511,194 @@ export function SystemDetailPage() {
                               </FormItem>
                             )}
                           />
-                          <FormField
-                            control={form.control}
-                            name="windows_driver_dir"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Driver Directory</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    placeholder="/share/drivers/hp"
-                                    {...field}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="windows_driver_name"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Driver Name</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    placeholder="HP LaserJet Pro"
-                                    {...field}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                      </>
-                    )}
-
-                    {/* Phone Fields */}
-                    {showPhoneFields && (
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="telephone_number"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Phone Number / Extension</FormLabel>
-                              <FormControl>
-                                <Input
-                                  placeholder="+1-555-123-4567"
-                                  {...field}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="serial_number"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Serial Number</FormLabel>
-                              <FormControl>
-                                <Input placeholder="FCH2345ABCD" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    )}
-
-                    {/* Mobile-only Fields */}
-                    {showMobileFields && (
-                      <>
-                        <Separator />
-                        <h4 className="font-medium text-sm">
-                          Mobile Device Information
-                        </h4>
-                        <div className="grid grid-cols-3 gap-4">
-                          <FormField
-                            control={form.control}
-                            name="imei"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>IMEI</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    placeholder="123456789012345"
-                                    {...field}
-                                  />
-                                </FormControl>
-                                <FormDescription>15 digits</FormDescription>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="operating_system"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Operating System</FormLabel>
-                                <Select
-                                  onValueChange={field.onChange}
-                                  value={field.value}
-                                >
+                          <Separator />
+                          <h4 className="font-medium text-sm">Windows Driver</h4>
+                          <div className="grid grid-cols-3 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="windows_inf_file"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>INF File</FormLabel>
                                   <FormControl>
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Select OS" />
-                                    </SelectTrigger>
+                                    <Input
+                                      placeholder="/path/to/driver.inf"
+                                      {...field}
+                                    />
                                   </FormControl>
-                                  <SelectContent>
-                                    {MOBILE_OS_OPTIONS.map((os) => (
-                                      <SelectItem key={os.value} value={os.value}>
-                                        {os.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="windows_driver_dir"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Driver Directory</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      placeholder="/share/drivers/hp"
+                                      {...field}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="windows_driver_name"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Driver Name</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      placeholder="HP LaserJet Pro"
+                                      {...field}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </>
+                      )}
+
+                      {/* Phone Fields */}
+                      {showPhoneFields && (
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="telephone_number"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Phone Number / Extension</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder="+1-555-123-4567"
+                                    {...field}
+                                  />
+                                </FormControl>
                                 <FormMessage />
                               </FormItem>
                             )}
                           />
                           <FormField
                             control={form.control}
-                            name="puk"
+                            name="serial_number"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>PUK Code</FormLabel>
+                                <FormLabel>Serial Number</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="FCH2345ABCD" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      )}
+
+                      {/* Mobile-only Fields */}
+                      {showMobileFields && (
+                        <>
+                          <Separator />
+                          <h4 className="font-medium text-sm">
+                            Mobile Device Information
+                          </h4>
+                          <div className="grid grid-cols-3 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="imei"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>IMEI</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      placeholder="123456789012345"
+                                      {...field}
+                                    />
+                                  </FormControl>
+                                  <FormDescription>15 digits</FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="operating_system"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Operating System</FormLabel>
+                                  <Select
+                                    onValueChange={field.onChange}
+                                    value={field.value}
+                                  >
+                                    <FormControl>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Select OS" />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      {MOBILE_OS_OPTIONS.map((os) => (
+                                        <SelectItem key={os.value} value={os.value}>
+                                          {os.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="puk"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>PUK Code</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      type="password"
+                                      placeholder="••••••••"
+                                      {...field}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </>
+                      )}
+
+                      {/* Component Fields */}
+                      {showComponentFields && (
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="serial_number"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Serial Number</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="FCW2345L0AB" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="owner"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Owner</FormLabel>
                                 <FormControl>
                                   <Input
-                                    type="password"
-                                    placeholder="••••••••"
+                                    placeholder="uid=admin,ou=users,..."
                                     {...field}
                                   />
                                 </FormControl>
@@ -666,47 +707,11 @@ export function SystemDetailPage() {
                             )}
                           />
                         </div>
-                      </>
-                    )}
-
-                    {/* Component Fields */}
-                    {showComponentFields && (
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="serial_number"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Serial Number</FormLabel>
-                              <FormControl>
-                                <Input placeholder="FCW2345L0AB" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="owner"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Owner</FormLabel>
-                              <FormControl>
-                                <Input
-                                  placeholder="uid=admin,ou=users,..."
-                                  {...field}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            )}
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              )}
           </Tabs>
 
           {/* Save Button */}

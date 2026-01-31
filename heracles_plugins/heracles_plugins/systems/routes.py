@@ -71,6 +71,7 @@ async def list_systems(
     ),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(50, ge=1, le=200, description="Items per page"),
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: SystemService = Depends(get_systems_service),
 ):
     """
@@ -85,6 +86,7 @@ async def list_systems(
             search=search,
             page=page,
             page_size=page_size,
+            base_dn=base_dn,
         )
     except Exception as e:
         logger.error("list_systems_failed", error=str(e))
@@ -170,11 +172,12 @@ async def get_system(
     system_type: SystemType,
     cn: str,
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: SystemService = Depends(get_systems_service),
 ):
     """Get a specific system by type and CN."""
     try:
-        system = await service.get_system(cn, system_type)
+        system = await service.get_system(cn, system_type, base_dn=base_dn)
         if system is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -200,6 +203,7 @@ async def get_system(
 async def create_system(
     data: SystemCreate,
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: SystemService = Depends(get_systems_service),
 ):
     """
@@ -207,9 +211,10 @@ async def create_system(
     
     The system type must be specified and determines which OU the system
     will be created in and which objectClasses are used.
+    If base_dn is provided, the system will be created under that context.
     """
     try:
-        return await service.create_system(data)
+        return await service.create_system(data, base_dn=base_dn)
     except SystemValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -238,11 +243,12 @@ async def update_system(
     cn: str,
     data: SystemUpdate,
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: SystemService = Depends(get_systems_service),
 ):
     """Update an existing system."""
     try:
-        return await service.update_system(cn, system_type, data)
+        return await service.update_system(cn, system_type, data, base_dn=base_dn)
     except SystemValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -275,11 +281,12 @@ async def delete_system(
     system_type: SystemType,
     cn: str,
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: SystemService = Depends(get_systems_service),
 ):
     """Delete a system."""
     try:
-        await service.delete_system(cn, system_type)
+        await service.delete_system(cn, system_type, base_dn=base_dn)
     except SystemValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -317,6 +324,7 @@ async def list_servers(
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
+    base_dn: Optional[str] = Query(None),
     service: SystemService = Depends(get_systems_service),
 ):
     """List all servers."""
@@ -325,6 +333,7 @@ async def list_servers(
         search=search,
         page=page,
         page_size=page_size,
+        base_dn=base_dn,
     )
 
 
@@ -338,6 +347,7 @@ async def list_workstations(
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
+    base_dn: Optional[str] = Query(None),
     service: SystemService = Depends(get_systems_service),
 ):
     """List all workstations."""
@@ -346,6 +356,7 @@ async def list_workstations(
         search=search,
         page=page,
         page_size=page_size,
+        base_dn=base_dn,
     )
 
 
@@ -359,6 +370,7 @@ async def list_terminals(
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
+    base_dn: Optional[str] = Query(None),
     service: SystemService = Depends(get_systems_service),
 ):
     """List all terminals."""
@@ -367,6 +379,7 @@ async def list_terminals(
         search=search,
         page=page,
         page_size=page_size,
+        base_dn=base_dn,
     )
 
 
@@ -380,6 +393,7 @@ async def list_printers(
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
+    base_dn: Optional[str] = Query(None),
     service: SystemService = Depends(get_systems_service),
 ):
     """List all printers."""
@@ -388,6 +402,7 @@ async def list_printers(
         search=search,
         page=page,
         page_size=page_size,
+        base_dn=base_dn,
     )
 
 
@@ -401,6 +416,7 @@ async def list_components(
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
+    base_dn: Optional[str] = Query(None),
     service: SystemService = Depends(get_systems_service),
 ):
     """List all components (network devices, etc.)."""
@@ -409,6 +425,7 @@ async def list_components(
         search=search,
         page=page,
         page_size=page_size,
+        base_dn=base_dn,
     )
 
 
@@ -422,6 +439,7 @@ async def list_phones(
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
+    base_dn: Optional[str] = Query(None),
     service: SystemService = Depends(get_systems_service),
 ):
     """List all phones (IP phones)."""
@@ -430,6 +448,7 @@ async def list_phones(
         search=search,
         page=page,
         page_size=page_size,
+        base_dn=base_dn,
     )
 
 
@@ -443,6 +462,7 @@ async def list_mobile_phones(
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
+    base_dn: Optional[str] = Query(None),
     service: SystemService = Depends(get_systems_service),
 ):
     """List all mobile phones."""
@@ -451,4 +471,5 @@ async def list_mobile_phones(
         search=search,
         page=page,
         page_size=page_size,
+        base_dn=base_dn,
     )

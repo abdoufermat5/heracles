@@ -18,7 +18,7 @@ import type {
 export const sudoQueryKeys = {
   all: ['sudo'] as const,
   roles: () => [...sudoQueryKeys.all, 'roles'] as const,
-  roleList: (params?: { page?: number; page_size?: number; search?: string }) =>
+  roleList: (params?: { page?: number; page_size?: number; search?: string; base?: string }) =>
     [...sudoQueryKeys.roles(), 'list', params] as const,
   role: (cn: string) => [...sudoQueryKeys.roles(), cn] as const,
   defaults: () => [...sudoQueryKeys.all, 'defaults'] as const,
@@ -35,6 +35,7 @@ export function useSudoRoles(params?: {
   page?: number
   page_size?: number
   search?: string
+  base?: string
 }) {
   return useQuery({
     queryKey: sudoQueryKeys.roleList(params),
@@ -47,10 +48,10 @@ export function useSudoRoles(params?: {
 /**
  * Hook for getting a single sudo role
  */
-export function useSudoRole(cn: string, options?: { enabled?: boolean }) {
+export function useSudoRole(cn: string, options?: { enabled?: boolean; baseDn?: string }) {
   return useQuery({
-    queryKey: sudoQueryKeys.role(cn),
-    queryFn: () => sudoApi.getRole(cn),
+    queryKey: [...sudoQueryKeys.role(cn), { baseDn: options?.baseDn }] as const,
+    queryFn: () => sudoApi.getRole(cn, options?.baseDn),
     enabled: options?.enabled ?? !!cn,
     staleTime: 30 * 1000,
   })
@@ -78,7 +79,8 @@ export function useCreateSudoRole() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: SudoRoleCreate) => sudoApi.createRole(data),
+    mutationFn: ({ data, baseDn }: { data: SudoRoleCreate; baseDn?: string }) =>
+      sudoApi.createRole(data, baseDn),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: sudoQueryKeys.roles() })
     },
@@ -92,8 +94,8 @@ export function useUpdateSudoRole() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ cn, data }: { cn: string; data: SudoRoleUpdate }) =>
-      sudoApi.updateRole(cn, data),
+    mutationFn: ({ cn, data, baseDn }: { cn: string; data: SudoRoleUpdate; baseDn?: string }) =>
+      sudoApi.updateRole(cn, data, baseDn),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: sudoQueryKeys.role(variables.cn) })
       queryClient.invalidateQueries({ queryKey: sudoQueryKeys.roles() })
@@ -108,7 +110,8 @@ export function useDeleteSudoRole() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (cn: string) => sudoApi.deleteRole(cn),
+    mutationFn: ({ cn, baseDn }: { cn: string; baseDn?: string }) =>
+      sudoApi.deleteRole(cn, baseDn),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: sudoQueryKeys.roles() })
     },

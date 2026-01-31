@@ -58,6 +58,7 @@ from heracles_api.core.dependencies import CurrentUser
 async def list_sudo_roles(
     current_user: CurrentUser,
     search: Optional[str] = Query(None, description="Search in cn, description, sudoUser"),
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(50, ge=1, le=200, description="Items per page"),
     service: SudoService = Depends(get_sudo_service),
@@ -68,7 +69,7 @@ async def list_sudo_roles(
     Results are sorted by sudoOrder (priority), then by cn.
     """
     try:
-        return await service.list_roles(search=search, page=page, page_size=page_size)
+        return await service.list_roles(search=search, base_dn=base_dn, page=page, page_size=page_size)
     except Exception as e:
         logger.error("list_sudo_roles_failed", error=str(e))
         raise HTTPException(
@@ -85,11 +86,12 @@ async def list_sudo_roles(
 async def get_sudo_role(
     cn: str,
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: SudoService = Depends(get_sudo_service),
 ):
     """Get a specific sudo role by CN."""
     try:
-        role = await service.get_role(cn)
+        role = await service.get_role(cn, base_dn=base_dn)
         if role is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -115,6 +117,7 @@ async def get_sudo_role(
 async def create_sudo_role(
     data: SudoRoleCreate,
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: SudoService = Depends(get_sudo_service),
 ):
     """
@@ -124,7 +127,7 @@ async def create_sudo_role(
     on which hosts (sudoHost) as which user/group (sudoRunAsUser/sudoRunAsGroup).
     """
     try:
-        return await service.create_role(data)
+        return await service.create_role(data, base_dn=base_dn)
     except SudoValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -147,6 +150,7 @@ async def update_sudo_role(
     cn: str,
     data: SudoRoleUpdate,
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: SudoService = Depends(get_sudo_service),
 ):
     """
@@ -155,7 +159,7 @@ async def update_sudo_role(
     Only provided fields will be updated.
     """
     try:
-        return await service.update_role(cn, data)
+        return await service.update_role(cn, data, base_dn=base_dn)
     except SudoValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -182,6 +186,7 @@ async def update_sudo_role(
 async def delete_sudo_role(
     cn: str,
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: SudoService = Depends(get_sudo_service),
 ):
     """
@@ -190,7 +195,7 @@ async def delete_sudo_role(
     Note: The 'defaults' role cannot be deleted.
     """
     try:
-        await service.delete_role(cn)
+        await service.delete_role(cn, base_dn=base_dn)
     except SudoValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

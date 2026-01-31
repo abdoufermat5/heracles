@@ -40,6 +40,7 @@ import {
   useCreateDhcpHost,
 } from '@/hooks/use-dhcp'
 import { PLUGIN_ROUTES } from '@/config/routes'
+import { useDepartmentStore } from '@/stores'
 
 export function DhcpServiceDetailPage() {
   const { serviceCn } = useParams<{ serviceCn: string }>()
@@ -47,13 +48,14 @@ export function DhcpServiceDetailPage() {
   const [activeTab, setActiveTab] = useState('overview')
   const [createSubnetOpen, setCreateSubnetOpen] = useState(false)
   const [createHostOpen, setCreateHostOpen] = useState(false)
+  const { currentBase } = useDepartmentStore()
 
   // Use actual hooks for API calls
   const { data: service, isLoading: serviceLoading } = useDhcpService(serviceCn || '')
   const { data: subnetsData, isLoading: subnetsLoading } = useDhcpSubnets(serviceCn || '')
   const { data: hostsData, isLoading: hostsLoading } = useDhcpHosts(serviceCn || '')
   const { data: treeData, isLoading: treeLoading } = useDhcpServiceTree(serviceCn || '')
-  
+
   const createSubnetMutation = useCreateDhcpSubnet(serviceCn || '')
   const createHostMutation = useCreateDhcpHost(serviceCn || '')
 
@@ -67,6 +69,7 @@ export function DhcpServiceDetailPage() {
           dhcpOptions: data.options,
           comments: data.comments,
         },
+        baseDn: currentBase || undefined,
       })
       toast.success(`Subnet ${data.cn} created successfully`)
       setCreateSubnetOpen(false)
@@ -87,6 +90,7 @@ export function DhcpServiceDetailPage() {
           comments: data.comments,
         },
         parentDn: data.parentDn,
+        baseDn: currentBase || undefined,
       })
       toast.success(`Host ${data.cn} created successfully`)
       setCreateHostOpen(false)

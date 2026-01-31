@@ -293,8 +293,20 @@ class DhcpService(TabService):
         attrs.update(self.FAILOVER_PEER_ATTRIBUTES)
         return list(attrs)
     
-    def _get_service_dn(self, service_cn: str) -> str:
+    def _get_dhcp_container(self, base_dn: Optional[str] = None) -> str:
+        """Get the DHCP container DN for the given context.
+        
+        If base_dn is provided (department context), returns ou=dhcp,{base_dn}.
+        Otherwise returns the default ou=dhcp,{root_base_dn}.
+        """
+        if base_dn:
+            return f"{self._dhcp_rdn},{base_dn}"
+        return self._dhcp_dn
+    
+    def _get_service_dn(self, service_cn: str, base_dn: Optional[str] = None) -> str:
         """Get the DN for a DHCP service."""
+        if base_dn:
+            return f"cn={service_cn},{self._dhcp_rdn},{base_dn}"
         return f"cn={service_cn},{self._dhcp_dn}"
     
     def _get_object_dn(self, cn: str, parent_dn: str) -> str:
@@ -328,20 +340,25 @@ class DhcpService(TabService):
     # OU Management
     # ========================================================================
     
-    async def _ensure_dhcp_ou(self) -> None:
+    async def _ensure_dhcp_ou(self, base_dn: Optional[str] = None) -> None:
         """Ensure the DHCP OU exists."""
+        if base_dn:
+            dn = f"{self._dhcp_rdn},{base_dn}"
+        else:
+            dn = self._dhcp_dn
+            
         try:
             exists = await self._ldap.get_by_dn(
-                self._dhcp_dn, 
+               dn, 
                 attributes=["ou"]
             )
             if exists is None:
                 await self._ldap.add(
-                    dn=self._dhcp_dn,
+                    dn=dn,
                     object_classes=["organizationalUnit"],
-                    attributes={"ou": ["dhcp"]},
+                    attributes={"ou": ["dhcp"]}, # Assuming dhcp_rdn is ou=dhcp
                 )
-                logger.info("dhcp_ou_created", dn=self._dhcp_dn)
+                logger.info("dhcp_ou_created", dn=dn)
         except LdapOperationError as e:
             logger.warning("dhcp_ou_check_failed", error=str(e))
     
@@ -352,11 +369,21 @@ class DhcpService(TabService):
     async def list_services(
         self,
         search: Optional[str] = None,
+        base_dn: Optional[str] = None,
         page: int = 1,
         page_size: int = 50,
     ) -> DhcpServiceListResponse:
         """List all DHCP services."""
-        await self._ensure_dhcp_ou()
+        if not base_dn:
+             await self._ensure_dhcp_ou()
+        else:
+             await self._ensure_dhcp_ou(base_dn=base_dn)
+        
+        # Determine search base
+        if base_dn:
+            search_base = f"{self._dhcp_rdn},{base_dn}"
+        else:
+            search_base = self._dhcp_dn
         
         # Build search filter
         filters = ["(objectClass=dhcpService)"]
@@ -369,7 +396,7 @@ class DhcpService(TabService):
         
         # Search
         entries = await self._ldap.search(
-            search_base=self._dhcp_dn,
+            search_base=search_base,
             search_filter=ldap_filter,
             attributes=self.COMMON_ATTRIBUTES + self.SERVICE_ATTRIBUTES,
             scope="onelevel",
@@ -397,9 +424,13 @@ class DhcpService(TabService):
             page_size=page_size,
         )
     
-    async def get_service(self, cn: str) -> DhcpServiceRead:
+    async def get_service(
+        self, 
+        cn: str,
+        base_dn: Optional[str] = None
+    ) -> DhcpServiceRead:
         """Get a DHCP service by name."""
-        dn = self._get_service_dn(cn)
+        dn = self._get_service_dn(cn, base_dn=base_dn)
         
         entry = await self._ldap.get_by_dn(
             dn,
@@ -419,11 +450,15 @@ class DhcpService(TabService):
             dhcpComments=self._get_first_value(entry, "dhcpComments"),
         )
     
-    async def create_service(self, data: DhcpServiceCreate) -> DhcpServiceRead:
+    async def create_service(
+        self, 
+        data: DhcpServiceCreate,
+        base_dn: Optional[str] = None
+    ) -> DhcpServiceRead:
         """Create a new DHCP service."""
-        await self._ensure_dhcp_ou()
+        await self._ensure_dhcp_ou(base_dn=base_dn)
         
-        dn = self._get_service_dn(data.cn)
+        dn = self._get_service_dn(data.cn, base_dn=base_dn)
         
         # Check if exists
         existing = await self._ldap.get_by_dn(dn, attributes=["cn"])
@@ -455,11 +490,16 @@ class DhcpService(TabService):
         
         logger.info("dhcp_service_created", cn=data.cn, dn=dn)
         
-        return await self.get_service(data.cn)
+        return await self.get_service(data.cn, base_dn=base_dn)
     
-    async def update_service(self, cn: str, data: DhcpServiceUpdate) -> DhcpServiceRead:
+    async def update_service(
+        self, 
+        cn: str, 
+        data: DhcpServiceUpdate,
+        base_dn: Optional[str] = None
+    ) -> DhcpServiceRead:
         """Update a DHCP service."""
-        dn = self._get_service_dn(cn)
+        dn = self._get_service_dn(cn, base_dn=base_dn)
         
         # Check exists
         existing = await self._ldap.get_by_dn(dn, attributes=["cn"])
@@ -484,11 +524,16 @@ class DhcpService(TabService):
             await self._ldap.modify(dn, modifications)
             logger.info("dhcp_service_updated", cn=cn, dn=dn)
         
-        return await self.get_service(cn)
+        return await self.get_service(cn, base_dn=base_dn)
     
-    async def delete_service(self, cn: str, recursive: bool = False) -> None:
+    async def delete_service(
+        self, 
+        cn: str, 
+        recursive: bool = False,
+        base_dn: Optional[str] = None
+    ) -> None:
         """Delete a DHCP service."""
-        dn = self._get_service_dn(cn)
+        dn = self._get_service_dn(cn, base_dn=base_dn)
         
         # Check exists
         existing = await self._ldap.get_by_dn(dn, attributes=["cn"])
@@ -528,11 +573,12 @@ class DhcpService(TabService):
         service_cn: str,
         parent_dn: Optional[str] = None,
         search: Optional[str] = None,
+        base_dn: Optional[str] = None,
         page: int = 1,
         page_size: int = 50,
     ) -> SubnetListResponse:
         """List subnets under a service or parent."""
-        base_dn = parent_dn or self._get_service_dn(service_cn)
+        search_base = parent_dn or self._get_service_dn(service_cn, base_dn=base_dn)
         
         filters = ["(objectClass=dhcpSubnet)"]
         
@@ -543,7 +589,7 @@ class DhcpService(TabService):
         ldap_filter = f"(&{''.join(filters)})"
         
         entries = await self._ldap.search(
-            search_base=base_dn,
+            search_base=search_base,
             search_filter=ldap_filter,
             attributes=self.COMMON_ATTRIBUTES + self.SUBNET_ATTRIBUTES,
             scope="subtree",

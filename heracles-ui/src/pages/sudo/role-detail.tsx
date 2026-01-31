@@ -30,6 +30,7 @@ import {
 import { useSudoRole, useUpdateSudoRole, useDeleteSudoRole } from '@/hooks/use-sudo'
 import { arrayToString, stringToArray } from '@/lib/string-helpers'
 import { PLUGIN_ROUTES } from '@/config/routes'
+import { useDepartmentStore } from '@/stores'
 
 // Form schema for editing the role
 const editSchema = z.object({
@@ -53,8 +54,11 @@ export function SudoRoleDetailPage() {
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
+  const { currentBase } = useDepartmentStore()
 
-  const { data: role, isLoading, error, refetch } = useSudoRole(cn!)
+  const { data: role, isLoading, error, refetch } = useSudoRole(cn!, {
+    baseDn: currentBase || undefined
+  })
   const updateMutation = useUpdateSudoRole()
   const deleteMutation = useDeleteSudoRole()
 
@@ -103,6 +107,7 @@ export function SudoRoleDetailPage() {
           sudoNotBefore: data.sudoNotBefore || undefined,
           sudoNotAfter: data.sudoNotAfter || undefined,
         },
+        baseDn: currentBase || undefined,
       })
       toast.success('Sudo role updated successfully')
       setHasChanges(false)
@@ -113,7 +118,10 @@ export function SudoRoleDetailPage() {
 
   const handleDelete = async () => {
     try {
-      await deleteMutation.mutateAsync(cn!)
+      await deleteMutation.mutateAsync({
+        cn: cn!,
+        baseDn: currentBase || undefined
+      })
       toast.success('Sudo role deleted successfully')
       navigate(PLUGIN_ROUTES.SUDO.ROLES)
     } catch (error) {

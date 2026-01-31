@@ -40,7 +40,7 @@ export const dhcpQueryKeys = {
 /**
  * Hook for listing all DHCP services
  */
-export function useDhcpServices(params?: { search?: string; page?: number; pageSize?: number }) {
+export function useDhcpServices(params?: { search?: string; page?: number; pageSize?: number; base?: string }) {
   return useQuery({
     queryKey: [...dhcpQueryKeys.services(), params],
     queryFn: () => dhcpApi.listServices(params),
@@ -51,10 +51,10 @@ export function useDhcpServices(params?: { search?: string; page?: number; pageS
 /**
  * Hook for getting a single DHCP service
  */
-export function useDhcpService(serviceCn: string, options?: { enabled?: boolean }) {
+export function useDhcpService(serviceCn: string, options?: { enabled?: boolean; baseDn?: string }) {
   return useQuery({
-    queryKey: dhcpQueryKeys.service(serviceCn),
-    queryFn: () => dhcpApi.getService(serviceCn),
+    queryKey: [...dhcpQueryKeys.service(serviceCn), { baseDn: options?.baseDn }] as const,
+    queryFn: () => dhcpApi.getService(serviceCn, options?.baseDn),
     enabled: options?.enabled ?? !!serviceCn,
     staleTime: 30 * 1000,
   })
@@ -63,10 +63,10 @@ export function useDhcpService(serviceCn: string, options?: { enabled?: boolean 
 /**
  * Hook for getting the DHCP tree for a service
  */
-export function useDhcpServiceTree(serviceCn: string, options?: { enabled?: boolean }) {
+export function useDhcpServiceTree(serviceCn: string, options?: { enabled?: boolean; baseDn?: string }) {
   return useQuery({
-    queryKey: dhcpQueryKeys.serviceTree(serviceCn),
-    queryFn: () => dhcpApi.getServiceTree(serviceCn),
+    queryKey: [...dhcpQueryKeys.serviceTree(serviceCn), { baseDn: options?.baseDn }] as const,
+    queryFn: () => dhcpApi.getServiceTree(serviceCn, options?.baseDn),
     enabled: options?.enabled ?? !!serviceCn,
     staleTime: 30 * 1000,
   })
@@ -83,7 +83,8 @@ export function useCreateDhcpService() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: DhcpServiceCreate) => dhcpApi.createService(data),
+    mutationFn: ({ data, baseDn }: { data: DhcpServiceCreate; baseDn?: string }) =>
+      dhcpApi.createService(data, baseDn),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dhcpQueryKeys.services() })
     },
@@ -97,7 +98,8 @@ export function useUpdateDhcpService(serviceCn: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: DhcpServiceUpdate) => dhcpApi.updateService(serviceCn, data),
+    mutationFn: ({ data, baseDn }: { data: DhcpServiceUpdate; baseDn?: string }) =>
+      dhcpApi.updateService(serviceCn, data, baseDn),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dhcpQueryKeys.service(serviceCn) })
       queryClient.invalidateQueries({ queryKey: dhcpQueryKeys.services() })
@@ -112,8 +114,8 @@ export function useDeleteDhcpService() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ serviceCn, recursive }: { serviceCn: string; recursive?: boolean }) =>
-      dhcpApi.deleteService(serviceCn, recursive),
+    mutationFn: ({ serviceCn, recursive, baseDn }: { serviceCn: string; recursive?: boolean; baseDn?: string }) =>
+      dhcpApi.deleteService(serviceCn, recursive, baseDn),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dhcpQueryKeys.services() })
     },
@@ -168,8 +170,8 @@ export function useCreateDhcpSubnet(serviceCn: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ data, parentDn }: { data: DhcpSubnetCreate; parentDn?: string }) =>
-      dhcpApi.createSubnet(serviceCn, data, parentDn),
+    mutationFn: ({ data, parentDn, baseDn }: { data: DhcpSubnetCreate; parentDn?: string; baseDn?: string }) =>
+      dhcpApi.createSubnet(serviceCn, data, parentDn, baseDn),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dhcpQueryKeys.subnets(serviceCn) })
       queryClient.invalidateQueries({ queryKey: dhcpQueryKeys.serviceTree(serviceCn) })
@@ -184,8 +186,8 @@ export function useUpdateDhcpSubnet(serviceCn: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ subnetCn, dn, data }: { subnetCn: string; dn: string; data: DhcpSubnetUpdate }) =>
-      dhcpApi.updateSubnet(serviceCn, subnetCn, dn, data),
+    mutationFn: ({ subnetCn, dn, data, baseDn }: { subnetCn: string; dn: string; data: DhcpSubnetUpdate; baseDn?: string }) =>
+      dhcpApi.updateSubnet(serviceCn, subnetCn, dn, data, baseDn),
     onSuccess: (_, { subnetCn }) => {
       queryClient.invalidateQueries({ queryKey: dhcpQueryKeys.subnet(serviceCn, subnetCn) })
       queryClient.invalidateQueries({ queryKey: dhcpQueryKeys.subnets(serviceCn) })
@@ -201,8 +203,8 @@ export function useDeleteDhcpSubnet(serviceCn: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ subnetCn, dn, recursive }: { subnetCn: string; dn: string; recursive?: boolean }) =>
-      dhcpApi.deleteSubnet(serviceCn, subnetCn, dn, recursive),
+    mutationFn: ({ subnetCn, dn, recursive, baseDn }: { subnetCn: string; dn: string; recursive?: boolean; baseDn?: string }) =>
+      dhcpApi.deleteSubnet(serviceCn, subnetCn, dn, recursive, baseDn),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dhcpQueryKeys.subnets(serviceCn) })
       queryClient.invalidateQueries({ queryKey: dhcpQueryKeys.serviceTree(serviceCn) })
@@ -242,8 +244,8 @@ export function useCreateDhcpPool(serviceCn: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ parentDn, data }: { parentDn: string; data: DhcpPoolCreate }) =>
-      dhcpApi.createPool(serviceCn, parentDn, data),
+    mutationFn: ({ parentDn, data, baseDn }: { parentDn: string; data: DhcpPoolCreate; baseDn?: string }) =>
+      dhcpApi.createPool(serviceCn, parentDn, data, baseDn),
     onSuccess: (_, { parentDn }) => {
       queryClient.invalidateQueries({ queryKey: dhcpQueryKeys.pools(serviceCn, parentDn) })
       queryClient.invalidateQueries({ queryKey: dhcpQueryKeys.serviceTree(serviceCn) })
@@ -258,8 +260,8 @@ export function useUpdateDhcpPool(serviceCn: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ poolCn, dn, data }: { poolCn: string; dn: string; data: DhcpPoolUpdate }) =>
-      dhcpApi.updatePool(serviceCn, poolCn, dn, data),
+    mutationFn: ({ poolCn, dn, data, baseDn }: { poolCn: string; dn: string; data: DhcpPoolUpdate; baseDn?: string }) =>
+      dhcpApi.updatePool(serviceCn, poolCn, dn, data, baseDn),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dhcpQueryKeys.all })
     },
@@ -273,8 +275,8 @@ export function useDeleteDhcpPool(serviceCn: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ poolCn, dn }: { poolCn: string; dn: string }) =>
-      dhcpApi.deletePool(serviceCn, poolCn, dn),
+    mutationFn: ({ poolCn, dn, baseDn }: { poolCn: string; dn: string; baseDn?: string }) =>
+      dhcpApi.deletePool(serviceCn, poolCn, dn, baseDn),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dhcpQueryKeys.all })
     },
@@ -329,8 +331,8 @@ export function useCreateDhcpHost(serviceCn: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ data, parentDn }: { data: DhcpHostCreate; parentDn?: string }) =>
-      dhcpApi.createHost(serviceCn, data, parentDn),
+    mutationFn: ({ data, parentDn, baseDn }: { data: DhcpHostCreate; parentDn?: string; baseDn?: string }) =>
+      dhcpApi.createHost(serviceCn, data, parentDn, baseDn),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dhcpQueryKeys.hosts(serviceCn) })
       queryClient.invalidateQueries({ queryKey: dhcpQueryKeys.serviceTree(serviceCn) })
@@ -345,8 +347,8 @@ export function useUpdateDhcpHost(serviceCn: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ hostCn, dn, data }: { hostCn: string; dn: string; data: DhcpHostUpdate }) =>
-      dhcpApi.updateHost(serviceCn, hostCn, dn, data),
+    mutationFn: ({ hostCn, dn, data, baseDn }: { hostCn: string; dn: string; data: DhcpHostUpdate; baseDn?: string }) =>
+      dhcpApi.updateHost(serviceCn, hostCn, dn, data, baseDn),
     onSuccess: (_, { hostCn }) => {
       queryClient.invalidateQueries({ queryKey: dhcpQueryKeys.host(serviceCn, hostCn) })
       queryClient.invalidateQueries({ queryKey: dhcpQueryKeys.hosts(serviceCn) })
@@ -362,8 +364,8 @@ export function useDeleteDhcpHost(serviceCn: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ hostCn, dn }: { hostCn: string; dn: string }) =>
-      dhcpApi.deleteHost(serviceCn, hostCn, dn),
+    mutationFn: ({ hostCn, dn, baseDn }: { hostCn: string; dn: string; baseDn?: string }) =>
+      dhcpApi.deleteHost(serviceCn, hostCn, dn, baseDn),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dhcpQueryKeys.hosts(serviceCn) })
       queryClient.invalidateQueries({ queryKey: dhcpQueryKeys.serviceTree(serviceCn) })

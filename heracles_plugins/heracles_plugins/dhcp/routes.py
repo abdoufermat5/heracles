@@ -111,6 +111,7 @@ from heracles_api.core.dependencies import CurrentUser
 async def list_services(
     current_user: CurrentUser,
     search: Optional[str] = Query(None, description="Search in name and comments"),
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(50, ge=1, le=200, description="Items per page"),
     service: DhcpService = Depends(get_dhcp_service),
@@ -119,6 +120,7 @@ async def list_services(
     try:
         return await service.list_services(
             search=search,
+            base_dn=base_dn,
             page=page,
             page_size=page_size,
         )
@@ -139,11 +141,12 @@ async def list_services(
 async def create_service(
     data: DhcpServiceCreate,
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Create a new DHCP service configuration."""
     try:
-        return await service.create_service(data)
+        return await service.create_service(data, base_dn=base_dn)
     except DhcpValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -165,11 +168,12 @@ async def create_service(
 async def get_service(
     service_cn: str = Path(..., description="Service name"),
     current_user: CurrentUser = None,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Get a DHCP service by name."""
     try:
-        return await service.get_service(service_cn)
+        return await service.get_service(service_cn, base_dn=base_dn)
     except Exception as e:
         if "not found" in str(e).lower():
             raise HTTPException(
@@ -192,11 +196,12 @@ async def update_service(
     data: DhcpServiceUpdate,
     service_cn: str = Path(..., description="Service name"),
     current_user: CurrentUser = None,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Update a DHCP service configuration."""
     try:
-        return await service.update_service(service_cn, data)
+        return await service.update_service(service_cn, data, base_dn=base_dn)
     except DhcpValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -224,11 +229,12 @@ async def delete_service(
     service_cn: str = Path(..., description="Service name"),
     recursive: bool = Query(False, description="Delete all children"),
     current_user: CurrentUser = None,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Delete a DHCP service and optionally all its children."""
     try:
-        await service.delete_service(service_cn, recursive=recursive)
+        await service.delete_service(service_cn, recursive=recursive, base_dn=base_dn)
     except Exception as e:
         if "not found" in str(e).lower():
             raise HTTPException(
@@ -284,6 +290,7 @@ async def list_subnets(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     current_user: CurrentUser = None,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """List subnets under a service or parent."""
@@ -294,6 +301,7 @@ async def list_subnets(
             search=search,
             page=page,
             page_size=page_size,
+            base_dn=base_dn,
         )
     except Exception as e:
         logger.error("list_subnets_failed", error=str(e))
@@ -314,13 +322,14 @@ async def create_subnet(
     service_cn: str = Path(..., description="Service name"),
     parent_dn: Optional[str] = Query(None, description="Parent DN (defaults to service)"),
     current_user: CurrentUser = None,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Create a new subnet under a service or shared network."""
     try:
         # Get parent DN
         if parent_dn is None:
-            parent_dn = service._get_service_dn(service_cn)
+            parent_dn = service._get_service_dn(service_cn, base_dn=base_dn)
         
         return await service.create_subnet(parent_dn, data)
     except DhcpValidationError as e:
@@ -346,6 +355,7 @@ async def get_subnet(
     subnet_cn: str = Path(..., description="Subnet network address"),
     dn: Optional[str] = Query(None, description="Full DN (if known)"),
     current_user: CurrentUser = None,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Get a subnet by name."""
@@ -354,7 +364,7 @@ async def get_subnet(
             return await service.get_subnet(dn)
         else:
             # Try to find by cn under service
-            parent_dn = service._get_service_dn(service_cn)
+            parent_dn = service._get_service_dn(service_cn, base_dn=base_dn)
             subnet_dn = f"cn={subnet_cn},{parent_dn}"
             return await service.get_subnet(subnet_dn)
     except Exception as e:
@@ -381,12 +391,13 @@ async def update_subnet(
     subnet_cn: str = Path(...),
     dn: Optional[str] = Query(None, description="Full DN"),
     current_user: CurrentUser = None,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Update a subnet."""
     try:
         if dn is None:
-            parent_dn = service._get_service_dn(service_cn)
+            parent_dn = service._get_service_dn(service_cn, base_dn=base_dn)
             dn = f"cn={subnet_cn},{parent_dn}"
         return await service.update_subnet(dn, data)
     except DhcpValidationError as e:

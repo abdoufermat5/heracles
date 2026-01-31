@@ -19,6 +19,7 @@ import { DeleteDialog } from '@/components/common'
 import { CreateSudoRoleDialog, SudoRolesTable } from '@/components/plugins/sudo'
 
 import { useSudoRoles, useDeleteSudoRole } from '@/hooks/use-sudo'
+import { useDepartmentStore } from '@/stores'
 import type { SudoRoleData } from '@/types/sudo'
 
 export function SudoRolesPage() {
@@ -26,6 +27,7 @@ export function SudoRolesPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [roleToDelete, setRoleToDelete] = useState<SudoRoleData | null>(null)
+  const { currentBase } = useDepartmentStore()
 
   // Open create dialog if ?create=true is in URL
   useEffect(() => {
@@ -36,7 +38,9 @@ export function SudoRolesPage() {
     }
   }, [searchParams, setSearchParams])
 
-  const { data: rolesResponse, isLoading, error, refetch } = useSudoRoles()
+  const { data: rolesResponse, isLoading, error, refetch } = useSudoRoles({
+    base: currentBase ?? undefined
+  })
   const deleteMutation = useDeleteSudoRole()
 
   // Filter roles by search query (exclude defaults)
@@ -53,7 +57,10 @@ export function SudoRolesPage() {
     if (!roleToDelete) return
 
     try {
-      await deleteMutation.mutateAsync(roleToDelete.cn)
+      await deleteMutation.mutateAsync({
+        cn: roleToDelete.cn,
+        baseDn: currentBase || undefined
+      })
       toast.success(`Sudo role "${roleToDelete.cn}" deleted successfully`)
       setRoleToDelete(null)
     } catch (error) {

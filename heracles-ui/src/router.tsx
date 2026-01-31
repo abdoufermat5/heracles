@@ -15,6 +15,11 @@ import {
   SystemDetailPage,
   SettingsPage,
 } from '@/pages'
+import {
+  DepartmentsListPage,
+  DepartmentCreatePage,
+  DepartmentDetailPage,
+} from '@/pages/departments'
 import { PosixGroupsPage, PosixGroupDetailPage, MixedGroupsPage } from '@/pages/posix'
 import { SudoRolesPage, SudoRoleDetailPage } from '@/pages/sudo'
 import { DnsZonesListPage, DnsZoneDetailPage } from '@/pages/dns'
@@ -48,7 +53,12 @@ export function AppRouter() {
         <Route path={ROUTES.GROUPS} element={<GroupsListPage />} />
         <Route path={ROUTES.GROUP_CREATE} element={<GroupCreatePage />} />
         <Route path={ROUTES.GROUP_DETAIL} element={<GroupDetailPage />} />
-        
+
+        {/* Departments */}
+        <Route path={ROUTES.DEPARTMENTS} element={<DepartmentsListPage />} />
+        <Route path={ROUTES.DEPARTMENT_CREATE} element={<DepartmentCreatePage />} />
+        <Route path={ROUTES.DEPARTMENT_DETAIL} element={<DepartmentDetailPage />} />
+
         {/* POSIX Groups (standalone posixGroup entries) */}
         <Route path={PLUGIN_ROUTES.POSIX.GROUPS} element={<PosixGroupsPage />} />
         <Route path={PLUGIN_ROUTES.POSIX.GROUP_DETAIL} element={<PosixGroupDetailPage />} />

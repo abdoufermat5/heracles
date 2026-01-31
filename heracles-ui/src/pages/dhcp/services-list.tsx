@@ -23,13 +23,17 @@ import { PageHeader } from '@/components/common/page-header'
 import { DhcpServicesTable, CreateDhcpServiceDialog } from '@/components/plugins/dhcp'
 import { useDhcpServices, useCreateDhcpService, useDeleteDhcpService } from '@/hooks/use-dhcp'
 import type { DhcpServiceListItem } from '@/types/dhcp'
+import { useDepartmentStore } from '@/stores'
 
 export function DhcpServicesListPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [serviceToDelete, setServiceToDelete] = useState<DhcpServiceListItem | null>(null)
+  const { currentBase } = useDepartmentStore()
 
   // Use actual hooks for API calls
-  const { data, isLoading, refetch, isRefetching } = useDhcpServices()
+  const { data, isLoading, refetch, isRefetching } = useDhcpServices({
+    base: currentBase ?? undefined
+  })
   const createMutation = useCreateDhcpService()
   const deleteMutation = useDeleteDhcpService()
 
@@ -41,7 +45,11 @@ export function DhcpServicesListPage() {
     if (!serviceToDelete) return
 
     try {
-      await deleteMutation.mutateAsync({ serviceCn: serviceToDelete.cn, recursive: true })
+      await deleteMutation.mutateAsync({
+        serviceCn: serviceToDelete.cn,
+        recursive: true,
+        baseDn: currentBase || undefined
+      })
       toast.success(`Service "${serviceToDelete.cn}" deleted successfully`)
       setServiceToDelete(null)
     } catch (error) {
@@ -59,10 +67,13 @@ export function DhcpServicesListPage() {
   }) => {
     try {
       await createMutation.mutateAsync({
-        cn: formData.cn,
-        comments: formData.description,
-        dhcpStatements: formData.statements,
-        dhcpOptions: formData.options,
+        data: {
+          cn: formData.cn,
+          comments: formData.description,
+          dhcpStatements: formData.statements,
+          dhcpOptions: formData.options,
+        },
+        baseDn: currentBase || undefined,
       })
       toast.success(`Service "${formData.cn}" created successfully`)
       setCreateDialogOpen(false)

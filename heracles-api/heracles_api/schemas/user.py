@@ -26,7 +26,12 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """User creation model."""
     password: str = Field(..., min_length=8)
-    ou: str = Field(default="people", description="Organizational unit")
+    ou: str = Field(default="people", description="Container OU name (default: people)")
+    department_dn: Optional[str] = Field(
+        None,
+        alias="departmentDn",
+        description="Department DN (user will be created under ou=people within this department)"
+    )
 
 
 class UserUpdate(BaseModel):

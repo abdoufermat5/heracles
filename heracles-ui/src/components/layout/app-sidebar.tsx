@@ -30,9 +30,11 @@ import {
   ShieldCheck,
   Globe,
   Network,
+  Building2,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores'
 import { ROUTES, PLUGIN_ROUTES } from '@/config/constants'
+import { DepartmentSelector } from '@/components/departments'
 
 const mainNavItems = [
   {
@@ -49,6 +51,11 @@ const mainNavItems = [
     title: 'Groups',
     url: ROUTES.GROUPS,
     icon: UsersRound,
+  },
+  {
+    title: 'Departments',
+    url: ROUTES.DEPARTMENTS,
+    icon: Building2,
   },
   {
     title: 'Sudo Roles',
@@ -103,6 +110,9 @@ export function AppSidebar() {
             <span className="text-lg font-bold">Heracles</span>
             <span className="text-xs text-muted-foreground">Identity Management</span>
           </div>
+        </div>
+        <div className="px-2 pb-2 overflow-hidden">
+          <DepartmentSelector />
         </div>
       </SidebarHeader>
 

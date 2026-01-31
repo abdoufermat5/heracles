@@ -61,10 +61,21 @@ class PosixGroupService:
         self._gid_max = config.get("gid_max", 60000)
         self._groups_ou = config.get("posix_groups_ou", "ou=groups")
     
-    def _get_groups_base_dn(self) -> str:
-        """Get the base DN for POSIX groups."""
+    def _get_groups_container(self, base_dn: Optional[str] = None) -> str:
+        """Get the groups container DN for the given context.
+        
+        If base_dn is provided (department context), returns ou=groups,{base_dn}.
+        Otherwise returns the default ou=groups,{root_base_dn}.
+        """
+        if base_dn:
+            return f"{self._groups_ou},{base_dn}"
         from heracles_api.config import settings
         return f"{self._groups_ou},{settings.LDAP_BASE_DN}"
+    
+    # Keep legacy method for backward compatibility
+    def _get_groups_base_dn(self) -> str:
+        """Get the base DN for POSIX groups (legacy, use _get_groups_container)."""
+        return self._get_groups_container()
     
     async def _validate_hosts(self, hosts: List[str]) -> List[str]:
         """
@@ -112,18 +123,23 @@ class PosixGroupService:
             logger.debug("plugin_registry_not_available", action="skipping_host_validation")
             return hosts
     
-    def _get_group_dn(self, cn: str) -> str:
+    def _get_group_dn(self, cn: str, base_dn: Optional[str] = None) -> str:
         """Get the DN for a POSIX group by cn."""
-        return f"cn={cn},{self._get_groups_base_dn()}"
+        container = self._get_groups_container(base_dn)
+        return f"cn={cn},{container}"
     
     # =========================================================================
     # CRUD Operations for Standalone POSIX Groups
     # =========================================================================
     
-    async def list_all(self) -> List[PosixGroupListItem]:
+    async def list_all(self, base_dn: Optional[str] = None) -> List[PosixGroupListItem]:
         """List all POSIX groups."""
         try:
+            # Get the groups container for the given context
+            search_base = self._get_groups_container(base_dn)
+            
             entries = await self._ldap.search(
+                search_base=search_base,
                 search_filter="(objectClass=posixGroup)",
                 attributes=["cn", "gidNumber", "description", "memberUid"],
             )
@@ -149,9 +165,13 @@ class PosixGroupService:
             logger.error("list_posix_groups_failed", error=str(e))
             raise PosixValidationError(f"Failed to list POSIX groups: {e}")
     
-    async def get(self, cn: str) -> Optional[PosixGroupRead]:
+    async def get(
+        self, 
+        cn: str,
+        base_dn: Optional[str] = None
+    ) -> Optional[PosixGroupRead]:
         """Get a POSIX group by cn."""
-        dn = self._get_group_dn(cn)
+        dn = self._get_group_dn(cn, base_dn=base_dn)
         
         try:
             # Include objectClass to verify it's a posixGroup
@@ -199,9 +219,13 @@ class PosixGroupService:
             logger.error("get_posix_group_failed", cn=cn, error=str(e))
             return None
     
-    async def create(self, data: PosixGroupFullCreate) -> PosixGroupRead:
+    async def create(
+        self, 
+        data: PosixGroupFullCreate,
+        base_dn: Optional[str] = None
+    ) -> PosixGroupRead:
         """Create a new standalone POSIX group."""
-        dn = self._get_group_dn(data.cn)
+        dn = self._get_group_dn(data.cn, base_dn=base_dn)
         
         # Check if group already exists
         existing = await self._ldap.get_by_dn(dn, attributes=["cn"])
@@ -250,14 +274,19 @@ class PosixGroupService:
             logger.error("create_posix_group_failed", cn=data.cn, error=str(e))
             raise PosixValidationError(f"Failed to create POSIX group: {e}")
         
-        return await self.get(data.cn)
+        return await self.get(data.cn, base_dn=base_dn)
     
-    async def update_group(self, cn: str, data: PosixGroupUpdate) -> PosixGroupRead:
+    async def update_group(
+        self, 
+        cn: str, 
+        data: PosixGroupUpdate,
+        base_dn: Optional[str] = None
+    ) -> PosixGroupRead:
         """Update a POSIX group."""
-        dn = self._get_group_dn(cn)
+        dn = self._get_group_dn(cn, base_dn=base_dn)
         
         # Verify group exists
-        existing = await self.get(cn)
+        existing = await self.get(cn, base_dn=base_dn)
         if existing is None:
             raise PosixValidationError(f"POSIX group '{cn}' not found")
         
@@ -321,14 +350,18 @@ class PosixGroupService:
                 logger.error("update_posix_group_failed", cn=cn, error=str(e))
                 raise PosixValidationError(f"Failed to update POSIX group: {e}")
         
-        return await self.get(cn)
+        return await self.get(cn, base_dn=base_dn)
     
-    async def delete(self, cn: str) -> None:
+    async def delete(
+        self, 
+        cn: str,
+        base_dn: Optional[str] = None
+    ) -> None:
         """Delete a POSIX group."""
-        dn = self._get_group_dn(cn)
+        dn = self._get_group_dn(cn, base_dn=base_dn)
         
         # Verify group exists
-        existing = await self.get(cn)
+        existing = await self.get(cn, base_dn=base_dn)
         if existing is None:
             raise PosixValidationError(f"POSIX group '{cn}' not found")
         
@@ -343,11 +376,16 @@ class PosixGroupService:
     # Member Management (by cn)
     # =========================================================================
     
-    async def add_member_by_cn(self, cn: str, uid: str) -> PosixGroupRead:
+    async def add_member_by_cn(
+        self, 
+        cn: str, 
+        uid: str,
+        base_dn: Optional[str] = None
+    ) -> PosixGroupRead:
         """Add a member (by uid) to a POSIX group (by cn)."""
-        dn = self._get_group_dn(cn)
+        dn = self._get_group_dn(cn, base_dn=base_dn)
         
-        group = await self.get(cn)
+        group = await self.get(cn, base_dn=base_dn)
         if group is None:
             raise PosixValidationError(f"POSIX group '{cn}' not found")
         
@@ -360,13 +398,18 @@ class PosixGroupService:
         except LdapOperationError as e:
             raise PosixValidationError(f"Failed to add member: {e}")
         
-        return await self.get(cn)
+        return await self.get(cn, base_dn=base_dn)
     
-    async def remove_member_by_cn(self, cn: str, uid: str) -> PosixGroupRead:
+    async def remove_member_by_cn(
+        self, 
+        cn: str, 
+        uid: str,
+        base_dn: Optional[str] = None
+    ) -> PosixGroupRead:
         """Remove a member (by uid) from a POSIX group (by cn)."""
-        dn = self._get_group_dn(cn)
+        dn = self._get_group_dn(cn, base_dn=base_dn)
         
-        group = await self.get(cn)
+        group = await self.get(cn, base_dn=base_dn)
         if group is None:
             raise PosixValidationError(f"POSIX group '{cn}' not found")
         
@@ -379,7 +422,7 @@ class PosixGroupService:
         except LdapOperationError as e:
             raise PosixValidationError(f"Failed to remove member: {e}")
         
-        return await self.get(cn)
+        return await self.get(cn, base_dn=base_dn)
     
     # =========================================================================
     # Legacy methods (for backward compatibility)

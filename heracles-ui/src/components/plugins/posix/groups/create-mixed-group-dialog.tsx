@@ -31,6 +31,7 @@ import {
 
 import { TrustModeSection } from '@/components/common/forms'
 import { useNextIds, useCreateMixedGroup } from '@/hooks'
+import { useDepartmentStore } from '@/stores'
 import type { TrustMode } from '@/types/posix'
 
 // Form schema for creating a new Mixed group
@@ -79,6 +80,7 @@ export function CreateMixedGroupDialog({
 }: CreateMixedGroupDialogProps) {
   const { data: nextIds } = useNextIds()
   const createMutation = useCreateMixedGroup()
+  const { currentBase } = useDepartmentStore()
 
   const form = useForm<CreateMixedGroupFormData>({
     resolver: zodResolver(createMixedGroupSchema),
@@ -93,12 +95,15 @@ export function CreateMixedGroupDialog({
 
   const handleSubmit = async (data: CreateMixedGroupFormData) => {
     await createMutation.mutateAsync({
-      cn: data.cn,
-      gidNumber: data.gidNumber,
-      forceGid: data.forceGid,
-      description: data.description,
-      trustMode: data.trustMode as TrustMode | undefined,
-      host: data.trustMode === 'byhost' ? (data.host ?? undefined) : undefined,
+      data: {
+        cn: data.cn,
+        gidNumber: data.gidNumber,
+        forceGid: data.forceGid,
+        description: data.description,
+        trustMode: data.trustMode as TrustMode | undefined,
+        host: data.trustMode === 'byhost' ? (data.host ?? undefined) : undefined,
+      },
+      baseDn: currentBase || undefined,
     })
     form.reset()
     onOpenChange(false)

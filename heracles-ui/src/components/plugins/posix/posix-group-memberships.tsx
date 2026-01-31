@@ -42,6 +42,7 @@ import {
   useAddUserToGroup,
   useRemoveUserFromGroup,
 } from '@/hooks'
+import { useDepartmentStore } from '@/stores'
 
 interface PosixGroupMembershipsProps {
   uid: string
@@ -59,6 +60,7 @@ export function PosixGroupMemberships({
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [groupToRemove, setGroupToRemove] = useState<string | null>(null)
   const [selectedGroup, setSelectedGroup] = useState<string>('')
+  const { currentBase } = useDepartmentStore()
 
   const { data: allGroupsResponse, isLoading: groupsLoading } = usePosixGroups()
   const addMutation = useAddUserToGroup(uid)
@@ -73,7 +75,7 @@ export function PosixGroupMemberships({
     if (!selectedGroup) return
 
     try {
-      await addMutation.mutateAsync(selectedGroup)
+      await addMutation.mutateAsync({ cn: selectedGroup, baseDn: currentBase || undefined })
       toast.success(`Added to group "${selectedGroup}"`)
       setShowAddDialog(false)
       setSelectedGroup('')
@@ -87,7 +89,7 @@ export function PosixGroupMemberships({
     if (!groupToRemove) return
 
     try {
-      await removeMutation.mutateAsync(groupToRemove)
+      await removeMutation.mutateAsync({ cn: groupToRemove, baseDn: currentBase || undefined })
       toast.success(`Removed from group "${groupToRemove}"`)
       setGroupToRemove(null)
       onMembershipChange?.()

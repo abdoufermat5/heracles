@@ -49,6 +49,7 @@ import {
 } from '@/hooks'
 import { PLUGIN_ROUTES } from '@/config/routes'
 import type { TrustMode } from '@/types/posix'
+import { useDepartmentStore } from '@/stores'
 
 // Form schema for editing the group
 const editSchema = z
@@ -86,7 +87,9 @@ export function PosixGroupDetailPage() {
   const [showAddMemberDialog, setShowAddMemberDialog] = useState(false)
   const [memberToRemove, setMemberToRemove] = useState<string | null>(null)
 
-  const { data: group, isLoading, error, refetch } = usePosixGroup(cn!)
+  const { currentBase } = useDepartmentStore()
+
+  const { data: group, isLoading, error, refetch } = usePosixGroup(cn!, currentBase || undefined)
   const updateMutation = useUpdatePosixGroup(cn!)
   const deleteMutation = useDeletePosixGroup()
   const addMemberMutation = useAddPosixGroupMember(cn!)
@@ -111,9 +114,12 @@ export function PosixGroupDetailPage() {
   const handleUpdate = async (data: EditFormData) => {
     try {
       await updateMutation.mutateAsync({
-        description: data.description || undefined,
-        trustMode: data.trustMode as TrustMode | null,
-        host: data.trustMode === 'byhost' ? data.host : null,
+        data: {
+          description: data.description || undefined,
+          trustMode: data.trustMode as TrustMode | null,
+          host: data.trustMode === 'byhost' ? data.host : null,
+        },
+        baseDn: currentBase || undefined,
       })
       toast.success('Group updated successfully')
     } catch (error) {
@@ -125,7 +131,7 @@ export function PosixGroupDetailPage() {
 
   const handleDelete = async () => {
     try {
-      await deleteMutation.mutateAsync(cn!)
+      await deleteMutation.mutateAsync({ cn: cn!, baseDn: currentBase || undefined })
       toast.success('Group deleted successfully')
       navigate(PLUGIN_ROUTES.POSIX.GROUPS)
     } catch (error) {
@@ -137,7 +143,7 @@ export function PosixGroupDetailPage() {
 
   const handleAddMember = async (data: AddMemberFormData) => {
     try {
-      await addMemberMutation.mutateAsync(data.uid)
+      await addMemberMutation.mutateAsync({ uid: data.uid, baseDn: currentBase || undefined })
       toast.success(`Added ${data.uid} to the group`)
       setShowAddMemberDialog(false)
       addMemberForm.reset()
@@ -152,7 +158,7 @@ export function PosixGroupDetailPage() {
     if (!memberToRemove) return
 
     try {
-      await removeMemberMutation.mutateAsync(memberToRemove)
+      await removeMemberMutation.mutateAsync({ uid: memberToRemove, baseDn: currentBase || undefined })
       toast.success(`Removed ${memberToRemove} from the group`)
       setMemberToRemove(null)
     } catch (error) {

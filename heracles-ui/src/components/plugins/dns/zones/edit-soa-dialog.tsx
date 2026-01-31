@@ -41,6 +41,7 @@ import { Badge } from '@/components/ui/badge'
 
 import { useUpdateDnsZone } from '@/hooks/use-dns'
 import type { DnsZone } from '@/types/dns'
+import { useDepartmentStore } from '@/stores'
 
 // FQDN validation (must end with dot or we add it)
 const fqdnRegex = /^[a-z0-9]([a-z0-9\-\.]*[a-z0-9])?\.?$/
@@ -115,6 +116,7 @@ function formatDuration(seconds: number): string {
 
 export function EditSoaDialog({ open, onOpenChange, zone }: EditSoaDialogProps) {
   const updateMutation = useUpdateDnsZone(zone.zoneName)
+  const { currentBase } = useDepartmentStore()
 
   const form = useForm<EditSoaFormData>({
     resolver: zodResolver(editSoaSchema),
@@ -155,13 +157,16 @@ export function EditSoaDialog({ open, onOpenChange, zone }: EditSoaDialogProps) 
         : `${data.soaAdminEmail}.`
 
       await updateMutation.mutateAsync({
-        soaPrimaryNs: primaryNs,
-        soaAdminEmail: adminEmail,
-        defaultTtl: data.defaultTtl,
-        soaRefresh: data.soaRefresh,
-        soaRetry: data.soaRetry,
-        soaExpire: data.soaExpire,
-        soaMinimum: data.soaMinimum,
+        data: {
+          soaPrimaryNs: primaryNs,
+          soaAdminEmail: adminEmail,
+          defaultTtl: data.defaultTtl,
+          soaRefresh: data.soaRefresh,
+          soaRetry: data.soaRetry,
+          soaExpire: data.soaExpire,
+          soaMinimum: data.soaMinimum,
+        },
+        baseDn: currentBase || undefined,
       })
       toast.success(`SOA record updated for "${zone.zoneName}"`, {
         description: 'Serial number has been incremented automatically.',

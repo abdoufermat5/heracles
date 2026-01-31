@@ -38,6 +38,7 @@ import {
 } from '@/components/plugins/systems'
 
 import { useSystems, useDeleteSystem } from '@/hooks/use-systems'
+import { useDepartmentStore } from '@/stores'
 import type { SystemListItem, SystemType } from '@/types/systems'
 import { SYSTEM_TYPE_LABELS } from '@/types/systems'
 
@@ -48,6 +49,7 @@ export function SystemsListPage() {
     null
   )
   const [selectedType, setSelectedType] = useState<SystemType | 'all'>('all')
+  const { currentBase } = useDepartmentStore()
 
   // Open create dialog if ?create=true is in URL
   useEffect(() => {
@@ -81,6 +83,7 @@ export function SystemsListPage() {
     refetch,
   } = useSystems({
     system_type: selectedType === 'all' ? undefined : selectedType,
+    base: currentBase ?? undefined,
   })
 
   const deleteMutation = useDeleteSystem()
@@ -92,6 +95,7 @@ export function SystemsListPage() {
       await deleteMutation.mutateAsync({
         systemType: systemToDelete.systemType,
         cn: systemToDelete.cn,
+        baseDn: currentBase || undefined,
       })
       toast.success(`System "${systemToDelete.cn}" deleted successfully`)
       setSystemToDelete(null)

@@ -24,6 +24,7 @@ import {
   useUpdateUserPosix,
   useDeactivateUserPosix,
 } from '@/hooks'
+import { useDepartmentStore } from '@/stores'
 import { PosixActivateForm } from './posix-activate-form'
 import { PosixEditForm } from './posix-edit-form'
 import { PosixGroupMemberships } from './posix-group-memberships'
@@ -39,15 +40,16 @@ export function PosixUserTab({ uid, displayName }: PosixUserTabProps) {
   const [showDeactivateDialog, setShowDeactivateDialog] = useState(false)
   const [showActivateForm, setShowActivateForm] = useState(false)
   const [deletePersonalGroup, setDeletePersonalGroup] = useState(true)
+  const { currentBase } = useDepartmentStore()
 
-  const { data: posixStatus, isLoading, error, refetch } = useUserPosix(uid)
+  const { data: posixStatus, isLoading, error, refetch } = useUserPosix(uid, currentBase || undefined)
   const activateMutation = useActivateUserPosix(uid)
   const updateMutation = useUpdateUserPosix(uid)
   const deactivateMutation = useDeactivateUserPosix(uid)
 
   const handleActivate = async (data: PosixAccountCreate) => {
     try {
-      await activateMutation.mutateAsync(data)
+      await activateMutation.mutateAsync({ data, baseDn: currentBase || undefined })
       toast.success('Unix account enabled successfully')
       setShowActivateForm(false)
     } catch (error) {
@@ -57,7 +59,7 @@ export function PosixUserTab({ uid, displayName }: PosixUserTabProps) {
 
   const handleUpdate = async (data: PosixAccountUpdate) => {
     try {
-      await updateMutation.mutateAsync(data)
+      await updateMutation.mutateAsync({ data, baseDn: currentBase || undefined })
       toast.success('Unix account updated successfully')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to update Unix account')
@@ -66,7 +68,7 @@ export function PosixUserTab({ uid, displayName }: PosixUserTabProps) {
 
   const handleDeactivate = async () => {
     try {
-      await deactivateMutation.mutateAsync(deletePersonalGroup)
+      await deactivateMutation.mutateAsync({ deletePersonalGroup, baseDn: currentBase || undefined })
       toast.success('Unix account disabled successfully')
       setShowDeactivateDialog(false)
     } catch (error) {
@@ -168,9 +170,9 @@ export function PosixUserTab({ uid, displayName }: PosixUserTabProps) {
                 onSubmit={handleUpdate}
                 isSubmitting={updateMutation.isPending}
               />
-              
+
               <Separator />
-              
+
               {/* Group Memberships Section */}
               <PosixGroupMemberships
                 uid={uid}
@@ -225,7 +227,7 @@ export function PosixUserTab({ uid, displayName }: PosixUserTabProps) {
               </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          
+
           {hasPersonalGroup && (
             <div className="flex items-center space-x-2 py-2">
               <Checkbox
@@ -238,7 +240,7 @@ export function PosixUserTab({ uid, displayName }: PosixUserTabProps) {
               </Label>
             </div>
           )}
-          
+
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction

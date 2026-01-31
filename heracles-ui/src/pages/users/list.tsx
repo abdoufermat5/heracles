@@ -6,15 +6,21 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageHeader, LoadingPage, ErrorDisplay, ConfirmDialog } from '@/components/common'
+import { DepartmentBreadcrumbs } from '@/components/departments'
 import { UsersTable } from '@/components/users'
 import { useUsers, useDeleteUser } from '@/hooks'
+import { useDepartmentStore } from '@/stores'
 import { ROUTES } from '@/config/constants'
 import type { User } from '@/types'
 
 export function UsersListPage() {
   const [deleteUser, setDeleteUser] = useState<User | null>(null)
+  const { currentBase, currentPath } = useDepartmentStore()
 
-  const { data, isLoading, error, refetch } = useUsers()
+  // Filter users by department context
+  const { data, isLoading, error, refetch } = useUsers(
+    currentBase ? { base: currentBase } : undefined
+  )
   const deleteMutation = useDeleteUser()
 
   const handleDelete = async () => {
@@ -40,7 +46,11 @@ export function UsersListPage() {
     <div>
       <PageHeader
         title="Users"
-        description="Manage user accounts in the directory"
+        description={
+          currentBase
+            ? `Manage user accounts in ${currentPath}`
+            : 'Manage user accounts in the directory'
+        }
         actions={
           <Button asChild>
             <Link to={ROUTES.USER_CREATE}>
@@ -51,11 +61,17 @@ export function UsersListPage() {
         }
       />
 
+      {currentBase && (
+        <div className="mb-4">
+          <DepartmentBreadcrumbs />
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            All Users
+            {currentBase ? `Users in ${currentPath.split('/').pop()}` : 'All Users'}
             <Badge variant="secondary">{data?.total || 0}</Badge>
           </CardTitle>
         </CardHeader>

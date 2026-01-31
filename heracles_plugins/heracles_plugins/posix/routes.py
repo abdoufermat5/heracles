@@ -102,6 +102,7 @@ from heracles_api.core.dependencies import CurrentUser
 async def get_user_posix(
     uid: str,
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: PosixService = Depends(get_posix_service),
 ):
     """
@@ -137,6 +138,7 @@ async def activate_user_posix(
     uid: str,
     data: PosixAccountCreate,
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: PosixService = Depends(get_posix_service),
     group_service: PosixGroupService = Depends(get_posix_group_service),
 ):
@@ -154,7 +156,8 @@ async def activate_user_posix(
     """
     from heracles_api.config import settings
     
-    dn = f"uid={uid},ou=people,{settings.LDAP_BASE_DN}"
+    base = base_dn if base_dn else settings.LDAP_BASE_DN
+    dn = f"uid={uid},ou=people,{base}"
     
     try:
         result = await service.activate(dn, data, uid=uid, group_service=group_service)
@@ -183,6 +186,7 @@ async def update_user_posix(
     uid: str,
     data: PosixAccountUpdate,
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: PosixService = Depends(get_posix_service),
 ):
     """
@@ -192,7 +196,8 @@ async def update_user_posix(
     """
     from heracles_api.config import settings
     
-    dn = f"uid={uid},ou=people,{settings.LDAP_BASE_DN}"
+    base = base_dn if base_dn else settings.LDAP_BASE_DN
+    dn = f"uid={uid},ou=people,{base}"
     
     try:
         result = await service.update(dn, data)
@@ -224,6 +229,7 @@ async def deactivate_user_posix(
         default=True,
         description="Delete the personal group if it exists and is empty",
     ),
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: PosixService = Depends(get_posix_service),
     group_service: PosixGroupService = Depends(get_posix_group_service),
 ):
@@ -238,7 +244,8 @@ async def deactivate_user_posix(
     """
     from heracles_api.config import settings
     
-    dn = f"uid={uid},ou=people,{settings.LDAP_BASE_DN}"
+    base = base_dn if base_dn else settings.LDAP_BASE_DN
+    dn = f"uid={uid},ou=people,{base}"
     
     try:
         await service.deactivate(
@@ -272,16 +279,17 @@ async def deactivate_user_posix(
 )
 async def list_posix_groups(
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: PosixGroupService = Depends(get_posix_group_service),
 ):
     """
     List all POSIX groups.
     
-    POSIX groups (posixGroup) are standalone entries separate from 
+    POSXI groups (posixGroup) are standalone entries separate from 
     organizational groups (groupOfNames).
     """
     try:
-        groups = await service.list_all()
+        groups = await service.list_all(base_dn=base_dn)
         return PosixGroupListResponse(groups=groups, total=len(groups))
         
     except Exception as e:
@@ -301,6 +309,7 @@ async def list_posix_groups(
 async def create_posix_group(
     data: PosixGroupFullCreate,
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: PosixGroupService = Depends(get_posix_group_service),
 ):
     """
@@ -309,7 +318,7 @@ async def create_posix_group(
     This creates a new entry with posixGroup as the structural objectClass.
     """
     try:
-        result = await service.create(data)
+        result = await service.create(data, base_dn=base_dn)
         logger.info("posix_group_created_via_api", cn=data.cn, by=current_user.uid)
         return result
         
@@ -334,13 +343,14 @@ async def create_posix_group(
 async def get_posix_group(
     cn: str,
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: PosixGroupService = Depends(get_posix_group_service),
 ):
     """
     Get details of a specific POSIX group.
     """
     try:
-        result = await service.get(cn)
+        result = await service.get(cn, base_dn=base_dn)
         if result is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -367,13 +377,14 @@ async def update_posix_group(
     cn: str,
     data: PosixGroupUpdate,
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: PosixGroupService = Depends(get_posix_group_service),
 ):
     """
     Update a POSIX group's attributes.
     """
     try:
-        result = await service.update_group(cn, data)
+        result = await service.update_group(cn, data, base_dn=base_dn)
         logger.info("posix_group_updated_via_api", cn=cn, by=current_user.uid)
         return result
         
@@ -398,6 +409,7 @@ async def update_posix_group(
 async def delete_posix_group(
     cn: str,
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: PosixGroupService = Depends(get_posix_group_service),
 ):
     """
@@ -406,7 +418,7 @@ async def delete_posix_group(
     Warning: This will remove the group entry entirely.
     """
     try:
-        await service.delete(cn)
+        await service.delete(cn, base_dn=base_dn)
         logger.info("posix_group_deleted_via_api", cn=cn, by=current_user.uid)
         
     except PosixValidationError as e:
@@ -435,13 +447,14 @@ async def add_posix_group_member(
     cn: str,
     uid: str,
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: PosixGroupService = Depends(get_posix_group_service),
 ):
     """
     Add a member (by uid) to a POSIX group.
     """
     try:
-        result = await service.add_member_by_cn(cn, uid)
+        result = await service.add_member_by_cn(cn, uid, base_dn=base_dn)
         logger.info("posix_group_member_added", cn=cn, uid=uid, by=current_user.uid)
         return result
         
@@ -467,13 +480,14 @@ async def remove_posix_group_member(
     cn: str,
     uid: str,
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: PosixGroupService = Depends(get_posix_group_service),
 ):
     """
     Remove a member (by uid) from a POSIX group.
     """
     try:
-        result = await service.remove_member_by_cn(cn, uid)
+        result = await service.remove_member_by_cn(cn, uid, base_dn=base_dn)
         logger.info("posix_group_member_removed", cn=cn, uid=uid, by=current_user.uid)
         return result
         
@@ -586,7 +600,7 @@ async def add_user_to_group(
     This is the user-centric way to manage group memberships.
     """
     try:
-        result = await group_service.add_member_by_cn(cn, uid)
+        result = await group_service.add_member_by_cn(cn, uid, base_dn=base_dn)
         logger.info("user_added_to_group", uid=uid, cn=cn, by=current_user.uid)
         return result
         
@@ -620,7 +634,7 @@ async def remove_user_from_group(
     This is the user-centric way to manage group memberships.
     """
     try:
-        await group_service.remove_member_by_cn(cn, uid)
+        await group_service.remove_member_by_cn(cn, uid, base_dn=base_dn)
         logger.info("user_removed_from_group", uid=uid, cn=cn, by=current_user.uid)
         
     except PosixValidationError as e:
@@ -647,6 +661,7 @@ async def remove_user_from_group(
 )
 async def list_mixed_groups(
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: MixedGroupService = Depends(get_mixed_group_service),
 ):
     """
@@ -656,7 +671,7 @@ async def list_mixed_groups(
     for hybrid access control.
     """
     try:
-        groups = await service.list_all()
+        groups = await service.list_all(base_dn=base_dn)
         return MixedGroupListResponse(groups=groups, total=len(groups))
         
     except PosixValidationError as e:
@@ -674,10 +689,11 @@ async def list_mixed_groups(
 async def get_mixed_group(
     cn: str,
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: MixedGroupService = Depends(get_mixed_group_service),
 ):
     """Get details of a specific MixedGroup."""
-    group = await service.get(cn)
+    group = await service.get(cn, base_dn=base_dn)
     if group is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -695,6 +711,7 @@ async def get_mixed_group(
 async def create_mixed_group(
     data: MixedGroupCreate,
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: MixedGroupService = Depends(get_mixed_group_service),
 ):
     """
@@ -705,7 +722,7 @@ async def create_mixed_group(
     and UNIX group permissions (memberUid).
     """
     try:
-        result = await service.create(data)
+        result = await service.create(data, base_dn=base_dn)
         logger.info("mixed_group_created", cn=data.cn, by=current_user.uid)
         return result
         
@@ -731,11 +748,12 @@ async def update_mixed_group(
     cn: str,
     data: MixedGroupUpdate,
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: MixedGroupService = Depends(get_mixed_group_service),
 ):
     """Update a MixedGroup's attributes."""
     try:
-        result = await service.update_group(cn, data)
+        result = await service.update_group(cn, data, base_dn=base_dn)
         logger.info("mixed_group_updated", cn=cn, by=current_user.uid)
         return result
         
@@ -760,11 +778,12 @@ async def update_mixed_group(
 async def delete_mixed_group(
     cn: str,
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: MixedGroupService = Depends(get_mixed_group_service),
 ):
     """Delete a MixedGroup."""
     try:
-        await service.delete(cn)
+        await service.delete(cn, base_dn=base_dn)
         logger.info("mixed_group_deleted", cn=cn, by=current_user.uid)
         
     except PosixValidationError as e:
@@ -793,6 +812,7 @@ async def add_mixed_group_member(
     cn: str,
     current_user: CurrentUser,
     member_dn: str = Query(..., description="The DN of the member to add"),
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: MixedGroupService = Depends(get_mixed_group_service),
 ):
     """
@@ -801,7 +821,7 @@ async def add_mixed_group_member(
     This adds the member to the `member` attribute (groupOfNames).
     """
     try:
-        result = await service.add_member(cn, member_dn)
+        result = await service.add_member(cn, member_dn, base_dn=base_dn)
         logger.info("mixed_group_member_added", cn=cn, member_dn=member_dn, by=current_user.uid)
         return result
         
@@ -821,6 +841,7 @@ async def remove_mixed_group_member(
     cn: str,
     current_user: CurrentUser,
     member_dn: str = Query(..., description="The DN of the member to remove"),
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: MixedGroupService = Depends(get_mixed_group_service),
 ):
     """
@@ -829,7 +850,7 @@ async def remove_mixed_group_member(
     This removes the member from the `member` attribute (groupOfNames).
     """
     try:
-        result = await service.remove_member(cn, member_dn)
+        result = await service.remove_member(cn, member_dn, base_dn=base_dn)
         logger.info("mixed_group_member_removed", cn=cn, member_dn=member_dn, by=current_user.uid)
         return result
         
@@ -849,6 +870,7 @@ async def add_mixed_group_member_uid(
     cn: str,
     uid: str,
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: MixedGroupService = Depends(get_mixed_group_service),
 ):
     """
@@ -857,7 +879,7 @@ async def add_mixed_group_member_uid(
     This adds the UID to the `memberUid` attribute (posixGroup).
     """
     try:
-        result = await service.add_member_uid(cn, uid)
+        result = await service.add_member_uid(cn, uid, base_dn=base_dn)
         logger.info("mixed_group_member_uid_added", cn=cn, uid=uid, by=current_user.uid)
         return result
         
@@ -877,6 +899,7 @@ async def remove_mixed_group_member_uid(
     cn: str,
     uid: str,
     current_user: CurrentUser,
+    base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: MixedGroupService = Depends(get_mixed_group_service),
 ):
     """
@@ -885,7 +908,7 @@ async def remove_mixed_group_member_uid(
     This removes the UID from the `memberUid` attribute (posixGroup).
     """
     try:
-        result = await service.remove_member_uid(cn, uid)
+        result = await service.remove_member_uid(cn, uid, base_dn=base_dn)
         logger.info("mixed_group_member_uid_removed", cn=cn, uid=uid, by=current_user.uid)
         return result
         

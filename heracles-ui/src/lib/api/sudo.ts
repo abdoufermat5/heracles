@@ -25,44 +25,50 @@ export async function listSudoRoles(params?: {
   page?: number
   page_size?: number
   search?: string
+  base?: string
 }): Promise<SudoRoleListResponse> {
   const searchParams = new URLSearchParams()
   if (params?.page) searchParams.set('page', params.page.toString())
   if (params?.page_size) searchParams.set('page_size', params.page_size.toString())
   if (params?.search) searchParams.set('search', params.search)
-  
+  if (params?.base) searchParams.set('base_dn', params.base)
+
   const query = searchParams.toString()
   const url = query ? `${BASE_PATH}/roles?${query}` : `${BASE_PATH}/roles`
-  
+
   return apiClient.get<SudoRoleListResponse>(url)
 }
 
 /**
  * Get a single sudo role by CN
  */
-export async function getSudoRole(cn: string): Promise<SudoRoleData> {
-  return apiClient.get<SudoRoleData>(`${BASE_PATH}/roles/${encodeURIComponent(cn)}`)
+export async function getSudoRole(cn: string, baseDn?: string): Promise<SudoRoleData> {
+  const query = baseDn ? `?base_dn=${encodeURIComponent(baseDn)}` : ''
+  return apiClient.get<SudoRoleData>(`${BASE_PATH}/roles/${encodeURIComponent(cn)}${query}`)
 }
 
 /**
  * Create a new sudo role
  */
-export async function createSudoRole(data: SudoRoleCreate): Promise<SudoRoleData> {
-  return apiClient.post<SudoRoleData>(`${BASE_PATH}/roles`, data)
+export async function createSudoRole(data: SudoRoleCreate, baseDn?: string): Promise<SudoRoleData> {
+  const query = baseDn ? `?base_dn=${encodeURIComponent(baseDn)}` : ''
+  return apiClient.post<SudoRoleData>(`${BASE_PATH}/roles${query}`, data)
 }
 
 /**
  * Update an existing sudo role
  */
-export async function updateSudoRole(cn: string, data: SudoRoleUpdate): Promise<SudoRoleData> {
-  return apiClient.put<SudoRoleData>(`${BASE_PATH}/roles/${encodeURIComponent(cn)}`, data)
+export async function updateSudoRole(cn: string, data: SudoRoleUpdate, baseDn?: string): Promise<SudoRoleData> {
+  const query = baseDn ? `?base_dn=${encodeURIComponent(baseDn)}` : ''
+  return apiClient.put<SudoRoleData>(`${BASE_PATH}/roles/${encodeURIComponent(cn)}${query}`, data)
 }
 
 /**
  * Delete a sudo role
  */
-export async function deleteSudoRole(cn: string): Promise<void> {
-  return apiClient.delete(`${BASE_PATH}/roles/${encodeURIComponent(cn)}`)
+export async function deleteSudoRole(cn: string, baseDn?: string): Promise<void> {
+  const query = baseDn ? `?base_dn=${encodeURIComponent(baseDn)}` : ''
+  return apiClient.delete(`${BASE_PATH}/roles/${encodeURIComponent(cn)}${query}`)
 }
 
 /**

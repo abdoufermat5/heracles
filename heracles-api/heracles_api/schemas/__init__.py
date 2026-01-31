@@ -32,6 +32,16 @@ from heracles_api.schemas.auth import (
     PasswordResetRequest,
 )
 
+from heracles_api.schemas.department import (
+    DepartmentBase,
+    DepartmentCreate,
+    DepartmentUpdate,
+    DepartmentResponse,
+    DepartmentTreeNode,
+    DepartmentListResponse,
+    DepartmentTreeResponse,
+)
+
 __all__ = [
     # User
     "UserBase",
@@ -54,4 +64,12 @@ __all__ = [
     "UserInfoResponse",
     "PasswordChangeRequest",
     "PasswordResetRequest",
+    # Department
+    "DepartmentBase",
+    "DepartmentCreate",
+    "DepartmentUpdate",
+    "DepartmentResponse",
+    "DepartmentTreeNode",
+    "DepartmentListResponse",
+    "DepartmentTreeResponse",
 ]

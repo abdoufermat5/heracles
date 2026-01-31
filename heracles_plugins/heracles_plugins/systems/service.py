@@ -115,14 +115,25 @@ class SystemService(TabService):
         attrs.add("objectClass")
         return list(attrs)
     
-    def _get_type_ou(self, system_type: SystemType) -> str:
-        """Get the OU DN for a system type."""
-        rdn = SystemType.get_rdn(system_type)
-        return f"{rdn},{self._systems_dn}"
+    def _get_systems_container(self, base_dn: Optional[str] = None) -> str:
+        """Get the systems container DN for the given context.
+        
+        If base_dn is provided (department context), returns ou=systems,{base_dn}.
+        Otherwise returns the default ou=systems,{root_base_dn}.
+        """
+        if base_dn:
+            return f"{self._systems_rdn},{base_dn}"
+        return self._systems_dn
     
-    def _get_system_dn(self, cn: str, system_type: SystemType) -> str:
-        """Get the DN for a system."""
-        ou_dn = self._get_type_ou(system_type)
+    def _get_type_ou(self, system_type: SystemType, base_dn: Optional[str] = None) -> str:
+        """Get the OU DN for a system type within the given context."""
+        rdn = SystemType.get_rdn(system_type)
+        container = self._get_systems_container(base_dn)
+        return f"{rdn},{container}"
+    
+    def _get_system_dn(self, cn: str, system_type: SystemType, base_dn: Optional[str] = None) -> str:
+        """Get the DN for a system within the given context."""
+        ou_dn = self._get_type_ou(system_type, base_dn)
         return f"cn={cn},{ou_dn}"
     
     # ========================================================================
@@ -175,6 +186,7 @@ class SystemService(TabService):
         search: Optional[str] = None,
         page: int = 1,
         page_size: int = 50,
+        base_dn: Optional[str] = None,
     ) -> SystemListResponse:
         """
         List systems with optional filtering.
@@ -210,11 +222,12 @@ class SystemService(TabService):
         combined_filter = f"(&{''.join(filters)})" if len(filters) > 1 else filters[0]
         
         try:
-            # Determine search base
+            # Get the systems container for the given context
+            # Search within specific type OU if type provided
             if system_type:
-                search_base = self._get_type_ou(system_type)
+                search_base = self._get_type_ou(system_type, base_dn)
             else:
-                search_base = self._systems_dn
+                search_base = self._get_systems_container(base_dn)
             
             entries = await self._ldap.search(
                 search_base=search_base,
@@ -246,9 +259,19 @@ class SystemService(TabService):
             logger.error("systems_list_failed", error=str(e))
             raise
     
-    async def get_system(self, cn: str, system_type: SystemType) -> Optional[SystemRead]:
-        """Get a single system by CN and type."""
-        dn = self._get_system_dn(cn, system_type)
+    async def get_system(
+        self, 
+        cn: str, 
+        system_type: SystemType,
+        base_dn: Optional[str] = None
+    ) -> Optional[SystemRead]:
+        """
+        Get a single system by CN and type.
+        
+        If base_dn is provided, looks within that context's systems container.
+        Otherwise uses the default systems container.
+        """
+        dn = self._get_system_dn(cn, system_type, base_dn)
         
         try:
             entry = await self._ldap.get_by_dn(
@@ -280,20 +303,31 @@ class SystemService(TabService):
         except LdapOperationError:
             return None
     
-    async def create_system(self, data: SystemCreate) -> SystemRead:
-        """Create a new system."""
+    async def create_system(
+        self, 
+        data: SystemCreate,
+        base_dn: Optional[str] = None
+    ) -> SystemRead:
+        """
+        Create a new system.
         
-        # Ensure OU exists
-        await self._ensure_type_ou(data.system_type)
-        
-        dn = self._get_system_dn(data.cn, data.system_type)
+        If base_dn is provided, creates in that department's systems container.
+        Otherwise creates it in the default systems container.
+        """
         
         # Check if system already exists
-        existing = await self.get_system(data.cn, data.system_type)
+        existing = await self.get_system(data.cn, data.system_type, base_dn=base_dn)
         if existing:
             raise SystemValidationError(
                 f"System '{data.cn}' of type '{data.system_type.value}' already exists"
             )
+        
+        # Get the DN for the new system
+        dn = self._get_system_dn(data.cn, data.system_type, base_dn)
+        
+        # Ensure OU exists (only for root context)
+        if not base_dn:
+            await self._ensure_type_ou(data.system_type)
         
         # Get object classes for this type
         object_classes = self.TYPE_OBJECT_CLASSES[data.system_type].copy()
@@ -312,11 +346,13 @@ class SystemService(TabService):
                 "system_created", 
                 cn=data.cn, 
                 type=data.system_type.value,
-                dn=dn
+                dn=dn,
+                context="custom" if base_dn else "default"
             )
             
             # Read back and return
-            return await self.get_system(data.cn, data.system_type)
+            # Pass base_dn to finding it again
+            return await self.get_system(data.cn, data.system_type, base_dn=base_dn)
             
         except LdapOperationError as e:
             logger.error(
@@ -331,16 +367,36 @@ class SystemService(TabService):
         self, 
         cn: str, 
         system_type: SystemType, 
-        data: SystemUpdate
+        data: SystemUpdate,
+        base_dn: Optional[str] = None
     ) -> SystemRead:
         """Update an existing system."""
         
-        dn = self._get_system_dn(cn, system_type)
-        
-        # Check exists
-        existing = await self.get_system(cn, system_type)
+        # Check exists and get current DN
+        existing = await self.get_system(cn, system_type, base_dn=base_dn)
         if not existing:
             raise LdapNotFoundError(f"System '{cn}' of type '{system_type.value}' not found")
+            
+        # Determine actual DN from the existing entry or reconstruct
+        # Since get_system returns SystemRead which doesn't have DN,
+        # we might need to find the DN again if we didn't store it.
+        # But wait, SystemRead usually doesn't expose DN.
+        # We need the DN to update.
+        # IF base_dn is used, we might not know the exact DN unless we searched.
+        # get_system implementation above uses search but returns SystemRead.
+        # We should use get_system logic to find DN?
+        # Or better: search again here?
+        
+        if base_dn:
+             # Search to get DN
+             object_class = SystemType.get_object_class(system_type)
+             search_filter = f"(&(cn={cn})(objectClass={object_class}))"
+             entries = await self._ldap.search(base_dn, search_filter, attributes=["cn"])
+             if not entries:
+                 raise LdapNotFoundError(f"System '{cn}' not found in {base_dn}")
+             dn = entries[0].dn
+        else:
+            dn = self._get_system_dn(cn, system_type)
         
         # Build changes
         changes = self._build_update_changes(data, system_type)
@@ -363,17 +419,31 @@ class SystemService(TabService):
                 )
                 raise SystemValidationError(f"Failed to update system: {e}")
         
-        return await self.get_system(cn, system_type)
+        return await self.get_system(cn, system_type, base_dn=base_dn)
     
-    async def delete_system(self, cn: str, system_type: SystemType) -> None:
+    async def delete_system(
+        self, 
+        cn: str, 
+        system_type: SystemType,
+        base_dn: Optional[str] = None
+    ) -> None:
         """Delete a system."""
         
-        dn = self._get_system_dn(cn, system_type)
-        
-        # Check exists
-        existing = await self.get_system(cn, system_type)
+        # Check exists and get DN
+        existing = await self.get_system(cn, system_type, base_dn=base_dn)
         if not existing:
             raise LdapNotFoundError(f"System '{cn}' of type '{system_type.value}' not found")
+
+        if base_dn:
+             # Search to get DN
+             object_class = SystemType.get_object_class(system_type)
+             search_filter = f"(&(cn={cn})(objectClass={object_class}))"
+             entries = await self._ldap.search(base_dn, search_filter, attributes=["cn"])
+             if not entries:
+                 raise LdapNotFoundError(f"System '{cn}' not found in {base_dn}")
+             dn = entries[0].dn
+        else:
+            dn = self._get_system_dn(cn, system_type)
         
         try:
             await self._ldap.delete(dn)

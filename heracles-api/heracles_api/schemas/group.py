@@ -17,7 +17,12 @@ class GroupBase(BaseModel):
 
 class GroupCreate(GroupBase):
     """Group creation model."""
-    ou: str = Field(default="groups", description="Organizational unit")
+    ou: str = Field(default="groups", description="Container OU name (default: groups)")
+    department_dn: Optional[str] = Field(
+        None,
+        alias="departmentDn",
+        description="Department DN (group will be created under ou=groups within this department)"
+    )
     members: List[str] = Field(default_factory=list, description="List of member UIDs")
 
 

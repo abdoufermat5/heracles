@@ -145,8 +145,8 @@ export function AppHeader() {
 
   const filteredSearchItems = searchQuery
     ? searchItems.filter((item) =>
-        item.label.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      item.label.toLowerCase().includes(searchQuery.toLowerCase())
+    )
     : searchItems
 
   const getInitials = (name?: string) => {
@@ -202,7 +202,7 @@ export function AppHeader() {
         </div>
 
         {/* Center: Search */}
-        <div className="hidden lg:flex items-center">
+        <div className="hidden lg:flex items-center gap-2">
           <Button
             variant="outline"
             className="relative h-9 w-64 justify-start text-sm text-muted-foreground"

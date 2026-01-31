@@ -45,8 +45,22 @@ class UserRepository:
         self.ldap = ldap
         self.base_dn = settings.LDAP_BASE_DN
     
-    def _build_user_dn(self, uid: str, ou: str = "people") -> str:
-        """Build user DN from UID."""
+    def _build_user_dn(self, uid: str, ou: str = "people", department_dn: Optional[str] = None) -> str:
+        """
+        Build user DN from UID.
+
+        Args:
+            uid: User UID
+            ou: Container OU name (default: "people")
+            department_dn: Optional department DN to create user within
+
+        Returns:
+            User DN string
+        """
+        if department_dn:
+            # Create under ou=people within the department
+            # e.g., uid=john,ou=people,ou=Engineering,dc=heracles,dc=local
+            return f"uid={uid},ou={ou},{department_dn}"
         return f"uid={uid},ou={ou},{self.base_dn}"
     
     def _entry_to_dict(self, entry: LdapEntry) -> dict:
@@ -103,54 +117,64 @@ class UserRepository:
         self,
         search_term: Optional[str] = None,
         ou: Optional[str] = None,
+        base_dn: Optional[str] = None,
         limit: int = 0,
     ) -> UserSearchResult:
         """
         Search users with optional filtering.
-        
+
         Args:
             search_term: Search in uid, cn, mail
-            ou: Filter by organizational unit
+            ou: Filter by organizational unit (legacy, use base_dn for departments)
+            base_dn: Base DN to search from (e.g., department DN for scoped search)
             limit: Maximum results (0 = unlimited)
         """
         # Build filter
         base_filter = "(objectClass=inetOrgPerson)"
-        
+
         if search_term:
             escaped = self.ldap._escape_filter(search_term)
             search_filter = f"(&{base_filter}(|(uid=*{escaped}*)(cn=*{escaped}*)(mail=*{escaped}*)))"
         else:
             search_filter = base_filter
-        
+
         # Determine search base
-        if ou:
-            search_base = f"ou={ou},{self.base_dn}"
+        # We always search from ou=people within the specified context
+        # to avoid returning users from all departments when at root level
+        people_ou = ou or "people"
+        if base_dn:
+            # Search within department's people container
+            # e.g., ou=people,ou=Test,dc=heracles,dc=local
+            search_base = f"ou={people_ou},{base_dn}"
         else:
-            search_base = self.base_dn
-        
+            # Search only in root-level people container
+            # e.g., ou=people,dc=heracles,dc=local
+            search_base = f"ou={people_ou},{self.base_dn}"
+
         entries = await self.ldap.search(
             search_base=search_base,
             search_filter=search_filter,
             attributes=self.USER_ATTRIBUTES,
             size_limit=limit,
         )
-        
+
         return UserSearchResult(users=entries, total=len(entries))
     
-    async def create(self, user: UserCreate) -> LdapEntry:
+    async def create(self, user: UserCreate, department_dn: Optional[str] = None) -> LdapEntry:
         """
         Create a new user.
-        
+
         Args:
             user: User creation data
-            
+            department_dn: Optional department DN (user will be created under ou=people within this dept)
+
         Returns:
             Created user entry
-            
+
         Raises:
             LdapOperationError: If creation fails
         """
-        user_dn = self._build_user_dn(user.uid, user.ou)
+        user_dn = self._build_user_dn(user.uid, user.ou, department_dn)
         
         # Build attributes
         attrs = {

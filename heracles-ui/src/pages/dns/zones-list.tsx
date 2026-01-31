@@ -23,19 +23,23 @@ import { PageHeader } from '@/components/common/page-header'
 import { DnsZonesTable, CreateZoneDialog } from '@/components/plugins/dns'
 import { useDnsZones, useDeleteDnsZone } from '@/hooks/use-dns'
 import type { DnsZoneListItem } from '@/types/dns'
+import { useDepartmentStore } from '@/stores'
 
 export function DnsZonesListPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [zoneToDelete, setZoneToDelete] = useState<DnsZoneListItem | null>(null)
+  const { currentBase } = useDepartmentStore()
 
-  const { data, isLoading, refetch, isRefetching } = useDnsZones()
+  const { data, isLoading, refetch, isRefetching } = useDnsZones({
+    base: currentBase ?? undefined
+  })
   const deleteMutation = useDeleteDnsZone()
 
   const handleDelete = async () => {
     if (!zoneToDelete) return
 
     try {
-      await deleteMutation.mutateAsync(zoneToDelete.zoneName)
+      await deleteMutation.mutateAsync({ zoneName: zoneToDelete.zoneName, baseDn: currentBase || undefined })
       toast.success(`Zone "${zoneToDelete.zoneName}" deleted successfully`)
       setZoneToDelete(null)
     } catch (error) {
