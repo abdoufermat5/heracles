@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
     DEBUG: bool = True
+    TESTING: bool = False  # Set to True to skip LDAP init and use mocks
     SECRET_KEY: str = "heracles-dev-secret-change-in-production"
     
     # CORS

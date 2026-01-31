@@ -27,14 +27,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup
     setup_logging()
     logger.info("starting_heracles_api", version="0.1.0")
-    
+
+    # Skip initialization in test mode
+    if settings.TESTING:
+        logger.info("testing_mode_enabled", message="Skipping LDAP and plugins initialization")
+        yield
+        logger.info("shutting_down_heracles_api")
+        return
+
     # Initialize LDAP connection
     try:
         await init_ldap_service()
         logger.info("ldap_service_initialized")
     except Exception as e:
         logger.error("ldap_service_init_failed", error=str(e))
-    
+
     # Load plugins
     try:
         ldap_service = get_ldap_service()
@@ -55,18 +62,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         }
         loaded_plugins = load_enabled_plugins(plugins_config, ldap_service)
         logger.info("plugins_loaded", count=len(loaded_plugins))
-        
+
         # Register plugin routes
         from heracles_api.plugins.registry import plugin_registry
         for plugin in loaded_plugins:
             for route in plugin.routes():
                 app.include_router(route, prefix="/api/v1")
-                
+
     except Exception as e:
         logger.warning("plugins_load_failed", error=str(e))
-    
+
     yield
-    
+
     # Shutdown
     logger.info("shutting_down_heracles_api")
     unload_all_plugins()

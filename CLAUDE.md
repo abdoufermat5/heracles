@@ -39,46 +39,68 @@ heracles/
 
 ## Build and Development Commands
 
+**IMPORTANT: All tests MUST be run inside containers, never on the host machine.**
+
+### Starting Infrastructure
+```bash
+make up-infra            # Start LDAP, PostgreSQL, Redis (required before tests)
+make up                  # Start all services (API, UI, infrastructure)
+```
+
 ### Rust (heracles-core)
 ```bash
 cd heracles-core
 cargo build --release    # Build
-cargo test               # Run tests
+cargo test               # Run tests (Rust tests can run on host - no external deps)
 cargo fmt --all          # Format (required before commit)
 cargo clippy -- -D warnings  # Lint (no warnings allowed)
 cargo audit              # Security vulnerability check
 ```
 
-### Python (heracles-api)
+### Python (heracles-api) - Run in Container
 ```bash
-cd heracles-api
-poetry install           # Install dependencies
-poetry run uvicorn app.main:app --reload  # Start dev server
-poetry run pytest        # Run tests
-poetry run pytest tests/test_services/test_user_service.py::TestGetByUid  # Single test
-poetry run black .       # Format (required)
-poetry run isort .       # Sort imports (required)
-poetry run ruff check --fix .  # Lint
-pip-audit                # Security check
+# All tests MUST run inside the api container
+docker compose exec api sh -c "PYTHONPATH=/app pytest -v"                    # Run all tests
+docker compose exec api sh -c "PYTHONPATH=/app pytest tests/test_auth.py"    # Single file
+docker compose exec api sh -c "PYTHONPATH=/app pytest -k 'test_name'"        # Single test by name
+
+# Linting/formatting (run in container)
+docker compose exec api sh -c "cd /app && black ."
+docker compose exec api sh -c "cd /app && isort ."
+docker compose exec api sh -c "cd /app && ruff check --fix ."
 ```
 
-### React (heracles-ui)
+### Python Plugins (heracles_plugins) - Run in Container
 ```bash
-cd heracles-ui
-npm install              # Install dependencies
-npm run dev              # Start dev server
-npm test                 # Run tests
-npm run lint             # Lint
-npm run format           # Format with Prettier
-npm audit                # Security check
+# Plugin tests MUST run inside the api container (plugins are mounted)
+docker compose exec api sh -c "PYTHONPATH=/app:/heracles_plugins pytest /heracles_plugins -v"
+docker compose exec api sh -c "PYTHONPATH=/app:/heracles_plugins pytest /heracles_plugins/heracles_plugins/posix/tests/ -v"
 ```
 
-### Docker (Infrastructure)
+### React (heracles-ui) - Run in Container
 ```bash
-docker-compose up -d     # Start LDAP, PostgreSQL, Redis
+# All tests MUST run inside the ui container
+docker compose --profile full exec ui npm test               # Run tests
+docker compose --profile full exec ui npm run lint           # Lint
+docker compose --profile full exec ui npm run format         # Format
+```
+
+### Quick Shell Access
+```bash
+make shell s=api         # Shell into API container
+make shell s=ui          # Shell into UI container
+make shell-db            # PostgreSQL shell
+make shell-redis         # Redis CLI
 ```
 
 ## Critical Constraints
+
+### Container-Based Testing (CRITICAL)
+- NEVER run Python or JavaScript tests on the host machine
+- ALWAYS use `docker compose exec` to run tests inside containers
+- Infrastructure must be running before tests: `make up-infra` or `make up`
+- Tests depend on LDAP, PostgreSQL, and Redis being available in containers
+- Rust tests (heracles-core) can run on host as they have no external dependencies
 
 ### LDAP Compatibility (CRITICAL)
 - Use ONLY standard LDAP schemas **EXCEPT** for documented custom schemas

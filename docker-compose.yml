@@ -153,7 +153,7 @@ services:
       target: builder
     container_name: heracles-ui
     environment:
-      VITE_API_BASE_URL: "${VITE_API_BASE_URL}"
+      VITE_API_BASE_PREFIX: "${VITE_API_BASE_PREFIX}"
     volumes:
       - ./heracles-ui:/app
       - /app/node_modules

@@ -1,54 +1,36 @@
 # ============================================================================
-#                              HERACLES MAKEFILE
+#                              HERACLES
 # ============================================================================
-# Identity Management System
-#
-# Usage: make help
+# Identity Management System - run "make help" for commands
 # ============================================================================
 
-# Include configuration first
-include mk/config.mk
+# Load .env if exists
+-include .env
+export
 
-# Include module makefiles
+# Directories
+API_DIR := heracles-api
+UI_DIR := heracles-ui
+CORE_DIR := heracles-core
+PLUGINS_DIR := heracles_plugins
+DEMO_DIR := demo
+
+# Docker
+COMPOSE := docker compose
+
+# Ports (override in .env)
+API_PORT ?= 8000
+UI_PORT ?= 3000
+LDAP_PORT ?= 389
+POSTGRES_PORT ?= 5432
+REDIS_PORT ?= 6379
+
+# LDAP (override in .env)
+LDAP_BASE_DN ?= dc=heracles,dc=local
+LDAP_ADMIN_DN ?= cn=admin,$(LDAP_BASE_DN)
+LDAP_ADMIN_PW ?= admin_secret
+
+# Include modules
 include mk/docker.mk
-include mk/api.mk
-include mk/ui.mk
-include mk/core.mk
-include mk/plugins.mk
-include mk/dev.mk
+include mk/demo.mk
 include mk/help.mk
-
-# Legacy alias targets for backward compatibility
-test-rust: core-test
-test-api: api-test
-build-rust: core
-build-ui-legacy: ui-build
-
-# Legacy lint targets
-lint-rust: core-lint
-lint-python: api-lint plugins-lint
-lint-ui: ui-lint
-
-# Legacy format targets
-format-rust: core-format
-format-python: api-format plugins-format
-
-# ===========================================
-# Development Utilities
-# ===========================================
-
-# Show LDAP tree
-ldap-tree:
-	docker exec heracles-ldap ldapsearch -x -H ldap://localhost -b "$(LDAP_BASE_DN)" -D "$(LDAP_ADMIN_DN)" -w "$(LDAP_ADMIN_PASSWORD)" "(objectClass=*)" dn
-
-# Connect to PostgreSQL
-psql:
-	docker exec -it heracles-postgres psql -U $(POSTGRES_USER) -d $(POSTGRES_DB)
-
-# Connect to Redis CLI
-redis-cli:
-	docker exec -it heracles-redis redis-cli -a $(REDIS_PASSWORD)
-
-# Watch Rust tests
-watch-rust:
-	cd heracles-core && cargo watch -x test

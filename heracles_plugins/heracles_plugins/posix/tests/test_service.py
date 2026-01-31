@@ -603,7 +603,7 @@ class TestMixedGroupService:
             "member": ["uid=user1,ou=people,dc=example,dc=com"],
             "memberUid": ["user1"],
             "host": ["*"],
-            "objectClass": ["groupOfNames", "posixGroup", "hostObject"],
+            "objectClass": ["groupOfNames", "posixGroupAux", "hostObject"],
         })
         
         result = await service.get("mixedgroup")
@@ -621,7 +621,7 @@ class TestMixedGroupService:
         mock_ldap.get_by_dn.return_value = MockLdapEntry({
             "cn": "pureposix",
             "gidNumber": "30000",
-            "objectClass": ["posixGroup"],  # Missing groupOfNames
+            "objectClass": ["posixGroup"],  # Missing groupOfNames and posixGroupAux
         })
         
         result = await service.get("pureposix")
@@ -642,7 +642,7 @@ class TestMixedGroupService:
                 "gidNumber": "30000",
                 "member": ["cn=securemixed,ou=groups,dc=example,dc=com"],
                 "host": ["secureserver"],
-                "objectClass": ["groupOfNames", "posixGroup", "hostObject"],
+                "objectClass": ["groupOfNames", "posixGroupAux", "hostObject"],
             }),
         ]
         mock_ldap.search.return_value = []
@@ -657,7 +657,7 @@ class TestMixedGroupService:
         call_args = mock_ldap.add.call_args
         # Should have all three objectClasses
         assert "groupOfNames" in call_args[0][1]
-        assert "posixGroup" in call_args[0][1]
+        assert "posixGroupAux" in call_args[0][1]
         assert "hostObject" in call_args[0][1]
     
     @pytest.mark.asyncio
@@ -669,7 +669,7 @@ class TestMixedGroupService:
                 "cn": "emptygroup",
                 "gidNumber": "30000",
                 "member": ["cn=emptygroup,ou=groups,dc=example,dc=com"],
-                "objectClass": ["groupOfNames", "posixGroup"],
+                "objectClass": ["groupOfNames", "posixGroupAux"],
             }),
         ]
         mock_ldap.search.return_value = []
@@ -696,14 +696,14 @@ class TestMixedGroupService:
                 "gidNumber": "30000",
                 "member": ["cn=mixedgroup,ou=groups,dc=example,dc=com"],
                 "memberUid": [],
-                "objectClass": ["groupOfNames", "posixGroup"],
+                "objectClass": ["groupOfNames", "posixGroupAux"],
             }),
             MockLdapEntry({
                 "cn": "mixedgroup",
                 "gidNumber": "30000",
                 "member": ["cn=mixedgroup,ou=groups,dc=example,dc=com"],
                 "memberUid": ["newuser"],
-                "objectClass": ["groupOfNames", "posixGroup"],
+                "objectClass": ["groupOfNames", "posixGroupAux"],
             }),
         ]
         
@@ -720,7 +720,7 @@ class TestMixedGroupService:
             "gidNumber": "30000",
             "member": ["uid=lastuser,ou=people,dc=example,dc=com"],  # Only one
             "memberUid": ["lastuser"],
-            "objectClass": ["groupOfNames", "posixGroup"],
+            "objectClass": ["groupOfNames", "posixGroupAux"],
         })
         
         with pytest.raises(PosixValidationError) as exc_info:

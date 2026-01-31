@@ -32,8 +32,8 @@ Vagrant.configure("2") do |config|
   
   # Synced folders
   config.vm.synced_folder ".", "/vagrant", disabled: true
-  config.vm.synced_folder "./provision", "/vagrant/provision", type: "virtualbox"
-  config.vm.synced_folder "./config", "/vagrant/config", type: "virtualbox"
+  config.vm.synced_folder "./provision", "/vagrant/provision"
+  config.vm.synced_folder "./config", "/vagrant/config"
 
   # ==========================================================================
   # VM 0: ns1 - DNS Server (BIND9 with LDAP sync)
@@ -47,6 +47,11 @@ Vagrant.configure("2") do |config|
       vb.memory = DEMO["VM_MEMORY_NS1"]
       vb.cpus = DEMO["VM_CPUS"]
       vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+    end
+
+    dns.vm.provider "libvirt" do |lv|
+      lv.memory = DEMO["VM_MEMORY_NS1"]
+      lv.cpus = DEMO["VM_CPUS"]
     end
     
     # Initial setup - copy config and setup hosts
@@ -70,6 +75,11 @@ Vagrant.configure("2") do |config|
       vb.memory = DEMO["VM_MEMORY_DHCP1"]
       vb.cpus = DEMO["VM_CPUS"]
       vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+    end
+
+    dhcp.vm.provider "libvirt" do |lv|
+      lv.memory = DEMO["VM_MEMORY_DHCP1"]
+      lv.cpus = DEMO["VM_CPUS"]
     end
     
     # Initial setup - copy config and setup hosts
@@ -107,6 +117,11 @@ EOF
       vb.memory = DEMO["VM_MEMORY_SERVER"]
       vb.cpus = DEMO["VM_CPUS"]
       vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+    end
+
+    server.vm.provider "libvirt" do |lv|
+      lv.memory = DEMO["VM_MEMORY_SERVER"]
+      lv.cpus = DEMO["VM_CPUS"]
     end
     
     # Network and DNS setup
@@ -150,6 +165,11 @@ EOF
       vb.memory = DEMO["VM_MEMORY_WORKSTATION"]
       vb.cpus = DEMO["VM_CPUS"]
       vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+    end
+
+    ws.vm.provider "libvirt" do |lv|
+      lv.memory = DEMO["VM_MEMORY_WORKSTATION"]
+      lv.cpus = DEMO["VM_CPUS"]
     end
     
     # Network and DNS setup
