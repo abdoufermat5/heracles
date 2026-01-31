@@ -12,13 +12,22 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { PageHeader, LoadingPage, ErrorDisplay } from '@/components/common'
 import { useUsers, useGroups } from '@/hooks'
-import { useAuthStore } from '@/stores'
+import { useAuthStore, useDepartmentStore } from '@/stores'
 import { ROUTES, PLUGIN_ROUTES } from '@/config/constants'
 
 export function DashboardPage() {
   const { user } = useAuthStore()
-  const { data: usersData, isLoading: usersLoading, error: usersError } = useUsers({ page_size: 1 })
-  const { data: groupsData, isLoading: groupsLoading, error: groupsError } = useGroups({ page_size: 1 })
+  const { currentBase, currentPath } = useDepartmentStore()
+
+  // Pass department context to hooks for contextual data
+  const { data: usersData, isLoading: usersLoading, error: usersError } = useUsers({
+    page_size: 1,
+    base: currentBase || undefined
+  })
+  const { data: groupsData, isLoading: groupsLoading, error: groupsError } = useGroups({
+    page_size: 1,
+    base: currentBase || undefined
+  })
 
   if (usersLoading || groupsLoading) {
     return <LoadingPage message="Loading dashboard..." />
@@ -32,11 +41,16 @@ export function DashboardPage() {
     )
   }
 
+  // Determine context label
+  const contextLabel = currentBase
+    ? currentPath.split('/').filter(p => p).pop() || 'Department'
+    : 'All'
+
   const stats = [
     {
       title: 'Total Users',
       value: usersData?.total || 0,
-      description: 'Active user accounts',
+      description: `Users in ${contextLabel}`,
       icon: Users,
       color: 'text-blue-600',
       bgColor: 'bg-blue-100',
@@ -45,7 +59,7 @@ export function DashboardPage() {
     {
       title: 'Total Groups',
       value: groupsData?.total || 0,
-      description: 'User groups',
+      description: `Groups in ${contextLabel}`,
       icon: UsersRound,
       color: 'text-green-600',
       bgColor: 'bg-green-100',

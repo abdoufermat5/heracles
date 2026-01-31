@@ -45,7 +45,7 @@ export function DepartmentSelector() {
   const items = getDisplayItems()
   const selectedLabel = currentBase
     ? flatList.find(d => d.dn === currentBase)?.ou
-    : "All Departments"
+    : "/"
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -83,7 +83,7 @@ export function DepartmentSelector() {
                 className="gap-2"
               >
                 <Building2 className="mr-2 h-4 w-4 text-muted-foreground" />
-                <span>All Departments</span>
+                <span className="font-mono">/</span>
                 {!currentBase && <Check className="ml-auto h-4 w-4" />}
               </CommandItem>
             </CommandGroup>

@@ -58,13 +58,14 @@
 
 | Plugin | Description | Status |
 |--------|-------------|--------|
-| `core` | Base user/group management | 🔲 Planned |
+| `core` | Base user/group management | ✅ Implemented |
+| `departments` | Hierarchical department management with context-aware UI | ✅ Implemented |
 | `posix` | Unix accounts (posixAccount, shadowAccount) | ✅ Implemented |
 | `sudo` | Sudo rules management | ✅ Implemented |
 | `ssh` | SSH public keys | ✅ Implemented |
-| `systems` | Servers, workstations | ✅ Implemented |
+| `systems` | Servers, workstations, devices | ✅ Implemented |
 | `dns` | DNS zones and records (FusionDirectory compatible) | ✅ Implemented |
-| `dhcp` | DHCP configuration | 🔲 Planned |
+| `dhcp` | DHCP services, subnets, hosts, pools | ✅ Implemented |
 
 ---
 

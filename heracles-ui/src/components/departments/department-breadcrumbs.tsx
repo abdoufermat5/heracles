@@ -4,13 +4,12 @@
  * Shows the current department path as clickable breadcrumbs.
  */
 
-import { ChevronRight, Home } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { useDepartmentStore } from '@/stores'
 import { useDepartmentTree } from '@/hooks'
-import { cn } from '@/lib/utils'
 
 export function DepartmentBreadcrumbs() {
-  const { currentBase, currentPath, setCurrentBase, getDepartmentByDn } = useDepartmentStore()
+  const { currentBase, currentPath, setCurrentBase, flatList } = useDepartmentStore()
   // Ensure tree is loaded for DN lookups
   useDepartmentTree()
 
@@ -22,44 +21,59 @@ export function DepartmentBreadcrumbs() {
   const pathParts = currentPath.split('/').filter((p) => p)
 
   // Build breadcrumb items with DNs
-  // We need to reconstruct DNs from the path
-  // This is a simplification - in reality we'd need to build proper DNs
-  const breadcrumbs: { label: string; dn: string | null }[] = [
-    { label: 'Root', dn: null },
+  // We reconstruct DNs by looking up departments in flatList by their ou name
+  const breadcrumbs: { label: string; dn: string | null; path: string }[] = [
+    { label: '/', dn: null, path: '' },
   ]
 
-  // Add intermediate parts if there are multiple levels
+  // Build cumulative paths and find matching DNs by ou name
   let cumulativePath = ''
   for (const part of pathParts) {
     cumulativePath = cumulativePath ? `${cumulativePath}/${part}` : part
-    // Try to find the department with this path
-    const dept = getDepartmentByDn(currentBase) // We'd need better lookup logic
-    breadcrumbs.push({
-      label: part,
-      dn: currentBase, // This should ideally be the actual DN for this level
-    })
+
+    // Find department with this ou in flatList
+    // The ou should match the part name
+    const dept = flatList.find(d => d.ou === part && d.path === cumulativePath)
+
+    if (dept) {
+      breadcrumbs.push({
+        label: part,
+        dn: dept.dn,
+        path: cumulativePath,
+      })
+    } else {
+      // Fallback: try to find just by ou name
+      const deptByOu = flatList.find(d => d.ou === part)
+      breadcrumbs.push({
+        label: part,
+        dn: deptByOu?.dn ?? null,
+        path: cumulativePath,
+      })
+    }
   }
 
   return (
     <nav className="flex items-center space-x-1 text-sm text-muted-foreground">
       {breadcrumbs.map((crumb, index) => (
-        <div key={crumb.dn ?? 'root'} className="flex items-center">
+        <div key={crumb.path || 'root'} className="flex items-center">
           {index > 0 && <ChevronRight className="h-4 w-4 mx-1" />}
-          {index === 0 ? (
+          {index === breadcrumbs.length - 1 ? (
+            // Current/last item - not clickable
+            <span className="font-medium text-foreground">{crumb.label}</span>
+          ) : crumb.dn === null ? (
+            // Root item
             <button
               type="button"
               onClick={() => setCurrentBase(null)}
-              className="flex items-center gap-1 hover:text-foreground transition-colors"
+              className="hover:text-foreground transition-colors font-mono"
             >
-              <Home className="h-3.5 w-3.5" />
-              <span>Root</span>
+              {crumb.label}
             </button>
-          ) : index === breadcrumbs.length - 1 ? (
-            <span className="font-medium text-foreground">{crumb.label}</span>
           ) : (
+            // Clickable parent item with valid DN
             <button
               type="button"
-              onClick={() => setCurrentBase(crumb.dn, cumulativePath)}
+              onClick={() => setCurrentBase(crumb.dn, crumb.path)}
               className="hover:text-foreground transition-colors"
             >
               {crumb.label}
