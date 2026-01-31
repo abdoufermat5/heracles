@@ -345,12 +345,15 @@ class SystemCreate(SystemBase):
     @field_validator("cn")
     @classmethod
     def validate_cn(cls, v: str) -> str:
-        """Validate CN format (hostname-like)."""
+        """Validate CN format (hostname or FQDN)."""
         v = v.strip()
-        # Allow hostnames: letters, numbers, hyphens (not at start/end)
-        if not re.match(r"^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$", v):
+        # Allow hostnames and FQDNs: each label must be alphanumeric with hyphens (not at start/end)
+        # Examples: server1, web-01, ui.heracles.local, ns1.example.com
+        label_pattern = r"[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?"
+        fqdn_pattern = rf"^{label_pattern}(\.{label_pattern})*$"
+        if not re.match(fqdn_pattern, v):
             raise ValueError(
-                "CN must be a valid hostname (alphanumeric, hyphens allowed but not at start/end)"
+                "CN must be a valid hostname or FQDN (alphanumeric, hyphens allowed but not at start/end of each label)"
             )
         return v.lower()  # Normalize to lowercase
     
