@@ -15,9 +15,16 @@ import type {
   ConfigBulkUpdateRequest,
   PluginConfig,
   PluginConfigUpdateRequest,
+  PluginConfigUpdateResponse,
   ConfigHistoryParams,
   ConfigHistoryResponse,
   ConfigUpdateResult,
+  RdnChangeCheckRequest,
+  RdnChangeCheckResponse,
+  RdnMigrationRequest,
+  RdnMigrationResponse,
+  SettingUpdateWithMigrationRequest,
+  SettingUpdateWithMigrationResponse,
 } from "@/types/config";
 
 const CONFIG_BASE = "/config";
@@ -89,12 +96,15 @@ export const configApi = {
 
   /**
    * Update a plugin's configuration
+   * Returns either:
+   * - Migration check response if confirmation is required
+   * - Success response with optional migration results
    */
   updatePluginConfig: async (
     name: string,
     data: PluginConfigUpdateRequest
-  ): Promise<PluginConfig> => {
-    return apiClient.patch<PluginConfig>(
+  ): Promise<PluginConfigUpdateResponse> => {
+    return apiClient.patch<PluginConfigUpdateResponse>(
       `${CONFIG_BASE}/plugins/${name}`,
       data
     );
@@ -103,8 +113,8 @@ export const configApi = {
   /**
    * Enable a plugin
    */
-  enablePlugin: async (name: string): Promise<PluginConfig> => {
-    return apiClient.post<PluginConfig>(
+  enablePlugin: async (name: string): Promise<{ message: string }> => {
+    return apiClient.post<{ message: string }>(
       `${CONFIG_BASE}/plugins/${name}/enable`
     );
   },
@@ -112,8 +122,8 @@ export const configApi = {
   /**
    * Disable a plugin
    */
-  disablePlugin: async (name: string): Promise<PluginConfig> => {
-    return apiClient.post<PluginConfig>(
+  disablePlugin: async (name: string): Promise<{ message: string }> => {
+    return apiClient.post<{ message: string }>(
       `${CONFIG_BASE}/plugins/${name}/disable`
     );
   },
@@ -142,6 +152,49 @@ export const configApi = {
     return apiClient.get<ConfigHistoryResponse>(
       `${CONFIG_BASE}/history`,
       Object.keys(queryParams).length > 0 ? queryParams : undefined
+    );
+  },
+
+  // ==========================================================================
+  // RDN Migration
+  // ==========================================================================
+
+  /**
+   * Check the impact of an RDN change before applying it
+   */
+  checkRdnChange: async (
+    data: RdnChangeCheckRequest
+  ): Promise<RdnChangeCheckResponse> => {
+    return apiClient.post<RdnChangeCheckResponse>(
+      `${CONFIG_BASE}/rdn/check`,
+      data
+    );
+  },
+
+  /**
+   * Migrate entries from old RDN to new RDN
+   */
+  migrateRdn: async (
+    data: RdnMigrationRequest
+  ): Promise<RdnMigrationResponse> => {
+    return apiClient.post<RdnMigrationResponse>(
+      `${CONFIG_BASE}/rdn/migrate`,
+      data
+    );
+  },
+
+  /**
+   * Update a setting with RDN migration support
+   * Use this for settings that are RDNs (like users_rdn, groups_rdn, etc.)
+   */
+  updateSettingWithMigration: async (
+    category: string,
+    key: string,
+    data: SettingUpdateWithMigrationRequest
+  ): Promise<SettingUpdateWithMigrationResponse> => {
+    return apiClient.patch<SettingUpdateWithMigrationResponse>(
+      `${CONFIG_BASE}/settings/${category}/${key}/with-migration`,
+      data
     );
   },
 };

@@ -245,6 +245,24 @@ class DhcpService(TabService):
         # Systems plugin integration (optional)
         self._systems_service = None
     
+    def reload_config(self, config: Dict[str, Any]) -> None:
+        """
+        Reload configuration values.
+        
+        Called when configuration changes to update internal state.
+        """
+        old_dhcp_rdn = self._dhcp_rdn
+        self._dhcp_rdn = config.get("dhcp_rdn", "ou=dhcp")
+        self._base_dn = config.get("base_dn", self._ldap.base_dn)
+        self._dhcp_dn = f"{self._dhcp_rdn},{self._base_dn}"
+        
+        if old_dhcp_rdn != self._dhcp_rdn:
+            logger.info(
+                "dhcp_rdn_reloaded",
+                old_rdn=old_dhcp_rdn,
+                new_rdn=self._dhcp_rdn,
+            )
+    
     def set_systems_service(self, systems_service: Any) -> None:
         """Set the systems service for host validation integration."""
         self._systems_service = systems_service

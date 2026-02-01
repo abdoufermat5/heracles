@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { PageHeader, LoadingPage, ErrorDisplay } from "@/components/common";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -33,7 +33,20 @@ const categoryIcons: Record<string, React.ElementType> = {
 
 export function SettingsPage() {
   const { data, isLoading, error } = useConfig();
-  const [activeTab, setActiveTab] = useState("general");
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Get active tab from URL, default to "general"
+  const activeTab = searchParams.get("tab") || "general";
+  
+  const handleTabChange = (value: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set("tab", value);
+    // Clear plugin param when leaving plugins tab
+    if (value !== "plugins") {
+      newParams.delete("plugin");
+    }
+    setSearchParams(newParams, { replace: true });
+  };
 
   if (isLoading) {
     return <LoadingPage message="Loading configuration..." />;
@@ -64,7 +77,7 @@ export function SettingsPage() {
 
       <Tabs
         value={activeTab}
-        onValueChange={setActiveTab}
+        onValueChange={handleTabChange}
         className="flex-1 flex flex-col min-h-0"
       >
         <div className="border-b px-4 shrink-0">

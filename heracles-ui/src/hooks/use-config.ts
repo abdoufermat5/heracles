@@ -7,10 +7,12 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { configApi } from "@/lib/api/config";
+import { usePluginStore } from "@/stores";
 import type {
   ConfigUpdateRequest,
   ConfigBulkUpdateRequest,
   PluginConfigUpdateRequest,
+  PluginConfigUpdateResponse,
   ConfigHistoryParams,
   ConfigUpdateResult,
   PluginConfig,
@@ -141,6 +143,12 @@ export function usePluginConfig(name: string, options?: { enabled?: boolean }) {
 
 /**
  * Hook to update a plugin's configuration
+ * 
+ * Returns a response that may include:
+ * - requiresConfirmation: true if migration is needed
+ * - migrationCheck: details about affected entries
+ * - success: true if update was successful
+ * - migrations: results of any migrations performed
  */
 export function useUpdatePluginConfig() {
   const queryClient = useQueryClient();
@@ -154,9 +162,16 @@ export function useUpdatePluginConfig() {
       data: PluginConfigUpdateRequest;
     }) => configApi.updatePluginConfig(name, data),
     onSuccess: (
-      result: PluginConfig,
+      result: PluginConfigUpdateResponse,
       variables: { name: string; data: PluginConfigUpdateRequest }
     ) => {
+      // Only show success toast and invalidate if the update was successful
+      // (not when migration confirmation is required)
+      if (result.requiresConfirmation) {
+        // Don't show toast - the UI will handle showing a confirmation dialog
+        return;
+      }
+      
       // Invalidate plugin and full config
       queryClient.invalidateQueries({
         queryKey: configKeys.plugin(variables.name),
@@ -164,7 +179,15 @@ export function useUpdatePluginConfig() {
       queryClient.invalidateQueries({ queryKey: configKeys.plugins() });
       queryClient.invalidateQueries({ queryKey: configKeys.all });
       
-      toast.success(`Plugin "${result.displayName}" configuration updated`);
+      const migrationCount = result.migrations?.reduce(
+        (sum, m) => sum + m.entriesMigrated, 0
+      ) || 0;
+      
+      if (migrationCount > 0) {
+        toast.success(`Plugin "${variables.name}" configuration updated with ${migrationCount} entries migrated`);
+      } else {
+        toast.success(`Plugin "${variables.name}" configuration updated`);
+      }
     },
     onError: (error: Error) => {
       toast.error(`Failed to update plugin configuration: ${error.message}`);
@@ -177,15 +200,19 @@ export function useUpdatePluginConfig() {
  */
 export function useEnablePlugin() {
   const queryClient = useQueryClient();
+  const fetchPlugins = usePluginStore((state) => state.fetchPlugins);
 
   return useMutation({
     mutationFn: (name: string) => configApi.enablePlugin(name),
-    onSuccess: (result: PluginConfig, name: string) => {
+    onSuccess: async (_result: { message: string }, name: string) => {
+      // Force refetch all plugins into Zustand store to ensure UI is in sync
+      await fetchPlugins(true);
+      
       queryClient.invalidateQueries({ queryKey: configKeys.plugin(name) });
       queryClient.invalidateQueries({ queryKey: configKeys.plugins() });
       queryClient.invalidateQueries({ queryKey: configKeys.all });
       
-      toast.success(`Plugin "${result.displayName}" enabled`);
+      toast.success(`Plugin "${name}" enabled`);
     },
     onError: (error: Error) => {
       toast.error(`Failed to enable plugin: ${error.message}`);
@@ -198,15 +225,19 @@ export function useEnablePlugin() {
  */
 export function useDisablePlugin() {
   const queryClient = useQueryClient();
+  const fetchPlugins = usePluginStore((state) => state.fetchPlugins);
 
   return useMutation({
     mutationFn: (name: string) => configApi.disablePlugin(name),
-    onSuccess: (result: PluginConfig, name: string) => {
+    onSuccess: async (_result: { message: string }, name: string) => {
+      // Force refetch all plugins into Zustand store to ensure UI is in sync
+      await fetchPlugins(true);
+      
       queryClient.invalidateQueries({ queryKey: configKeys.plugin(name) });
       queryClient.invalidateQueries({ queryKey: configKeys.plugins() });
       queryClient.invalidateQueries({ queryKey: configKeys.all });
       
-      toast.warning(`Plugin "${result.displayName}" disabled`);
+      toast.warning(`Plugin "${name}" disabled`);
     },
     onError: (error: Error) => {
       toast.error(`Failed to disable plugin: ${error.message}`);
@@ -242,3 +273,108 @@ export function useConfigHistory(params?: ConfigHistoryParams) {
     queryFn: () => configApi.getHistory(params),
   });
 }
+
+// =============================================================================
+// RDN Migration Hooks
+// =============================================================================
+
+/**
+ * Hook to check the impact of an RDN change
+ */
+export function useCheckRdnChange() {
+  return useMutation({
+    mutationFn: (data: {
+      oldRdn: string;
+      newRdn: string;
+      baseDn?: string;
+      objectClassFilter?: string;
+    }) => configApi.checkRdnChange(data),
+    onError: (error: Error) => {
+      toast.error(`Failed to check RDN change: ${error.message}`);
+    },
+  });
+}
+
+/**
+ * Hook to migrate entries after RDN change
+ */
+export function useMigrateRdn() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: {
+      oldRdn: string;
+      newRdn: string;
+      baseDn?: string;
+      mode: "modrdn" | "copy_delete" | "leave_orphaned";
+      objectClassFilter?: string;
+      confirmed: boolean;
+    }) => configApi.migrateRdn(data),
+    onSuccess: (result) => {
+      // Invalidate relevant queries
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
+      queryClient.invalidateQueries({ queryKey: configKeys.all });
+
+      if (result.success) {
+        toast.success(
+          `Migration completed: ${result.entriesMigrated} entries moved successfully`
+        );
+      } else {
+        toast.warning(
+          `Migration completed with issues: ${result.entriesFailed} entries failed`
+        );
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(`Migration failed: ${error.message}`);
+    },
+  });
+}
+
+/**
+ * Hook to update a setting with RDN migration support
+ */
+export function useUpdateSettingWithMigration() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      category,
+      key,
+      data,
+    }: {
+      category: string;
+      key: string;
+      data: {
+        value: unknown;
+        reason?: string;
+        confirmed: boolean;
+        migrateEntries: boolean;
+      };
+    }) => configApi.updateSettingWithMigration(category, key, data),
+    onSuccess: (result, variables) => {
+      if (result.success) {
+        // Invalidate queries
+        queryClient.invalidateQueries({
+          queryKey: configKeys.category(variables.category),
+        });
+        queryClient.invalidateQueries({ queryKey: configKeys.all });
+
+        // Show appropriate message
+        if (result.migrationResult) {
+          toast.success(
+            `Setting updated. ${result.migrationResult.entriesMigrated} entries migrated.`
+          );
+        } else {
+          toast.success(result.message);
+        }
+      }
+      // Note: requiresConfirmation case is handled by the calling component
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to update setting: ${error.message}`);
+    },
+  });
+}
+

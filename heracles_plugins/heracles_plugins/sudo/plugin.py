@@ -290,22 +290,33 @@ class SudoPlugin(Plugin):
         """
         # No complex business rules for sudo config
         return None
-    
-    @staticmethod
-    def on_config_change(old_config: Dict[str, Any], new_config: Dict[str, Any]) -> None:
+
+    def on_config_change(
+        self,
+        old_config: Dict[str, Any],
+        new_config: Dict[str, Any],
+        changed_keys: List[str],
+    ) -> None:
         """
         Handle configuration changes.
         
         Args:
             old_config: Previous configuration.
             new_config: New configuration.
+            changed_keys: List of changed configuration keys.
         """
-        # Log security-related changes
-        if old_config.get("allow_all_commands") != new_config.get("allow_all_commands"):
-            pass  # Log this security change
+        self.logger.info(f"Sudo plugin configuration updated: {changed_keys}")
         
-        if old_config.get("allow_root_nopasswd") != new_config.get("allow_root_nopasswd"):
-            pass  # Log this security change
+        # Log security-related changes
+        if "allow_all_commands" in changed_keys:
+            self.logger.warning(
+                f"Security setting changed: allow_all_commands = {new_config.get('allow_all_commands')}"
+            )
+        
+        if "allow_root_nopasswd" in changed_keys:
+            self.logger.warning(
+                f"Security setting changed: allow_root_nopasswd = {new_config.get('allow_root_nopasswd')}"
+            )
     
     def on_activate(self) -> None:
         """Called when plugin is activated."""

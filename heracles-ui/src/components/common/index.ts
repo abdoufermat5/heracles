@@ -7,6 +7,7 @@ export { ErrorBoundary, withErrorBoundary } from './error-boundary'
 export { UnsavedChangesDialog } from './unsaved-changes-dialog'
 export { FormErrorSummary } from './form-error-summary'
 export { PasswordRequirements } from './password-requirements'
+export { PluginDisabled, PluginDisabledInline } from './plugin-disabled'
 export {
   RestartNeededAlert,
   RestartBanner,

@@ -59,23 +59,34 @@ class PosixGroupService:
         
         self._gid_min = config.get("gid_min", 10000)
         self._gid_max = config.get("gid_max", 60000)
-        self._groups_ou = config.get("posix_groups_ou", "ou=groups")
+        # Note: posix_groups_ou in plugin config takes precedence over global groups_rdn
+        # If not set, we'll use the global groups_rdn at runtime
+        self._groups_ou_override = config.get("posix_groups_ou")
     
-    def _get_groups_container(self, base_dn: Optional[str] = None) -> str:
+    async def _get_groups_ou(self) -> str:
+        """Get the groups OU, using global config if not overridden."""
+        if self._groups_ou_override:
+            return self._groups_ou_override
+        # Use global groups_rdn setting
+        from heracles_api.core.ldap_config import get_groups_rdn
+        return await get_groups_rdn()
+    
+    async def _get_groups_container(self, base_dn: Optional[str] = None) -> str:
         """Get the groups container DN for the given context.
         
         If base_dn is provided (department context), returns ou=groups,{base_dn}.
         Otherwise returns the default ou=groups,{root_base_dn}.
         """
+        groups_ou = await self._get_groups_ou()
         if base_dn:
-            return f"{self._groups_ou},{base_dn}"
+            return f"{groups_ou},{base_dn}"
         from heracles_api.config import settings
-        return f"{self._groups_ou},{settings.LDAP_BASE_DN}"
+        return f"{groups_ou},{settings.LDAP_BASE_DN}"
     
     # Keep legacy method for backward compatibility
-    def _get_groups_base_dn(self) -> str:
+    async def _get_groups_base_dn(self) -> str:
         """Get the base DN for POSIX groups (legacy, use _get_groups_container)."""
-        return self._get_groups_container()
+        return await self._get_groups_container()
     
     async def _validate_hosts(self, hosts: List[str]) -> List[str]:
         """
@@ -123,9 +134,9 @@ class PosixGroupService:
             logger.debug("plugin_registry_not_available", action="skipping_host_validation")
             return hosts
     
-    def _get_group_dn(self, cn: str, base_dn: Optional[str] = None) -> str:
+    async def _get_group_dn(self, cn: str, base_dn: Optional[str] = None) -> str:
         """Get the DN for a POSIX group by cn."""
-        container = self._get_groups_container(base_dn)
+        container = await self._get_groups_container(base_dn)
         return f"cn={cn},{container}"
     
     # =========================================================================
@@ -136,7 +147,7 @@ class PosixGroupService:
         """List all POSIX groups."""
         try:
             # Get the groups container for the given context
-            search_base = self._get_groups_container(base_dn)
+            search_base = await self._get_groups_container(base_dn)
             
             entries = await self._ldap.search(
                 search_base=search_base,
@@ -171,7 +182,7 @@ class PosixGroupService:
         base_dn: Optional[str] = None
     ) -> Optional[PosixGroupRead]:
         """Get a POSIX group by cn."""
-        dn = self._get_group_dn(cn, base_dn=base_dn)
+        dn = await self._get_group_dn(cn, base_dn=base_dn)
         
         try:
             # Include objectClass to verify it's a posixGroup
@@ -225,7 +236,7 @@ class PosixGroupService:
         base_dn: Optional[str] = None
     ) -> PosixGroupRead:
         """Create a new standalone POSIX group."""
-        dn = self._get_group_dn(data.cn, base_dn=base_dn)
+        dn = await self._get_group_dn(data.cn, base_dn=base_dn)
         
         # Check if group already exists
         existing = await self._ldap.get_by_dn(dn, attributes=["cn"])
@@ -283,7 +294,7 @@ class PosixGroupService:
         base_dn: Optional[str] = None
     ) -> PosixGroupRead:
         """Update a POSIX group."""
-        dn = self._get_group_dn(cn, base_dn=base_dn)
+        dn = await self._get_group_dn(cn, base_dn=base_dn)
         
         # Verify group exists
         existing = await self.get(cn, base_dn=base_dn)
@@ -358,7 +369,7 @@ class PosixGroupService:
         base_dn: Optional[str] = None
     ) -> None:
         """Delete a POSIX group."""
-        dn = self._get_group_dn(cn, base_dn=base_dn)
+        dn = await self._get_group_dn(cn, base_dn=base_dn)
         
         # Verify group exists
         existing = await self.get(cn, base_dn=base_dn)
@@ -383,7 +394,7 @@ class PosixGroupService:
         base_dn: Optional[str] = None
     ) -> PosixGroupRead:
         """Add a member (by uid) to a POSIX group (by cn)."""
-        dn = self._get_group_dn(cn, base_dn=base_dn)
+        dn = await self._get_group_dn(cn, base_dn=base_dn)
         
         group = await self.get(cn, base_dn=base_dn)
         if group is None:
@@ -407,7 +418,7 @@ class PosixGroupService:
         base_dn: Optional[str] = None
     ) -> PosixGroupRead:
         """Remove a member (by uid) from a POSIX group (by cn)."""
-        dn = self._get_group_dn(cn, base_dn=base_dn)
+        dn = await self._get_group_dn(cn, base_dn=base_dn)
         
         group = await self.get(cn, base_dn=base_dn)
         if group is None:

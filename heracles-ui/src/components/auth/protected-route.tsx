@@ -11,6 +11,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const location = useLocation()
 
   if (!isAuthenticated) {
+    // Pass full location with pathname + search to preserve URL params
     return <Navigate to={ROUTES.LOGIN} state={{ from: location }} replace />
   }
 

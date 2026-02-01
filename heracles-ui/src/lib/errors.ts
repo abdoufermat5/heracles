@@ -10,6 +10,7 @@ export const ErrorCode = {
 
   // Authorization errors (403)
   FORBIDDEN: 'FORBIDDEN',
+  PLUGIN_DISABLED: 'PLUGIN_DISABLED',
 
   // Validation errors (400, 422)
   VALIDATION_ERROR: 'VALIDATION_ERROR',
@@ -40,6 +41,7 @@ const USER_MESSAGES: Record<ErrorCode, string> = {
   [ErrorCode.UNAUTHORIZED]: 'Please log in to continue.',
   [ErrorCode.SESSION_EXPIRED]: 'Your session has expired. Please log in again.',
   [ErrorCode.FORBIDDEN]: 'You do not have permission to perform this action.',
+  [ErrorCode.PLUGIN_DISABLED]: 'This feature is currently disabled. Enable it in Settings.',
   [ErrorCode.VALIDATION_ERROR]: 'Please check your input and try again.',
   [ErrorCode.INVALID_INPUT]: 'The provided data is invalid.',
   [ErrorCode.CONFLICT]: 'This operation conflicts with existing data.',
@@ -109,6 +111,23 @@ export class AppError extends Error {
   }
 
   /**
+   * Whether this is a plugin disabled error
+   */
+  get isPluginDisabled(): boolean {
+    return this.code === ErrorCode.PLUGIN_DISABLED
+  }
+
+  /**
+   * Extract plugin name from plugin disabled error message
+   */
+  getDisabledPluginName(): string | null {
+    if (!this.isPluginDisabled) return null
+    // Extract plugin name from "Plugin 'xxx' is disabled..." message
+    const match = this.message?.match(/Plugin '([^']+)' is disabled/)
+    return match ? match[1] : null
+  }
+
+  /**
    * Get validation errors array if present
    */
   getValidationErrors(): string[] {
@@ -170,7 +189,12 @@ export class AppError extends Error {
         code = ErrorCode.UNAUTHORIZED
         break
       case 403:
-        code = ErrorCode.FORBIDDEN
+        // Check if this is a plugin disabled error
+        if (message && message.includes('is disabled')) {
+          code = ErrorCode.PLUGIN_DISABLED
+        } else {
+          code = ErrorCode.FORBIDDEN
+        }
         break
       case 404:
         code = ErrorCode.NOT_FOUND
@@ -252,6 +276,22 @@ export class AppError extends Error {
     import('sonner').then(({ toast }) => {
       const appError = AppError.from(error)
       const validationErrors = appError.getValidationErrors()
+
+      // Special handling for plugin disabled errors
+      if (appError.isPluginDisabled) {
+        const pluginName = appError.getDisabledPluginName()
+        toast.error(`Plugin "${pluginName || 'Unknown'}" is disabled`, {
+          description: 'Enable it in Settings to access this feature.',
+          action: {
+            label: 'Go to Settings',
+            onClick: () => {
+              window.location.href = '/settings'
+            },
+          },
+          duration: 8000,
+        })
+        return
+      }
       
       if (validationErrors.length > 0) {
         // Show each validation error as a separate toast
@@ -261,4 +301,5 @@ export class AppError extends Error {
         toast.error(message || fallbackMessage)
       }
     })
-  }}
+  }
+}

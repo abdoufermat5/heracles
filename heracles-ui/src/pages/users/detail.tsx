@@ -31,6 +31,7 @@ import { PosixUserTab } from '@/components/plugins/posix'
 import { SSHUserTab } from '@/components/plugins/ssh'
 import { MailUserTab } from '@/components/plugins/mail'
 import { useUser, useUpdateUser, useDeleteUser, useSetUserPassword, useUserLockStatus, useLockUser, useUnlockUser } from '@/hooks'
+import { usePluginStore, PLUGIN_NAMES } from '@/stores'
 import { userUpdateSchema, setPasswordSchema, type UserUpdateFormData, type SetPasswordFormData } from '@/lib/schemas'
 import { AppError } from '@/lib/errors'
 import { ROUTES } from '@/config/constants'
@@ -48,6 +49,17 @@ export function UserDetailPage() {
   const setPasswordMutation = useSetUserPassword(uid!)
   const lockMutation = useLockUser(uid!)
   const unlockMutation = useUnlockUser(uid!)
+
+  // Check plugin enabled states
+  const plugins = usePluginStore((state) => state.plugins)
+  const isPluginEnabled = (name: string) => {
+    if (!plugins || plugins.length === 0) return true
+    const plugin = plugins.find((p) => p.name === name)
+    return plugin?.enabled ?? true
+  }
+  const isPosixEnabled = isPluginEnabled(PLUGIN_NAMES.POSIX)
+  const isSSHEnabled = isPluginEnabled(PLUGIN_NAMES.SSH)
+  const isMailEnabled = isPluginEnabled(PLUGIN_NAMES.MAIL)
 
   const form = useForm<UserUpdateFormData>({
     resolver: zodResolver(userUpdateSchema),
@@ -196,9 +208,9 @@ export function UserDetailPage() {
       <Tabs defaultValue="general" className="space-y-6">
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="posix">Unix Account</TabsTrigger>
-          <TabsTrigger value="ssh">SSH Keys</TabsTrigger>
-          <TabsTrigger value="mail">Mail</TabsTrigger>
+          {isPosixEnabled && <TabsTrigger value="posix">Unix Account</TabsTrigger>}
+          {isSSHEnabled && <TabsTrigger value="ssh">SSH Keys</TabsTrigger>}
+          {isMailEnabled && <TabsTrigger value="mail">Mail</TabsTrigger>}
           <TabsTrigger value="groups">Groups</TabsTrigger>
         </TabsList>
 
@@ -336,32 +348,38 @@ export function UserDetailPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="posix">
-          <div className="max-w-3xl">
-            <PosixUserTab 
-              uid={user.uid} 
-              displayName={user.displayName || `${user.givenName} ${user.sn}`} 
-            />
-          </div>
-        </TabsContent>
+        {isPosixEnabled && (
+          <TabsContent value="posix">
+            <div className="max-w-3xl">
+              <PosixUserTab 
+                uid={user.uid} 
+                displayName={user.displayName || `${user.givenName} ${user.sn}`} 
+              />
+            </div>
+          </TabsContent>
+        )}
 
-        <TabsContent value="ssh">
-          <div className="max-w-4xl">
-            <SSHUserTab 
-              uid={user.uid} 
-              displayName={user.displayName || `${user.givenName} ${user.sn}`} 
-            />
-          </div>
-        </TabsContent>
+        {isSSHEnabled && (
+          <TabsContent value="ssh">
+            <div className="max-w-4xl">
+              <SSHUserTab 
+                uid={user.uid} 
+                displayName={user.displayName || `${user.givenName} ${user.sn}`} 
+              />
+            </div>
+          </TabsContent>
+        )}
 
-        <TabsContent value="mail">
-          <div className="max-w-4xl">
-            <MailUserTab 
-              uid={user.uid} 
-              displayName={user.displayName || `${user.givenName} ${user.sn}`} 
-            />
-          </div>
-        </TabsContent>
+        {isMailEnabled && (
+          <TabsContent value="mail">
+            <div className="max-w-4xl">
+              <MailUserTab 
+                uid={user.uid} 
+                displayName={user.displayName || `${user.givenName} ${user.sn}`} 
+              />
+            </div>
+          </TabsContent>
+        )}
 
         <TabsContent value="groups">
           <Card>

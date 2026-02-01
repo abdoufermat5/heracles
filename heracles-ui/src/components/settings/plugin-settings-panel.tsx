@@ -8,7 +8,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -22,15 +22,26 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Save, RotateCcw } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Save, RotateCcw, AlertTriangle, Database } from "lucide-react";
 import { ConfigFieldComponent } from "./config-field";
 import { useUpdatePluginConfig, useTogglePlugin } from "@/hooks/use-config";
-import type { PluginConfig, ConfigSection } from "@/types/config";
+import type { PluginConfig, ConfigSection, RdnChangeCheckResponse } from "@/types/config";
 
 interface PluginSettingsPanelProps {
   plugin: PluginConfig;
@@ -121,6 +132,17 @@ function buildDefaults(sections: ConfigSection[], currentConfig: Record<string, 
 export function PluginSettingsPanel({ plugin, onSave }: PluginSettingsPanelProps) {
   const updatePluginConfig = useUpdatePluginConfig();
   const togglePlugin = useTogglePlugin();
+  
+  // Migration confirmation dialog state
+  const [migrationDialog, setMigrationDialog] = useState<{
+    open: boolean;
+    pendingData: Record<string, unknown> | null;
+    migrationCheck: RdnChangeCheckResponse | null;
+  }>({
+    open: false,
+    pendingData: null,
+    migrationCheck: null,
+  });
 
   // Use sections (from API) - handle empty array safely
   const sections = plugin.sections || [];
@@ -138,12 +160,46 @@ export function PluginSettingsPanel({ plugin, onSave }: PluginSettingsPanelProps
     form.reset(buildDefaults(sections, plugin.config));
   }, [plugin.name]);
 
-  const onSubmit = async (data: Record<string, unknown>) => {
-    await updatePluginConfig.mutateAsync({
+  const onSubmit = async (data: Record<string, unknown>, confirmed = false, migrateEntries = true) => {
+    const result = await updatePluginConfig.mutateAsync({
       name: plugin.name,
-      data: { config: data },
+      data: { 
+        config: data,
+        confirmed,
+        migrateEntries,
+      },
     });
+    
+    // Check if migration confirmation is required
+    if (result.requiresConfirmation && result.migrationCheck) {
+      setMigrationDialog({
+        open: true,
+        pendingData: data,
+        migrationCheck: result.migrationCheck,
+      });
+      return;
+    }
+    
+    // Success - close dialog if open and call onSave
+    setMigrationDialog({ open: false, pendingData: null, migrationCheck: null });
     onSave?.();
+  };
+  
+  const handleMigrationConfirm = async (migrate: boolean) => {
+    if (migrationDialog.pendingData) {
+      try {
+        // Resubmit with confirmation
+        await onSubmit(migrationDialog.pendingData, true, migrate);
+      } catch (error) {
+        // Error is handled by the hook's onError
+        // Close the dialog anyway
+        setMigrationDialog({ open: false, pendingData: null, migrationCheck: null });
+      }
+    }
+  };
+  
+  const handleMigrationCancel = () => {
+    setMigrationDialog({ open: false, pendingData: null, migrationCheck: null });
   };
 
   const handleReset = () => {
@@ -201,7 +257,7 @@ export function PluginSettingsPanel({ plugin, onSave }: PluginSettingsPanelProps
       
       {plugin.enabled && sections.length > 0 && (
         <CardContent>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit((data) => onSubmit(data))} className="space-y-4">
             <Accordion type="multiple" defaultValue={sections.map((s) => s.id)}>
               {sections.map((section) => (
                 <AccordionItem key={section.id} value={section.id}>
@@ -283,6 +339,82 @@ export function PluginSettingsPanel({ plugin, onSave }: PluginSettingsPanelProps
           </p>
         </CardContent>
       )}
+      
+      {/* Migration Confirmation Dialog */}
+      <AlertDialog open={migrationDialog.open} onOpenChange={(open: boolean) => !open && handleMigrationCancel()}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              RDN Change Requires Migration
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4">
+                <p>
+                  Changing this RDN setting will affect existing LDAP entries.
+                </p>
+                
+                {migrationDialog.migrationCheck && (
+                  <Alert variant="warning" showIcon={false} className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+                    <Database className="h-4 w-4 text-amber-600" />
+                    <AlertTitle className="text-amber-800 dark:text-amber-200">
+                      {migrationDialog.migrationCheck.entriesCount} entries will be affected
+                    </AlertTitle>
+                    <AlertDescription className="text-amber-700 dark:text-amber-300">
+                      <div className="mt-2 space-y-1">
+                        <p className="text-sm">
+                          <strong>From:</strong> {migrationDialog.migrationCheck.oldRdn}
+                        </p>
+                        <p className="text-sm">
+                          <strong>To:</strong> {migrationDialog.migrationCheck.newRdn}
+                        </p>
+                      </div>
+                      {migrationDialog.migrationCheck.entriesDns && 
+                       migrationDialog.migrationCheck.entriesDns.length > 0 && (
+                        <div className="mt-3">
+                          <p className="text-sm font-medium mb-1">Affected entries:</p>
+                          <ul className="text-xs space-y-0.5 max-h-32 overflow-y-auto">
+                            {migrationDialog.migrationCheck.entriesDns.slice(0, 10).map((dn) => (
+                              <li key={dn} className="font-mono truncate">{dn}</li>
+                            ))}
+                            {migrationDialog.migrationCheck.entriesDns.length > 10 && (
+                              <li className="text-muted-foreground">
+                                ... and {migrationDialog.migrationCheck.entriesDns.length - 10} more
+                              </li>
+                            )}
+                          </ul>
+                        </div>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                <p className="text-sm text-muted-foreground">
+                  Choose how to proceed:
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel onClick={handleMigrationCancel}>
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={() => handleMigrationConfirm(false)}
+              disabled={updatePluginConfig.isPending}
+            >
+              {updatePluginConfig.isPending ? "Saving..." : "Change Setting Only"}
+            </Button>
+            <Button
+              onClick={() => handleMigrationConfirm(true)}
+              disabled={updatePluginConfig.isPending}
+            >
+              {updatePluginConfig.isPending ? "Migrating..." : "Migrate Entries"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

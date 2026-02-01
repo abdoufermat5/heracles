@@ -6,7 +6,7 @@
  * and plugin settings on the right.
  */
 
-import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { PluginSettingsPanel } from "./plugin-settings-panel";
@@ -19,9 +19,18 @@ interface PluginsTabContentProps {
 
 export function PluginsTabContent({ plugins }: PluginsTabContentProps) {
   const sortedPlugins = [...plugins].sort((a, b) => a.name.localeCompare(b.name));
-  const [selectedPlugin, setSelectedPlugin] = useState<string | null>(
-    sortedPlugins.length > 0 ? sortedPlugins[0].name : null
-  );
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Get selected plugin from URL, default to first plugin
+  const defaultPlugin = sortedPlugins.length > 0 ? sortedPlugins[0].name : null;
+  const selectedPlugin = searchParams.get("plugin") || defaultPlugin;
+  
+  const handlePluginSelect = (pluginName: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set("tab", "plugins");
+    newParams.set("plugin", pluginName);
+    setSearchParams(newParams, { replace: true });
+  };
 
   const currentPlugin = sortedPlugins.find((p) => p.name === selectedPlugin);
 
@@ -50,7 +59,7 @@ export function PluginsTabContent({ plugins }: PluginsTabContentProps) {
           {sortedPlugins.map((plugin) => (
             <button
               key={plugin.name}
-              onClick={() => setSelectedPlugin(plugin.name)}
+              onClick={() => handlePluginSelect(plugin.name)}
               className={cn(
                 "w-full flex items-center justify-between px-3 py-2 rounded-md text-left transition-colors",
                 "hover:bg-accent hover:text-accent-foreground",

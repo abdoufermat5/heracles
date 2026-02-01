@@ -352,24 +352,46 @@ class DhcpPlugin(Plugin):
             return "Failover split must be between 0 and 256"
         
         return None
-    
-    @staticmethod
-    def on_config_change(old_config: Dict[str, Any], new_config: Dict[str, Any]) -> None:
+
+    def on_config_change(
+        self,
+        old_config: Dict[str, Any],
+        new_config: Dict[str, Any],
+        changed_keys: List[str],
+    ) -> None:
         """
         Handle configuration changes.
         
         Args:
             old_config: Previous configuration.
             new_config: New configuration.
+            changed_keys: List of changed configuration keys.
         """
-        # Log significant configuration changes
-        if old_config.get("dhcp_rdn") != new_config.get("dhcp_rdn"):
-            # RDN change requires service restart
-            pass
+        self.logger.info(f"DHCP plugin configuration updated: {changed_keys}")
         
-        if old_config.get("authoritative") != new_config.get("authoritative"):
-            # Authoritative flag change may affect DHCP behavior
-            pass
+        # Reload service config if RDN changed
+        if "dhcp_rdn" in changed_keys:
+            self.logger.warning(
+                f"DHCP RDN changed: {old_config.get('dhcp_rdn')} -> {new_config.get('dhcp_rdn')}"
+            )
+            # Update the internal RDN value
+            self._dhcp_rdn = new_config.get("dhcp_rdn", "cn=dhcp")
+            
+            # Try to reload the service config if we have access to it
+            try:
+                from heracles_api.plugins.registry import get_plugin_registry
+                registry = get_plugin_registry()
+                service = registry.get_service("dhcp")
+                if service and hasattr(service, 'reload_config'):
+                    service.reload_config(new_config)
+                    self.logger.info("DHCP service config reloaded")
+            except Exception as e:
+                self.logger.warning(f"Could not reload service config: {e}")
+        
+        if "authoritative" in changed_keys:
+            self.logger.info(
+                f"Authoritative flag changed: {new_config.get('authoritative')}"
+            )
     
     def on_activate(self) -> None:
         """Called when the plugin is activated."""

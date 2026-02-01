@@ -21,7 +21,11 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loginError, setLoginError] = useState<string | null>(null)
 
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || ROUTES.DASHBOARD
+  // Get full redirect path including search params
+  const fromLocation = (location.state as { from?: { pathname: string; search?: string } })?.from
+  const from = fromLocation 
+    ? `${fromLocation.pathname}${fromLocation.search || ''}`
+    : ROUTES.DASHBOARD
 
   const {
     register,

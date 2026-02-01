@@ -20,6 +20,7 @@ from heracles_api.services import init_ldap_service, close_ldap_service, get_lda
 from heracles_api.services.config_service import init_config_service
 from heracles_api.plugins.loader import load_enabled_plugins, unload_all_plugins
 from heracles_api.middleware.rate_limit import RateLimitMiddleware
+from heracles_api.middleware.plugin_access import PluginAccessMiddleware
 
 logger = structlog.get_logger(__name__)
 
@@ -51,6 +52,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         try:
             init_config_service(db_pool)
             logger.info("config_service_initialized")
+            
+            # Inject database pool into plugin access middleware
+            for middleware in app.middleware_stack.app.__dict__.get('middleware', []):
+                if hasattr(middleware, 'set_db_pool'):
+                    middleware.set_db_pool(db_pool)
+            # Alternative: store on app state for middleware access
+            app.state.db_pool = db_pool
         except Exception as e:
             logger.warning("config_service_init_failed", error=str(e))
     else:
@@ -68,7 +76,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         ldap_service = get_ldap_service()
         plugins_config = {
             "plugins": {
-                "enabled": settings.PLUGINS_ENABLED,
+                "enabled": settings.PLUGINS_AVAILABLE,
                 "config": {
                     "posix": {
                         "uid_min": settings.POSIX_UID_MIN,
@@ -145,6 +153,11 @@ app.add_middleware(
 # Rate limiting middleware (reads config from database)
 # Note: Redis client is injected dynamically when available
 app.add_middleware(RateLimitMiddleware)
+
+# Plugin access middleware (blocks requests to disabled plugins)
+# Note: Database pool is injected in lifespan after init
+_plugin_access_middleware = PluginAccessMiddleware(app)
+app.add_middleware(PluginAccessMiddleware)
 
 # Include API routers
 app.include_router(api_v1_router, prefix="/api/v1")

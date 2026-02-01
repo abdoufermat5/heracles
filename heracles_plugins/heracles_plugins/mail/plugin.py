@@ -372,24 +372,33 @@ class MailPlugin(Plugin):
             return "Allowed domains must be specified when domain validation is enabled"
         
         return None
-    
-    @staticmethod
-    def on_config_change(old_config: Dict[str, Any], new_config: Dict[str, Any]) -> None:
+
+    def on_config_change(
+        self,
+        old_config: Dict[str, Any],
+        new_config: Dict[str, Any],
+        changed_keys: List[str],
+    ) -> None:
         """
         Handle configuration changes.
         
         Args:
             old_config: Previous configuration.
             new_config: New configuration.
+            changed_keys: List of changed configuration keys.
         """
-        # Log significant changes
-        if old_config.get("default_mail_domain") != new_config.get("default_mail_domain"):
-            # Domain change affects new accounts
-            pass
+        self.logger.info(f"Mail plugin configuration updated: {changed_keys}")
         
-        if old_config.get("default_quota") != new_config.get("default_quota"):
-            # Quota change affects new accounts only
-            pass
+        # Log significant changes
+        if "default_mail_domain" in changed_keys:
+            self.logger.info(
+                f"Default mail domain changed: {new_config.get('default_mail_domain')}"
+            )
+        
+        if "default_quota" in changed_keys:
+            self.logger.info(
+                f"Default quota changed: {new_config.get('default_quota')}"
+            )
 
     def on_activate(self) -> None:
         """Called when plugin is activated."""

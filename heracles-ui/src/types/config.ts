@@ -87,6 +87,7 @@ export interface ConfigSetting {
 // Plugin configuration
 export interface PluginConfig {
   name: string;
+  displayName?: string;
   description?: string;
   version: string;
   enabled: boolean;
@@ -144,6 +145,27 @@ export interface ConfigBulkUpdateRequest {
 export interface PluginConfigUpdateRequest {
   config: Record<string, unknown>;
   reason?: string;
+  confirmed?: boolean;
+  migrateEntries?: boolean;
+}
+
+// Response for plugin config update (may include migration check)
+export interface PluginConfigUpdateResponse {
+  success?: boolean;
+  message?: string;
+  requiresConfirmation?: boolean;
+  migrationCheck?: RdnChangeCheckResponse;
+  migrations?: Array<{
+    key: string;
+    entriesMigrated: number;
+    entriesFailed: number;
+    mode: string;
+  }>;
+  // Also may include the updated plugin config fields
+  name?: string;
+  displayName?: string;
+  enabled?: boolean;
+  config?: Record<string, unknown>;
 }
 
 // History query params
@@ -188,3 +210,66 @@ export interface PluginSettingsFormState extends SettingsFormState {
   pluginName: string;
   enabled: boolean;
 }
+
+// =============================================================================
+// RDN Migration Types
+// =============================================================================
+
+// Request to check RDN change impact
+export interface RdnChangeCheckRequest {
+  oldRdn: string;
+  newRdn: string;
+  baseDn?: string;
+  objectClassFilter?: string;
+}
+
+// Response for RDN change impact check
+export interface RdnChangeCheckResponse {
+  oldRdn: string;
+  newRdn: string;
+  baseDn: string;
+  entriesCount: number;
+  entriesDns: string[];
+  supportsModrdn: boolean;
+  recommendedMode: "modrdn" | "copy_delete" | "leave_orphaned";
+  warnings: string[];
+  requiresConfirmation: boolean;
+}
+
+// Request to migrate entries after RDN change
+export interface RdnMigrationRequest {
+  oldRdn: string;
+  newRdn: string;
+  baseDn?: string;
+  mode: "modrdn" | "copy_delete" | "leave_orphaned";
+  objectClassFilter?: string;
+  confirmed: boolean;
+}
+
+// Response for RDN migration operation
+export interface RdnMigrationResponse {
+  success: boolean;
+  mode: string;
+  entriesMigrated: number;
+  entriesFailed: number;
+  failedEntries: Array<{ dn: string; error: string }>;
+  warnings: string[];
+}
+
+// Setting update with migration support
+export interface SettingUpdateWithMigrationRequest {
+  value: unknown;
+  reason?: string;
+  confirmed: boolean;
+  migrateEntries: boolean;
+}
+
+// Response for setting update with migration
+export interface SettingUpdateWithMigrationResponse {
+  success: boolean;
+  message: string;
+  requiresConfirmation: boolean;
+  migrationCheck?: RdnChangeCheckResponse;
+  migrationResult?: RdnMigrationResponse;
+}
+

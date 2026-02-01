@@ -35,7 +35,7 @@ import {
   KeyRound,
   Mail,
 } from 'lucide-react'
-import { useAuthStore } from '@/stores'
+import { useAuthStore, usePluginStore, PLUGIN_NAMES } from '@/stores'
 import { ROUTES, PLUGIN_ROUTES } from '@/config/constants'
 import { DepartmentSelector } from '@/components/departments'
 
@@ -69,16 +69,19 @@ const infrastructureNavItems = [
     title: 'Systems',
     url: PLUGIN_ROUTES.SYSTEMS.LIST,
     icon: Server,
+    pluginName: PLUGIN_NAMES.SYSTEMS,
   },
   {
     title: 'DNS Zones',
     url: PLUGIN_ROUTES.DNS.ZONES,
     icon: Globe,
+    pluginName: PLUGIN_NAMES.DNS,
   },
   {
     title: 'DHCP',
     url: PLUGIN_ROUTES.DHCP.SERVICES,
     icon: Network,
+    pluginName: PLUGIN_NAMES.DHCP,
   },
 ]
 
@@ -88,12 +91,14 @@ const securityNavItems = [
     title: 'Sudo Roles',
     url: PLUGIN_ROUTES.SUDO.ROLES,
     icon: ShieldCheck,
+    pluginName: PLUGIN_NAMES.SUDO,
   },
   {
     title: 'SSH Keys',
     url: '/ssh-keys',  // TODO: Add to routes when SSH management page is ready
     icon: KeyRound,
     disabled: true,
+    pluginName: PLUGIN_NAMES.SSH,
   },
 ]
 
@@ -109,6 +114,26 @@ const securityNavItems = [
 export function AppSidebar() {
   const location = useLocation()
   const { user, logout } = useAuthStore()
+  const plugins = usePluginStore((state) => state.plugins)
+  const isInitialized = usePluginStore((state) => state.isInitialized)
+  
+  // Helper to check if plugin is enabled
+  const isPluginEnabled = (name: string) => {
+    // If plugins haven't loaded yet, show all by default
+    if (!isInitialized || !plugins || plugins.length === 0) return true
+    const plugin = plugins.find((p) => p.name === name)
+    // If plugin not found in list, default to true (graceful degradation)
+    if (!plugin) return true
+    return plugin.enabled
+  }
+
+  // Filter nav items based on plugin enabled state
+  const filteredInfrastructureItems = infrastructureNavItems.filter(
+    (item) => !item.pluginName || isPluginEnabled(item.pluginName)
+  )
+  const filteredSecurityItems = securityNavItems.filter(
+    (item) => !item.pluginName || isPluginEnabled(item.pluginName)
+  )
 
   const getInitials = (name?: string) => {
     if (!name) return 'U'
@@ -159,45 +184,48 @@ export function AppSidebar() {
         </SidebarGroup>
 
         {/* Infrastructure */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Infrastructure</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {infrastructureNavItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location.pathname === item.url || location.pathname.startsWith(item.url + '/')}
-                  >
-                    <Link to={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Security & Access */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Security</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {securityNavItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location.pathname === item.url || location.pathname.startsWith(item.url + '/')}
-                    disabled={'disabled' in item && item.disabled}
-                    className={'disabled' in item && item.disabled ? 'opacity-50 cursor-not-allowed' : ''}
-                  >
-                    {'disabled' in item && item.disabled ? (
-                      <span className="flex items-center gap-2">
+        {filteredInfrastructureItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Infrastructure</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {filteredInfrastructureItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location.pathname === item.url || location.pathname.startsWith(item.url + '/')}
+                    >
+                      <Link to={item.url}>
                         <item.icon />
                         <span>{item.title}</span>
-                      </span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Security & Access */}
+        {filteredSecurityItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Security</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {filteredSecurityItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location.pathname === item.url || location.pathname.startsWith(item.url + '/')}
+                      disabled={'disabled' in item && item.disabled}
+                      className={'disabled' in item && item.disabled ? 'opacity-50 cursor-not-allowed' : ''}
+                    >
+                      {'disabled' in item && item.disabled ? (
+                        <span className="flex items-center gap-2">
+                          <item.icon />
+                          <span>{item.title}</span>
+                        </span>
                     ) : (
                       <Link to={item.url}>
                         <item.icon />
@@ -207,9 +235,10 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         <SidebarSeparator />
 

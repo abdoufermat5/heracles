@@ -18,7 +18,14 @@ from heracles_api.schemas.config import (
     GlobalConfigResponse,
     PluginConfigResponse,
     PluginConfigUpdateRequest,
+    PluginConfigUpdateResponse,
     PluginToggleRequest,
+    RdnChangeCheckRequest,
+    RdnChangeCheckResponse,
+    RdnMigrationRequest,
+    RdnMigrationResponse,
+    SettingUpdateWithConfirmation,
+    SettingUpdateResponse,
 )
 from heracles_api.services.config_service import get_config_service, ConfigService
 from heracles_api.core.dependencies import get_current_user
@@ -196,6 +203,7 @@ async def get_plugin_config(
     "/plugins/{plugin_name}",
     summary="Update plugin configuration",
     description="Update configuration for a specific plugin.",
+    response_model=PluginConfigUpdateResponse,
 )
 async def update_plugin_config(
     plugin_name: str,
@@ -203,21 +211,32 @@ async def update_plugin_config(
     current_user=Depends(get_current_user),
     config_service: ConfigService = Depends(get_config_svc),
 ):
-    """Update a plugin's configuration."""
-    success, errors = await config_service.update_plugin_config(
+    """
+    Update a plugin's configuration.
+    
+    For RDN settings (like sudoers_rdn, dns_rdn, systems_rdn), this endpoint
+    will check if existing entries would be affected and require confirmation.
+    """
+    result = await config_service.update_plugin_config_with_migration(
         plugin_name=plugin_name,
         config=request.config,
         changed_by=current_user.user_dn,
         reason=request.reason,
+        confirmed=request.confirmed,
+        migrate_entries=request.migrate_entries,
     )
     
-    if not success:
+    # Check if migration confirmation is required
+    if result.get("requires_confirmation"):
+        return PluginConfigUpdateResponse(**result)
+    
+    if not result.get("success", True):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"errors": errors},
+            detail={"errors": result.get("errors", [])},
         )
     
-    return {"message": f"Plugin '{plugin_name}' configuration updated successfully"}
+    return PluginConfigUpdateResponse(**result)
 
 
 @router.post(
@@ -302,4 +321,281 @@ async def get_config_history(
         page_size=page_size,
         category=category,
         plugin_name=plugin_name,
+    )
+
+
+# =============================================================================
+# RDN Change Validation
+# =============================================================================
+
+@router.post(
+    "/rdn/check",
+    response_model=RdnChangeCheckResponse,
+    summary="Check RDN change impact",
+    description="Check what entries would be affected by an RDN change before applying it.",
+)
+async def check_rdn_change(
+    request: RdnChangeCheckRequest,
+    current_user=Depends(get_current_user),
+    config_service: ConfigService = Depends(get_config_svc),
+):
+    """
+    Check the impact of an RDN change.
+    
+    This should be called before changing any RDN setting to warn the user
+    about affected entries and migration options.
+    """
+    from heracles_api.services.ldap_service import get_ldap_service
+    from heracles_api.services.ldap_migration_service import LdapMigrationService
+    
+    try:
+        ldap_service = get_ldap_service()
+        migration_service = LdapMigrationService(ldap_service, config_service)
+        
+        check_result = await migration_service.check_rdn_change(
+            old_rdn=request.old_rdn,
+            new_rdn=request.new_rdn,
+            base_dn=request.base_dn,
+            object_class_filter=request.object_class_filter,
+        )
+        
+        # Determine if confirmation is required
+        requires_confirmation = check_result.entries_count > 0
+        
+        return RdnChangeCheckResponse(
+            old_rdn=check_result.old_rdn,
+            new_rdn=check_result.new_rdn,
+            base_dn=check_result.base_dn,
+            entries_count=check_result.entries_count,
+            entries_dns=check_result.entries_dns,
+            supports_modrdn=check_result.supports_modrdn,
+            recommended_mode=check_result.recommended_mode.value,
+            warnings=check_result.warnings,
+            requires_confirmation=requires_confirmation,
+        )
+        
+    except Exception as e:
+        logger.error("rdn_check_failed", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to check RDN change impact: {str(e)}",
+        )
+
+
+@router.post(
+    "/rdn/migrate",
+    response_model=RdnMigrationResponse,
+    summary="Migrate entries after RDN change",
+    description="Migrate entries from old RDN location to new location.",
+)
+async def migrate_rdn_entries(
+    request: RdnMigrationRequest,
+    current_user=Depends(get_current_user),
+    config_service: ConfigService = Depends(get_config_svc),
+):
+    """
+    Migrate entries after an RDN change.
+    
+    This should only be called after the user has confirmed the migration.
+    """
+    from heracles_api.services.ldap_service import get_ldap_service
+    from heracles_api.services.ldap_migration_service import LdapMigrationService, MigrationMode
+    
+    # Require confirmation
+    if not request.confirmed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Migration must be confirmed. Set 'confirmed: true' after reviewing warnings.",
+        )
+    
+    try:
+        ldap_service = get_ldap_service()
+        migration_service = LdapMigrationService(ldap_service, config_service)
+        
+        # Parse mode
+        try:
+            mode = MigrationMode(request.mode)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid migration mode: {request.mode}. Use 'modrdn', 'copy_delete', or 'leave_orphaned'.",
+            )
+        
+        result = await migration_service.migrate_entries(
+            old_rdn=request.old_rdn,
+            new_rdn=request.new_rdn,
+            base_dn=request.base_dn,
+            mode=mode,
+            object_class_filter=request.object_class_filter,
+        )
+        
+        # Log the migration
+        logger.info(
+            "rdn_migration_completed",
+            old_rdn=request.old_rdn,
+            new_rdn=request.new_rdn,
+            mode=mode.value,
+            migrated=result.entries_migrated,
+            failed=result.entries_failed,
+            user=current_user.user_dn,
+        )
+        
+        return RdnMigrationResponse(
+            success=result.success,
+            mode=result.mode.value,
+            entries_migrated=result.entries_migrated,
+            entries_failed=result.entries_failed,
+            failed_entries=result.failed_entries,
+            warnings=result.warnings,
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("rdn_migration_failed", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Migration failed: {str(e)}",
+        )
+
+
+@router.patch(
+    "/settings/{category}/{key}/with-migration",
+    response_model=SettingUpdateResponse,
+    summary="Update setting with RDN migration support",
+    description="Update a setting that may be an RDN, with automatic migration support.",
+)
+async def update_setting_with_migration(
+    category: str,
+    key: str,
+    request: SettingUpdateWithConfirmation,
+    current_user=Depends(get_current_user),
+    config_service: ConfigService = Depends(get_config_svc),
+):
+    """
+    Update a setting with RDN migration support.
+    
+    For RDN settings (like users_rdn, groups_rdn, etc.), this endpoint:
+    1. Checks if entries exist in the old location
+    2. If entries exist and not confirmed, returns warning with migration check
+    3. If confirmed and migrate_entries is true, performs migration
+    4. Updates the setting value
+    """
+    from heracles_api.services.ldap_service import get_ldap_service
+    from heracles_api.services.ldap_migration_service import LdapMigrationService, MigrationMode
+    
+    # List of RDN settings that may require migration
+    RDN_SETTINGS = {
+        ("ldap", "users_rdn"): None,
+        ("ldap", "groups_rdn"): None,
+        ("dns", "dns_rdn"): "dNSZone",
+        ("dhcp", "dhcp_rdn"): "dhcpService",
+        ("sudo", "sudoers_rdn"): "sudoRole",
+        ("systems", "systems_rdn"): "device",
+    }
+    
+    setting_key = (category, key)
+    is_rdn_setting = setting_key in RDN_SETTINGS or key.endswith("_rdn")
+    
+    migration_check = None
+    migration_result = None
+    
+    if is_rdn_setting:
+        # Get current value
+        current_value = await config_service.get_setting(category, key)
+        new_value = request.value
+        
+        # Only check if value is actually changing
+        if current_value != new_value and current_value is not None:
+            try:
+                ldap_service = get_ldap_service()
+                migration_service = LdapMigrationService(ldap_service, config_service)
+                
+                object_class_filter = RDN_SETTINGS.get(setting_key)
+                
+                check_result = await migration_service.check_rdn_change(
+                    old_rdn=str(current_value),
+                    new_rdn=str(new_value),
+                    object_class_filter=object_class_filter,
+                )
+                
+                migration_check = RdnChangeCheckResponse(
+                    old_rdn=check_result.old_rdn,
+                    new_rdn=check_result.new_rdn,
+                    base_dn=check_result.base_dn,
+                    entries_count=check_result.entries_count,
+                    entries_dns=check_result.entries_dns,
+                    supports_modrdn=check_result.supports_modrdn,
+                    recommended_mode=check_result.recommended_mode.value,
+                    warnings=check_result.warnings,
+                    requires_confirmation=check_result.entries_count > 0,
+                )
+                
+                # If entries exist and not confirmed, return warning
+                if check_result.entries_count > 0 and not request.confirmed:
+                    return SettingUpdateResponse(
+                        success=False,
+                        message="RDN change affects existing entries. Please confirm to proceed.",
+                        requires_confirmation=True,
+                        migration_check=migration_check,
+                    )
+                
+                # If confirmed and should migrate, perform migration
+                if check_result.entries_count > 0 and request.confirmed and request.migrate_entries:
+                    mode = MigrationMode.MODRDN if check_result.supports_modrdn else MigrationMode.COPY_DELETE
+                    
+                    result = await migration_service.migrate_entries(
+                        old_rdn=str(current_value),
+                        new_rdn=str(new_value),
+                        object_class_filter=object_class_filter,
+                        mode=mode,
+                    )
+                    
+                    migration_result = RdnMigrationResponse(
+                        success=result.success,
+                        mode=result.mode.value,
+                        entries_migrated=result.entries_migrated,
+                        entries_failed=result.entries_failed,
+                        failed_entries=result.failed_entries,
+                        warnings=result.warnings,
+                    )
+                    
+                    # If migration failed, don't update the setting
+                    if not result.success:
+                        return SettingUpdateResponse(
+                            success=False,
+                            message=f"Migration failed: {result.entries_failed} entries could not be migrated.",
+                            requires_confirmation=False,
+                            migration_check=migration_check,
+                            migration_result=migration_result,
+                        )
+                        
+            except Exception as e:
+                logger.error("rdn_check_error", error=str(e))
+                # Continue with update but log the error
+    
+    # Update the setting
+    success, errors = await config_service.update_setting(
+        category=category,
+        key=key,
+        value=request.value,
+        changed_by=current_user.user_dn,
+        reason=request.reason,
+    )
+    
+    if not success:
+        return SettingUpdateResponse(
+            success=False,
+            message=f"Failed to update setting: {', '.join(errors)}",
+            requires_confirmation=False,
+            migration_check=migration_check,
+            migration_result=migration_result,
+        )
+    
+    return SettingUpdateResponse(
+        success=True,
+        message="Setting updated successfully",
+        requires_confirmation=False,
+        migration_check=migration_check,
+        migration_result=migration_result,
     )

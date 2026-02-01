@@ -64,10 +64,45 @@ class SudoService(TabService):
     def __init__(self, ldap_service: LdapService, config: Dict[str, Any]):
         super().__init__(ldap_service, config)
         
-        # Configuration
+        # Configuration (cached for fallback)
         self._sudoers_rdn = config.get("sudoers_rdn", "ou=sudoers")
         self._base_dn = config.get("base_dn", ldap_service.base_dn)
         self._sudoers_dn = f"{self._sudoers_rdn},{self._base_dn}"
+    
+    # ========================================================================
+    # Dynamic Config Properties (with hot-reload support)
+    # ========================================================================
+    
+    async def _get_sudoers_rdn(self) -> str:
+        """
+        Get sudoers_rdn with hot-reload support.
+        
+        Reads from database config with fallback to init-time config.
+        """
+        try:
+            from heracles_api.services.config_service import get_plugin_config_value
+            return await get_plugin_config_value(
+                "sudo",
+                "sudoers_rdn",
+                self._sudoers_rdn
+            )
+        except Exception as e:
+            logger.warning("sudo_config_load_error", error=str(e), key="sudoers_rdn")
+            return self._sudoers_rdn
+    
+    async def _get_sudoers_dn(self, base_dn: Optional[str] = None) -> str:
+        """
+        Get the sudoers container DN with hot-reload support.
+        
+        Args:
+            base_dn: Optional base DN to use instead of default
+            
+        Returns:
+            Full DN of sudoers container
+        """
+        sudoers_rdn = await self._get_sudoers_rdn()
+        effective_base = base_dn or self._base_dn
+        return f"{sudoers_rdn},{effective_base}"
     
     # ========================================================================
     # Config-Based Validation
@@ -204,19 +239,22 @@ class SudoService(TabService):
         
         return errors
     
-    def _get_sudoers_container(self, base_dn: Optional[str] = None) -> str:
+    async def _get_sudoers_container(self, base_dn: Optional[str] = None) -> str:
         """Get the sudoers container DN for the given context.
         
-        If base_dn is provided (department context), returns ou=sudoers,{base_dn}.
-        Otherwise returns the default ou=sudoers,{root_base_dn}.
+        If base_dn is provided (department context), returns {sudoers_rdn},{base_dn}.
+        Otherwise returns the default {sudoers_rdn},{root_base_dn}.
+        
+        Uses hot-reload support to get current config value.
         """
+        sudoers_rdn = await self._get_sudoers_rdn()
         if base_dn:
-            return f"{self._sudoers_rdn},{base_dn}"
-        return self._sudoers_dn
+            return f"{sudoers_rdn},{base_dn}"
+        return f"{sudoers_rdn},{self._base_dn}"
     
-    def _get_role_dn(self, cn: str, base_dn: Optional[str] = None) -> str:
+    async def _get_role_dn(self, cn: str, base_dn: Optional[str] = None) -> str:
         """Get the DN for a sudo role."""
-        container = self._get_sudoers_container(base_dn)
+        container = await self._get_sudoers_container(base_dn)
         return f"cn={cn},{container}"
     
     # ========================================================================
@@ -233,7 +271,7 @@ class SudoService(TabService):
         """List all sudo roles with optional filtering."""
         
         # Get the sudoers container for the given context
-        search_base = self._get_sudoers_container(base_dn)
+        search_base = await self._get_sudoers_container(base_dn)
         if search:
             escaped_search = self._ldap._escape_filter(search)
             search_filter = f"(&(objectClass=sudoRole)(|(cn=*{escaped_search}*)(description=*{escaped_search}*)(sudoUser=*{escaped_search}*)))"
@@ -277,7 +315,7 @@ class SudoService(TabService):
         base_dn: Optional[str] = None
     ) -> Optional[SudoRoleRead]:
         """Get a single sudo role by CN."""
-        dn = self._get_role_dn(cn, base_dn)
+        dn = await self._get_role_dn(cn, base_dn)
         
         try:
             entry = await self._ldap.get_by_dn(dn, attributes=self.MANAGED_ATTRIBUTES)
@@ -305,7 +343,7 @@ class SudoService(TabService):
             raise SudoValidationError("; ".join(validation_errors))
         
         # Get the DN for the new role
-        dn = self._get_role_dn(data.cn, base_dn)
+        dn = await self._get_role_dn(data.cn, base_dn)
         
         # Ensure sudoers OU exists (only for root context)
         if not base_dn:
@@ -365,7 +403,8 @@ class SudoService(TabService):
                  raise LdapNotFoundError(f"Sudo role '{cn}' not found in {base_dn}")
              dn = entries[0].dn
         else:
-            dn = f"cn={cn},{self._sudoers_dn}"
+            sudoers_dn = await self._get_sudoers_container()
+            dn = f"cn={cn},{sudoers_dn}"
         
         # Build changes
         changes = {}
@@ -459,7 +498,8 @@ class SudoService(TabService):
                  raise LdapNotFoundError(f"Sudo role '{cn}' not found in {base_dn}")
              dn = entries[0].dn
         else:
-            dn = f"cn={cn},{self._sudoers_dn}"
+            sudoers_dn = await self._get_sudoers_container()
+            dn = f"cn={cn},{sudoers_dn}"
         
         try:
             await self._ldap.delete(dn)
@@ -508,8 +548,9 @@ class SudoService(TabService):
         search_filter = f"(&(objectClass=sudoRole)(|{''.join(filters)}))"
         
         try:
+            sudoers_dn = await self._get_sudoers_container()
             entries = await self._ldap.search(
-                search_base=self._sudoers_dn,
+                search_base=sudoers_dn,
                 search_filter=search_filter,
                 attributes=self.MANAGED_ATTRIBUTES,
             )
@@ -535,8 +576,9 @@ class SudoService(TabService):
         search_filter = f"(&(objectClass=sudoRole)(|(sudoHost={self._ldap._escape_filter(hostname)})(sudoHost=ALL)))"
         
         try:
+            sudoers_dn = await self._get_sudoers_container()
             entries = await self._ldap.search(
-                search_base=self._sudoers_dn,
+                search_base=sudoers_dn,
                 search_filter=search_filter,
                 attributes=self.MANAGED_ATTRIBUTES,
             )
@@ -556,24 +598,29 @@ class SudoService(TabService):
     
     async def _ensure_sudoers_ou(self) -> None:
         """Ensure the sudoers OU exists."""
+        sudoers_dn = await self._get_sudoers_container()
+        sudoers_rdn = await self._get_sudoers_rdn()
+        # Extract the ou value from the rdn (e.g., "ou=sudoers5" -> "sudoers5")
+        ou_value = sudoers_rdn.split("=", 1)[1] if "=" in sudoers_rdn else sudoers_rdn
+        
         try:
-            entry = await self._ldap.get_by_dn(self._sudoers_dn)
+            entry = await self._ldap.get_by_dn(sudoers_dn)
             if entry is None:
                 await self._ldap.add(
-                    dn=self._sudoers_dn,
+                    dn=sudoers_dn,
                     object_classes=["organizationalUnit"],
-                    attributes={"ou": "sudoers"},
+                    attributes={"ou": ou_value},
                 )
-                logger.info("sudoers_ou_created", dn=self._sudoers_dn)
+                logger.info("sudoers_ou_created", dn=sudoers_dn)
         except LdapOperationError:
             # Try to create it
             try:
                 await self._ldap.add(
-                    dn=self._sudoers_dn,
+                    dn=sudoers_dn,
                     object_classes=["organizationalUnit"],
-                    attributes={"ou": "sudoers"},
+                    attributes={"ou": ou_value},
                 )
-                logger.info("sudoers_ou_created", dn=self._sudoers_dn)
+                logger.info("sudoers_ou_created", dn=sudoers_dn)
             except LdapOperationError as e:
                 logger.debug("sudoers_ou_exists_or_error", error=str(e))
     

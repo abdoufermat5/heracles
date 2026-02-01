@@ -135,6 +135,8 @@ class PluginConfigUpdateRequest(BaseModel):
     """Request to update plugin configuration."""
     config: Dict[str, Any]
     reason: Optional[str] = None
+    confirmed: bool = False  # User confirms migration if RDN setting changes
+    migrate_entries: bool = True  # Whether to migrate entries when RDN changes
     
     class Config:
         populate_by_name = True
@@ -280,6 +282,139 @@ class SnapshotSettings(BaseModel):
     enable_auto_snapshots: bool = Field(False, alias="enableAutoSnapshots")
     snapshot_retention_days: int = Field(30, alias="snapshotRetentionDays")
     max_snapshots_per_object: int = Field(10, alias="maxSnapshotsPerObject")
+    
+    class Config:
+        populate_by_name = True
+
+
+# =============================================================================
+# RDN Change Validation
+# =============================================================================
+
+class RdnChangeCheckRequest(BaseModel):
+    """Request to check the impact of an RDN change."""
+    old_rdn: str = Field(..., alias="oldRdn", description="Current RDN value")
+    new_rdn: str = Field(..., alias="newRdn", description="New RDN value")
+    base_dn: Optional[str] = Field(None, alias="baseDn", description="Base DN (optional)")
+    object_class_filter: Optional[str] = Field(
+        None, 
+        alias="objectClassFilter", 
+        description="Filter for specific objectClass"
+    )
+    
+    class Config:
+        populate_by_name = True
+
+
+class RdnChangeCheckResponse(BaseModel):
+    """Response for RDN change impact check."""
+    old_rdn: str = Field(..., alias="oldRdn")
+    new_rdn: str = Field(..., alias="newRdn")
+    base_dn: str = Field(..., alias="baseDn")
+    entries_count: int = Field(..., alias="entriesCount", description="Number of entries affected")
+    entries_dns: List[str] = Field(
+        default_factory=list, 
+        alias="entriesDns", 
+        description="Sample of affected entry DNs"
+    )
+    supports_modrdn: bool = Field(..., alias="supportsModrdn", description="Whether modRDN is supported")
+    recommended_mode: str = Field(..., alias="recommendedMode", description="Recommended migration mode")
+    warnings: List[str] = Field(default_factory=list, description="Warnings about the change")
+    requires_confirmation: bool = Field(
+        ..., 
+        alias="requiresConfirmation", 
+        description="Whether confirmation is required"
+    )
+    
+    class Config:
+        populate_by_name = True
+
+
+class RdnMigrationRequest(BaseModel):
+    """Request to migrate entries after RDN change."""
+    old_rdn: str = Field(..., alias="oldRdn")
+    new_rdn: str = Field(..., alias="newRdn")
+    base_dn: Optional[str] = Field(None, alias="baseDn")
+    mode: str = Field(
+        "modrdn", 
+        description="Migration mode: 'modrdn', 'copy_delete', or 'leave_orphaned'"
+    )
+    object_class_filter: Optional[str] = Field(None, alias="objectClassFilter")
+    confirmed: bool = Field(
+        False, 
+        description="User has confirmed the migration after seeing warnings"
+    )
+    
+    class Config:
+        populate_by_name = True
+
+
+class RdnMigrationResponse(BaseModel):
+    """Response for RDN migration operation."""
+    success: bool
+    mode: str = Field(..., description="Migration mode used")
+    entries_migrated: int = Field(..., alias="entriesMigrated")
+    entries_failed: int = Field(..., alias="entriesFailed")
+    failed_entries: List[Dict[str, str]] = Field(
+        default_factory=list, 
+        alias="failedEntries",
+        description="List of {dn, error} for failed entries"
+    )
+    warnings: List[str] = Field(default_factory=list)
+    
+    class Config:
+        populate_by_name = True
+
+
+class SettingUpdateWithConfirmation(BaseModel):
+    """Setting update request that may require confirmation for RDN changes."""
+    value: Any
+    reason: Optional[str] = None
+    confirmed: bool = Field(
+        False, 
+        description="User has confirmed the change after seeing warnings"
+    )
+    migrate_entries: bool = Field(
+        True, 
+        alias="migrateEntries",
+        description="Whether to migrate existing entries (for RDN changes)"
+    )
+    
+    class Config:
+        populate_by_name = True
+
+
+class SettingUpdateResponse(BaseModel):
+    """Response for setting update, possibly with migration info."""
+    success: bool
+    message: str
+    requires_confirmation: bool = Field(False, alias="requiresConfirmation")
+    migration_check: Optional[RdnChangeCheckResponse] = Field(None, alias="migrationCheck")
+    migration_result: Optional[RdnMigrationResponse] = Field(None, alias="migrationResult")
+    
+    class Config:
+        populate_by_name = True
+
+
+class PluginMigrationResult(BaseModel):
+    """Result of a single RDN migration."""
+    key: str
+    entries_migrated: int = Field(alias="entriesMigrated")
+    entries_failed: int = Field(alias="entriesFailed")
+    mode: str
+    
+    class Config:
+        populate_by_name = True
+
+
+class PluginConfigUpdateResponse(BaseModel):
+    """Response for plugin config update, possibly with migration info."""
+    success: bool = True
+    message: Optional[str] = None
+    errors: Optional[List[str]] = None
+    requires_confirmation: bool = Field(False, alias="requiresConfirmation")
+    migration_check: Optional[RdnChangeCheckResponse] = Field(None, alias="migrationCheck")
+    migrations: Optional[List[PluginMigrationResult]] = None
     
     class Config:
         populate_by_name = True

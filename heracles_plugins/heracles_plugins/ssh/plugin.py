@@ -256,27 +256,33 @@ class SSHPlugin(Plugin):
             pass
         
         return None
-    
-    @staticmethod
-    def on_config_change(old_config: Dict[str, Any], new_config: Dict[str, Any]) -> None:
+
+    def on_config_change(
+        self,
+        old_config: Dict[str, Any],
+        new_config: Dict[str, Any],
+        changed_keys: List[str],
+    ) -> None:
         """
         Handle configuration changes.
         
         Args:
             old_config: Previous configuration.
             new_config: New configuration.
+            changed_keys: List of changed configuration keys.
         """
+        self.logger.info(f"SSH plugin configuration updated: {changed_keys}")
+        
         # Log security-related changes
-        old_types = set(old_config.get("allowed_key_types", []))
-        new_types = set(new_config.get("allowed_key_types", []))
+        if "allowed_key_types" in changed_keys:
+            self.logger.info(
+                f"Allowed key types changed: {new_config.get('allowed_key_types')}"
+            )
         
-        if old_types != new_types:
-            # Key type policy changed
-            pass
-        
-        if old_config.get("min_rsa_bits") != new_config.get("min_rsa_bits"):
-            # RSA minimum size changed
-            pass
+        if "min_rsa_bits" in changed_keys:
+            self.logger.info(
+                f"Min RSA bits changed: {new_config.get('min_rsa_bits')}"
+            )
     
     def on_activate(self) -> None:
         """Called when plugin is activated."""

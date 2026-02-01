@@ -54,7 +54,10 @@ class Settings(BaseSettings):
     TEST_EMAIL_DOMAINS: List[str] = ["heracles.local", "test.local", "localhost"]
     
     # Plugins
-    PLUGINS_ENABLED: List[str] = ["posix", "sudo", "ssh", "systems", "dns", "dhcp", "mail"]
+    # PLUGINS_AVAILABLE: List of plugins to LOAD (routes registered).
+    # This does NOT control enabled/disabled state - that's stored in the database.
+    # To disable a plugin at runtime, use the Settings UI or API endpoint.
+    PLUGINS_AVAILABLE: List[str] = ["posix", "sudo", "ssh", "systems", "dns", "dhcp", "mail"]
     
     # POSIX Plugin Settings
     POSIX_UID_MIN: int = 10000

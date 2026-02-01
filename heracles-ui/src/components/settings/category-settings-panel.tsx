@@ -8,7 +8,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -20,8 +20,9 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Save, RotateCcw } from "lucide-react";
 import { ConfigFieldComponent } from "./config-field";
-import { useUpdateSetting } from "@/hooks/use-config";
-import type { ConfigCategory, ConfigSetting } from "@/types/config";
+import { useUpdateSetting, useUpdateSettingWithMigration } from "@/hooks/use-config";
+import { RdnMigrationDialog } from "./rdn-migration-dialog";
+import type { ConfigCategory, ConfigSetting, RdnChangeCheckResponse } from "@/types/config";
 
 interface CategorySettingsPanelProps {
   category: ConfigCategory;
@@ -65,6 +66,7 @@ function buildSchema(settings: ConfigSetting[]) {
         break;
       }
       case "multiselect":
+      case "list":
         fieldSchema = z.array(z.union([z.string(), z.number()]));
         break;
       default: {
@@ -112,6 +114,15 @@ function settingToField(setting: ConfigSetting) {
 
 export function CategorySettingsPanel({ category, onSave }: CategorySettingsPanelProps) {
   const updateSetting = useUpdateSetting();
+  const updateSettingWithMigration = useUpdateSettingWithMigration();
+
+  // RDN migration state
+  const [migrationDialogOpen, setMigrationDialogOpen] = useState(false);
+  const [pendingMigrationCheck, setPendingMigrationCheck] = useState<RdnChangeCheckResponse | null>(null);
+  const [pendingRdnChange, setPendingRdnChange] = useState<{ key: string; value: unknown } | null>(null);
+
+  // Check if a setting is an RDN setting by naming convention
+  const isRdnSetting = (key: string) => key.endsWith("_rdn");
 
   // Safely get settings (handle undefined)
   const settings = category.settings || [];
@@ -148,14 +159,64 @@ export function CategorySettingsPanel({ category, onSave }: CategorySettingsPane
       }
     }
 
-    // Update each changed setting
+    // Process changes
     for (const change of changes) {
-      await updateSetting.mutateAsync({
-        category: category.name,
-        key: change.key,
-        data: { value: change.value },
-      });
+      // Check if this is an RDN setting
+      if (isRdnSetting(change.key)) {
+        // Use the migration endpoint to check if confirmation is needed
+        const result = await updateSettingWithMigration.mutateAsync({
+          category: category.name,
+          key: change.key,
+          data: { 
+            value: change.value,
+            confirmed: false,  // First try without confirmation
+            migrateEntries: true,
+          },
+        });
+
+        // If requires confirmation, show the dialog
+        if (result.requiresConfirmation && result.migrationCheck) {
+          setPendingMigrationCheck(result.migrationCheck);
+          setPendingRdnChange(change);
+          setMigrationDialogOpen(true);
+          return; // Stop processing - will continue after dialog
+        }
+        
+        // If it succeeded without needing confirmation, continue
+        if (result.success) {
+          continue;
+        }
+      } else {
+        // Regular setting update
+        await updateSetting.mutateAsync({
+          category: category.name,
+          key: change.key,
+          data: { value: change.value },
+        });
+      }
     }
+
+    onSave?.();
+  };
+
+  // Handle migration dialog confirmation
+  const handleMigrationConfirm = async (migrate: boolean) => {
+    if (!pendingRdnChange) return;
+
+    await updateSettingWithMigration.mutateAsync({
+      category: category.name,
+      key: pendingRdnChange.key,
+      data: {
+        value: pendingRdnChange.value,
+        confirmed: true,
+        migrateEntries: migrate,
+      },
+    });
+
+    // Reset state
+    setMigrationDialogOpen(false);
+    setPendingMigrationCheck(null);
+    setPendingRdnChange(null);
 
     onSave?.();
   };
@@ -176,6 +237,7 @@ export function CategorySettingsPanel({ category, onSave }: CategorySettingsPane
   };
 
   const isDirty = form.formState.isDirty;
+  const isProcessing = updateSetting.isPending || updateSettingWithMigration.isPending;
 
   // Show empty state if no settings
   if (settings.length === 0) {
@@ -197,69 +259,82 @@ export function CategorySettingsPanel({ category, onSave }: CategorySettingsPane
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{category.label}</CardTitle>
-        {category.description && (
-          <CardDescription>{category.description}</CardDescription>
-        )}
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          {settings.map((setting, index) => (
-            <div key={setting.key}>
-              <ConfigFieldComponent
-                field={settingToField(setting)}
-                control={form.control}
-                name={setting.key as never}
-                disabled={updateSetting.isPending}
-              />
-              {index < settings.length - 1 && <Separator className="mt-6" />}
-            </div>
-          ))}
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>{category.label}</CardTitle>
+          {category.description && (
+            <CardDescription>{category.description}</CardDescription>
+          )}
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {settings.map((setting, index) => (
+              <div key={setting.key}>
+                <ConfigFieldComponent
+                  field={settingToField(setting)}
+                  control={form.control}
+                  name={setting.key as never}
+                  disabled={isProcessing}
+                />
+                {index < settings.length - 1 && <Separator className="mt-6" />}
+              </div>
+            ))}
 
-          <Separator />
+            <Separator />
 
-          <div className="flex justify-between">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleResetToDefaults}
-              disabled={updateSetting.isPending}
-            >
-              <RotateCcw className="mr-2 h-4 w-4" />
-              Reset to Defaults
-            </Button>
-
-            <div className="flex gap-2">
+            <div className="flex justify-between">
               <Button
                 type="button"
                 variant="outline"
-                onClick={handleReset}
-                disabled={!isDirty || updateSetting.isPending}
+                onClick={handleResetToDefaults}
+                disabled={isProcessing}
               >
-                Discard Changes
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Reset to Defaults
               </Button>
-              <Button
-                type="submit"
-                disabled={!isDirty || updateSetting.isPending}
-              >
-                {updateSetting.isPending ? (
-                  <>
-                    <Save className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="mr-2 h-4 w-4" />
-                    Save Changes
-                  </>
-                )}
-              </Button>
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleReset}
+                  disabled={!isDirty || isProcessing}
+                >
+                  Discard Changes
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={!isDirty || isProcessing}
+                >
+                  {isProcessing ? (
+                    <>
+                      <Save className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Save Changes
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* RDN Migration Confirmation Dialog */}
+      {pendingMigrationCheck && (
+        <RdnMigrationDialog
+          open={migrationDialogOpen}
+          onOpenChange={setMigrationDialogOpen}
+          migrationCheck={pendingMigrationCheck}
+          onConfirm={handleMigrationConfirm}
+          isLoading={updateSettingWithMigration.isPending}
+        />
+      )}
+    </>
   );
 }

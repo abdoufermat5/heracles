@@ -565,14 +565,162 @@ class ConfigService:
                     changed_by=changed_by,
                 )
                 
-                logger.info(
-                    "plugin_config_updated",
-                    plugin=plugin_name,
-                    changed_keys=changed_keys,
-                    changed_by=changed_by,
+                return True, []
+    
+    async def update_plugin_config_with_migration(
+        self,
+        plugin_name: str,
+        config: Dict[str, Any],
+        changed_by: str,
+        reason: Optional[str] = None,
+        confirmed: bool = False,
+        migrate_entries: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Update plugin configuration with RDN migration support.
+        
+        For RDN settings (like sudoers_rdn, dns_rdn, systems_rdn), this method
+        checks if existing entries would be affected and handles migration.
+        
+        Args:
+            plugin_name: Plugin name
+            config: New configuration values
+            changed_by: DN of user making the change
+            reason: Optional reason for the change
+            confirmed: Whether user confirmed the migration
+            migrate_entries: Whether to migrate entries when RDN changes
+            
+        Returns:
+            Dict with success status, message, and optional migration info
+        """
+        from heracles_api.services.ldap_service import get_ldap_service
+        from heracles_api.services.ldap_migration_service import LdapMigrationService, MigrationMode
+        
+        # RDN settings that may require migration: (plugin_name, key) -> objectClass filter
+        PLUGIN_RDN_SETTINGS = {
+            ("dns", "dns_rdn"): "dNSZone",
+            ("dhcp", "dhcp_rdn"): "dhcpService",
+            ("sudo", "sudoers_rdn"): "sudoRole",
+            ("systems", "systems_rdn"): "device",
+        }
+        
+        # IMPORTANT: Validate config FIRST before any migrations
+        # This prevents the case where migration succeeds but config update fails
+        plugin = self._plugin_registry.get(plugin_name)
+        if not plugin:
+            return {"success": False, "errors": [f"Plugin '{plugin_name}' is not registered"]}
+        
+        validation_errors = plugin.validate_config(config)
+        if validation_errors:
+            return {"success": False, "errors": validation_errors}
+        
+        # Get current plugin config
+        current_config_resp = await self.get_plugin_config(plugin_name)
+        if not current_config_resp:
+            return {"success": False, "errors": [f"Plugin '{plugin_name}' not found"]}
+        
+        current_config = current_config_resp.config or {}
+        migration_results = []
+        
+        # Check each RDN setting that might be changing
+        for key, new_value in config.items():
+            setting_key = (plugin_name, key)
+            if setting_key not in PLUGIN_RDN_SETTINGS:
+                continue
+                
+            current_value = current_config.get(key)
+            
+            # Only check if value is actually changing
+            if current_value == new_value or current_value is None:
+                continue
+                
+            try:
+                ldap_service = get_ldap_service()
+                migration_service = LdapMigrationService(ldap_service, self)
+                
+                object_class_filter = PLUGIN_RDN_SETTINGS[setting_key]
+                
+                check_result = await migration_service.check_rdn_change(
+                    old_rdn=str(current_value),
+                    new_rdn=str(new_value),
+                    object_class_filter=object_class_filter,
                 )
                 
-                return True, []
+                # If entries exist and not confirmed, return warning
+                if check_result.entries_count > 0 and not confirmed:
+                    return {
+                        "success": False,
+                        "message": f"RDN change for '{key}' affects existing entries. Please confirm to proceed.",
+                        "requires_confirmation": True,
+                        "migration_check": {
+                            "old_rdn": check_result.old_rdn,
+                            "new_rdn": check_result.new_rdn,
+                            "base_dn": check_result.base_dn,
+                            "entries_count": check_result.entries_count,
+                            "entries_dns": check_result.entries_dns,
+                            "supports_modrdn": check_result.supports_modrdn,
+                            "recommended_mode": check_result.recommended_mode.value,
+                            "warnings": check_result.warnings,
+                            "requires_confirmation": True,  # Always true when we reach here
+                        },
+                    }
+                
+                # If confirmed and should migrate, perform migration
+                if check_result.entries_count > 0 and confirmed and migrate_entries:
+                    mode = MigrationMode.MODRDN if check_result.supports_modrdn else MigrationMode.COPY_DELETE
+                    
+                    result = await migration_service.migrate_entries(
+                        old_rdn=str(current_value),
+                        new_rdn=str(new_value),
+                        object_class_filter=object_class_filter,
+                        mode=mode,
+                    )
+                    
+                    migration_results.append({
+                        "key": key,
+                        "entries_migrated": result.entries_migrated,
+                        "entries_failed": result.entries_failed,
+                        "mode": result.mode.value,
+                    })
+                    
+                    logger.info(
+                        "plugin_rdn_migration_complete",
+                        plugin=plugin_name,
+                        key=key,
+                        old_rdn=current_value,
+                        new_rdn=new_value,
+                        entries_migrated=result.entries_migrated,
+                        by=changed_by,
+                    )
+                    
+            except Exception as e:
+                logger.error(
+                    "plugin_rdn_migration_check_failed",
+                    plugin=plugin_name,
+                    key=key,
+                    error=str(e),
+                )
+                # Don't block the update, just log the error
+        
+        # Proceed with the config update
+        success, errors = await self.update_plugin_config(
+            plugin_name=plugin_name,
+            config=config,
+            changed_by=changed_by,
+            reason=reason,
+        )
+        
+        if not success:
+            return {"success": False, "errors": errors}
+        
+        response = {
+            "success": True,
+            "message": f"Plugin '{plugin_name}' configuration updated successfully",
+        }
+        if migration_results:
+            response["migrations"] = migration_results
+        
+        return response
     
     async def toggle_plugin(
         self,

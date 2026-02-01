@@ -451,24 +451,33 @@ class SystemsPlugin(Plugin):
                     return f"Invalid placeholder in description template: {placeholder}"
         
         return None
-    
-    @staticmethod
-    def on_config_change(old_config: Dict[str, Any], new_config: Dict[str, Any]) -> None:
+
+    def on_config_change(
+        self,
+        old_config: Dict[str, Any],
+        new_config: Dict[str, Any],
+        changed_keys: List[str],
+    ) -> None:
         """
         Handle configuration changes.
         
         Args:
             old_config: Previous configuration.
             new_config: New configuration.
+            changed_keys: List of changed configuration keys.
         """
-        # Log significant changes
-        if old_config.get("systems_rdn") != new_config.get("systems_rdn"):
-            # RDN change requires restart
-            pass
+        self.logger.info(f"Systems plugin configuration updated: {changed_keys}")
         
-        if old_config.get("organize_by_type") != new_config.get("organize_by_type"):
-            # Organization structure changed
-            pass
+        # Log significant changes
+        if "systems_rdn" in changed_keys:
+            self.logger.warning(
+                f"Systems RDN changed: {new_config.get('systems_rdn')} - may require restart"
+            )
+        
+        if "organize_by_type" in changed_keys:
+            self.logger.info(
+                f"Organization structure changed: organize_by_type = {new_config.get('organize_by_type')}"
+            )
 
     @staticmethod
     def routes() -> List[Any]:
