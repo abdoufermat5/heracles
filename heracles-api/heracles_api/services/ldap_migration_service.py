@@ -239,7 +239,7 @@ class LdapMigrationService:
         # First check config setting
         if self._config:
             try:
-                from heracles_api.services.config_service import get_config_value
+                from heracles_api.services.config import get_config_value
                 allow_modrdn = await get_config_value("ldap", "allow_modrdn", True)
                 
                 # Parse boolean from various formats

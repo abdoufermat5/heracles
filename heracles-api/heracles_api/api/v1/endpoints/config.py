@@ -27,7 +27,7 @@ from heracles_api.schemas.config import (
     SettingUpdateWithConfirmation,
     SettingUpdateResponse,
 )
-from heracles_api.services.config_service import get_config_service, ConfigService
+from heracles_api.services.config import get_config_service, ConfigService
 from heracles_api.core.dependencies import get_current_user
 
 logger = structlog.get_logger(__name__)

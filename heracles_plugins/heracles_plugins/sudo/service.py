@@ -80,7 +80,7 @@ class SudoService(TabService):
         Reads from database config with fallback to init-time config.
         """
         try:
-            from heracles_api.services.config_service import get_plugin_config_value
+            from heracles_api.services.config import get_plugin_config_value
             return await get_plugin_config_value(
                 "sudo",
                 "sudoers_rdn",
@@ -115,7 +115,7 @@ class SudoService(TabService):
         Reads from database config with fallback to init-time config.
         """
         try:
-            from heracles_api.services.config_service import get_plugin_config_value
+            from heracles_api.services.config import get_plugin_config_value
             
             validate_users = await get_plugin_config_value(
                 "sudo",

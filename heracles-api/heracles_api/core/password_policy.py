@@ -43,7 +43,7 @@ async def get_password_policy() -> PasswordPolicy:
     Returns:
         PasswordPolicy dataclass with current settings
     """
-    from heracles_api.services.config_service import get_config_value
+    from heracles_api.services.config import get_config_value
     
     min_length = await get_config_value("password", "min_length", DEFAULT_MIN_LENGTH)
     require_uppercase = await get_config_value("password", "require_uppercase", DEFAULT_REQUIRE_UPPERCASE)
@@ -119,7 +119,7 @@ async def get_password_hash_algorithm() -> str:
     Returns:
         Hash algorithm name (e.g., 'SSHA', 'SSHA256', 'ARGON2')
     """
-    from heracles_api.services.config_service import get_config_value
+    from heracles_api.services.config import get_config_value
     
     # Try database config first
     db_value = await get_config_value(

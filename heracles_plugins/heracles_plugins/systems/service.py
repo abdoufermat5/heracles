@@ -117,7 +117,7 @@ class SystemService(TabService):
         Reads from database config with fallback to init-time config.
         """
         try:
-            from heracles_api.services.config_service import get_plugin_config_value
+            from heracles_api.services.config import get_plugin_config_value
             
             validate_ip = await get_plugin_config_value(
                 "systems",

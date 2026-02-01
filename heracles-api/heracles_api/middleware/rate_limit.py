@@ -88,7 +88,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         
         # Try to get from config service
         try:
-            from heracles_api.services.config_service import get_config_value
+            from heracles_api.services.config import get_config_value
             
             enabled = await get_config_value(
                 "security",

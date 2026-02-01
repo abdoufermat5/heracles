@@ -17,7 +17,7 @@ from heracles_api.api.v1 import router as api_v1_router
 from heracles_api.core.logging import setup_logging
 from heracles_api.core.database import init_database, close_database, get_database
 from heracles_api.services import init_ldap_service, close_ldap_service, get_ldap_service
-from heracles_api.services.config_service import init_config_service
+from heracles_api.services.config import init_config_service
 from heracles_api.plugins.loader import load_enabled_plugins, unload_all_plugins
 from heracles_api.middleware.rate_limit import RateLimitMiddleware
 from heracles_api.middleware.plugin_access import PluginAccessMiddleware
@@ -94,7 +94,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
         # Register plugin routes
         from heracles_api.plugins.registry import plugin_registry
-        from heracles_api.services.config_service import get_config_service
+        from heracles_api.services.config import get_config_service
         
         # Get config service if available
         try:

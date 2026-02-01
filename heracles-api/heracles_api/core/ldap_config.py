@@ -32,7 +32,7 @@ async def get_users_rdn() -> str:
     Returns:
         Users RDN (e.g., 'ou=people')
     """
-    from heracles_api.services.config_service import get_config_value
+    from heracles_api.services.config import get_config_value
     
     value = await get_config_value("ldap", "users_rdn", DEFAULT_USERS_RDN)
     
@@ -49,7 +49,7 @@ async def get_groups_rdn() -> str:
     Returns:
         Groups RDN (e.g., 'ou=groups')
     """
-    from heracles_api.services.config_service import get_config_value
+    from heracles_api.services.config import get_config_value
     
     value = await get_config_value("ldap", "groups_rdn", DEFAULT_GROUPS_RDN)
     
@@ -66,7 +66,7 @@ async def get_default_user_objectclasses() -> List[str]:
     Returns:
         List of objectClass values
     """
-    from heracles_api.services.config_service import get_config_value
+    from heracles_api.services.config import get_config_value
     
     value = await get_config_value("ldap", "default_user_objectclasses", DEFAULT_USER_OBJECTCLASSES)
     
@@ -91,7 +91,7 @@ async def get_default_group_objectclasses() -> List[str]:
     Returns:
         List of objectClass values
     """
-    from heracles_api.services.config_service import get_config_value
+    from heracles_api.services.config import get_config_value
     
     value = await get_config_value("ldap", "default_group_objectclasses", DEFAULT_GROUP_OBJECTCLASSES)
     
@@ -116,7 +116,7 @@ async def get_ldap_page_size() -> int:
     Returns:
         Page size (number of entries per page)
     """
-    from heracles_api.services.config_service import get_config_value
+    from heracles_api.services.config import get_config_value
     
     value = await get_config_value("ldap", "page_size", DEFAULT_PAGE_SIZE)
     return int(value)

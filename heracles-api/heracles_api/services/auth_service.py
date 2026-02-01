@@ -79,7 +79,7 @@ class AuthService:
     
     async def get_access_token_expire_minutes(self) -> int:
         """Get access token expiry in minutes from config with fallback."""
-        from heracles_api.services.config_service import get_config_value
+        from heracles_api.services.config import get_config_value
         
         value = await get_config_value(
             "session",
@@ -90,7 +90,7 @@ class AuthService:
     
     async def get_refresh_token_expire_days(self) -> int:
         """Get refresh token expiry in days from config with fallback."""
-        from heracles_api.services.config_service import get_config_value
+        from heracles_api.services.config import get_config_value
         
         value = await get_config_value(
             "session",
@@ -101,7 +101,7 @@ class AuthService:
     
     async def get_max_concurrent_sessions(self) -> int:
         """Get max concurrent sessions from config with fallback."""
-        from heracles_api.services.config_service import get_config_value
+        from heracles_api.services.config import get_config_value
         
         value = await get_config_value(
             "session",

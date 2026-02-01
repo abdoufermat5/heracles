@@ -29,12 +29,23 @@ from heracles_api.services.auth_service import (
     init_auth_service,
 )
 
+from heracles_api.services.config import (
+    ConfigService,
+    get_config_service,
+    init_config_service,
+    is_config_service_available,
+    get_config_value,
+    get_plugin_config_value,
+    invalidate_config_cache,
+    invalidate_plugin_config_cache,
+)
+
 __all__ = [
     # LDAP
     "LdapService",
     "LdapEntry",
     "LdapError",
-    "LdapConnectionError", 
+    "LdapConnectionError",
     "LdapAuthenticationError",
     "LdapNotFoundError",
     "LdapOperationError",
@@ -50,4 +61,13 @@ __all__ = [
     "UserSession",
     "get_auth_service",
     "init_auth_service",
+    # Config
+    "ConfigService",
+    "get_config_service",
+    "init_config_service",
+    "is_config_service_available",
+    "get_config_value",
+    "get_plugin_config_value",
+    "invalidate_config_cache",
+    "invalidate_plugin_config_cache",
 ]

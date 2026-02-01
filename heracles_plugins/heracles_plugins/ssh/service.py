@@ -90,7 +90,7 @@ class SSHService(TabService):
         and then to defaults.
         """
         try:
-            from heracles_api.services.config_service import get_plugin_config_value
+            from heracles_api.services.config import get_plugin_config_value
             
             allowed_types = await get_plugin_config_value(
                 "ssh", 
