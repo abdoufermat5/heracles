@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dialog'
 import { PageHeader, LoadingPage, ErrorDisplay, LoadingSpinner, ConfirmDialog } from '@/components/common'
 import { PosixGroupTab } from '@/components/plugins/posix'
+import { MailGroupTab } from '@/components/plugins/mail'
 import { useGroup, useUpdateGroup, useDeleteGroup, useAddGroupMember, useRemoveGroupMember } from '@/hooks'
 import { groupUpdateSchema, type GroupUpdateFormData } from '@/lib/schemas'
 import { ROUTES } from '@/config/constants'
@@ -129,6 +130,7 @@ export function GroupDetailPage() {
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="members">Members</TabsTrigger>
           <TabsTrigger value="posix">POSIX</TabsTrigger>
+          <TabsTrigger value="mail">Mail</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general">
@@ -268,6 +270,12 @@ export function GroupDetailPage() {
         <TabsContent value="posix">
           <div className="max-w-3xl">
             <PosixGroupTab cn={group.cn} />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="mail">
+          <div className="max-w-4xl">
+            <MailGroupTab cn={group.cn} displayName={group.cn} />
           </div>
         </TabsContent>
       </Tabs>

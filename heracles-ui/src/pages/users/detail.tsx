@@ -29,6 +29,7 @@ import {
 import { PageHeader, LoadingPage, ErrorDisplay, LoadingSpinner, ConfirmDialog } from '@/components/common'
 import { PosixUserTab } from '@/components/plugins/posix'
 import { SSHUserTab } from '@/components/plugins/ssh'
+import { MailUserTab } from '@/components/plugins/mail'
 import { useUser, useUpdateUser, useDeleteUser, useSetUserPassword, useUserLockStatus, useLockUser, useUnlockUser } from '@/hooks'
 import { userUpdateSchema, setPasswordSchema, type UserUpdateFormData, type SetPasswordFormData } from '@/lib/schemas'
 import { ROUTES } from '@/config/constants'
@@ -196,6 +197,7 @@ export function UserDetailPage() {
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="posix">Unix Account</TabsTrigger>
           <TabsTrigger value="ssh">SSH Keys</TabsTrigger>
+          <TabsTrigger value="mail">Mail</TabsTrigger>
           <TabsTrigger value="groups">Groups</TabsTrigger>
         </TabsList>
 
@@ -345,6 +347,15 @@ export function UserDetailPage() {
         <TabsContent value="ssh">
           <div className="max-w-4xl">
             <SSHUserTab 
+              uid={user.uid} 
+              displayName={user.displayName || `${user.givenName} ${user.sn}`} 
+            />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="mail">
+          <div className="max-w-4xl">
+            <MailUserTab 
               uid={user.uid} 
               displayName={user.displayName || `${user.givenName} ${user.sn}`} 
             />
