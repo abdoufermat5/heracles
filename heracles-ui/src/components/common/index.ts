@@ -36,3 +36,12 @@ export { TrustModeSection } from './forms'
 
 // Display
 export { ArrayBadges } from './array-badges'
+
+// Tree Viewer
+export { TreeViewer, getPathToNode } from './tree-viewer'
+export type {
+  TreeNodeData,
+  TreeViewerProps,
+  TreeNodeRenderProps,
+  TreeViewerConfig,
+} from './tree-viewer'
