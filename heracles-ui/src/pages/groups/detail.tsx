@@ -31,6 +31,7 @@ import { PosixGroupTab } from '@/components/plugins/posix'
 import { MailGroupTab } from '@/components/plugins/mail'
 import { useGroup, useUpdateGroup, useDeleteGroup, useAddGroupMember, useRemoveGroupMember } from '@/hooks'
 import { groupUpdateSchema, type GroupUpdateFormData } from '@/lib/schemas'
+import { AppError } from '@/lib/errors'
 import { ROUTES } from '@/config/constants'
 
 export function GroupDetailPage() {
@@ -67,7 +68,7 @@ export function GroupDetailPage() {
       await updateMutation.mutateAsync(data)
       toast.success('Group updated successfully')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update group')
+      AppError.toastError(error, 'Failed to update group')
     }
   }
 
@@ -77,7 +78,7 @@ export function GroupDetailPage() {
       toast.success(`Group "${cn}" deleted successfully`)
       navigate(ROUTES.GROUPS)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete group')
+      AppError.toastError(error, 'Failed to delete group')
     }
   }
 
@@ -90,7 +91,7 @@ export function GroupDetailPage() {
       setNewMemberUid('')
       refetch()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to add member')
+      AppError.toastError(error, 'Failed to add member')
     }
   }
 
@@ -102,7 +103,7 @@ export function GroupDetailPage() {
       setMemberToRemove(null)
       refetch()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to remove member')
+      AppError.toastError(error, 'Failed to remove member')
     }
   }
 

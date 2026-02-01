@@ -106,6 +106,222 @@ class SystemService(TabService):
         self._base_dn = config.get("base_dn", ldap_service.base_dn)
         self._systems_dn = f"{self._systems_rdn},{self._base_dn}"
     
+    # ========================================================================
+    # Config-Based Validation
+    # ========================================================================
+    
+    async def _get_validation_config(self) -> Dict[str, Any]:
+        """
+        Get systems validation config with hot-reload support.
+        
+        Reads from database config with fallback to init-time config.
+        """
+        try:
+            from heracles_api.services.config_service import get_plugin_config_value
+            
+            validate_ip = await get_plugin_config_value(
+                "systems",
+                "validate_ip_addresses",
+                self._config.get("validate_ip_addresses", True)
+            )
+            validate_mac = await get_plugin_config_value(
+                "systems",
+                "validate_mac_addresses",
+                self._config.get("validate_mac_addresses", True)
+            )
+            require_unique_hostname = await get_plugin_config_value(
+                "systems",
+                "require_unique_hostname",
+                self._config.get("require_unique_hostname", True)
+            )
+            require_unique_ip = await get_plugin_config_value(
+                "systems",
+                "require_unique_ip",
+                self._config.get("require_unique_ip", False)
+            )
+            require_unique_mac = await get_plugin_config_value(
+                "systems",
+                "require_unique_mac",
+                self._config.get("require_unique_mac", True)
+            )
+            
+            return {
+                "validate_ip_addresses": validate_ip,
+                "validate_mac_addresses": validate_mac,
+                "require_unique_hostname": require_unique_hostname,
+                "require_unique_ip": require_unique_ip,
+                "require_unique_mac": require_unique_mac,
+            }
+            
+        except Exception as e:
+            logger.warning("systems_config_load_error", error=str(e))
+            return {
+                "validate_ip_addresses": self._config.get("validate_ip_addresses", True),
+                "validate_mac_addresses": self._config.get("validate_mac_addresses", True),
+                "require_unique_hostname": self._config.get("require_unique_hostname", True),
+                "require_unique_ip": self._config.get("require_unique_ip", False),
+                "require_unique_mac": self._config.get("require_unique_mac", True),
+            }
+    
+    async def _check_hostname_uniqueness(
+        self, 
+        hostname: str, 
+        exclude_dn: Optional[str] = None,
+        base_dn: Optional[str] = None
+    ) -> Optional[str]:
+        """
+        Check if hostname is unique across all system types.
+        
+        Returns error message if duplicate found, None if unique.
+        """
+        config = await self._get_validation_config()
+        
+        if not config.get("require_unique_hostname", True):
+            return None
+        
+        # Search across all system types
+        search_base = self._get_systems_container(base_dn)
+        search_filter = f"(cn={self._ldap._escape_filter(hostname)})"
+        
+        try:
+            entries = await self._ldap.search(
+                search_base=search_base,
+                search_filter=search_filter,
+                attributes=["cn"],
+                size_limit=2,  # Only need to find one duplicate
+            )
+            
+            for entry in entries:
+                if exclude_dn and entry.dn == exclude_dn:
+                    continue
+                return f"Hostname '{hostname}' is already in use"
+            
+            return None
+            
+        except Exception as e:
+            logger.warning("hostname_uniqueness_check_error", hostname=hostname, error=str(e))
+            return None
+    
+    async def _check_ip_uniqueness(
+        self, 
+        ip_addresses: List[str],
+        exclude_dn: Optional[str] = None,
+        base_dn: Optional[str] = None
+    ) -> List[str]:
+        """
+        Check if IP addresses are unique.
+        
+        Returns list of error messages for duplicates.
+        """
+        config = await self._get_validation_config()
+        
+        if not config.get("require_unique_ip", False):
+            return []
+        
+        errors = []
+        search_base = self._get_systems_container(base_dn)
+        
+        for ip in ip_addresses:
+            search_filter = f"(ipHostNumber={self._ldap._escape_filter(ip)})"
+            
+            try:
+                entries = await self._ldap.search(
+                    search_base=search_base,
+                    search_filter=search_filter,
+                    attributes=["cn", "ipHostNumber"],
+                    size_limit=2,
+                )
+                
+                for entry in entries:
+                    if exclude_dn and entry.dn == exclude_dn:
+                        continue
+                    errors.append(f"IP address '{ip}' is already assigned to '{entry.get_first('cn')}'")
+                    break
+                    
+            except Exception as e:
+                logger.warning("ip_uniqueness_check_error", ip=ip, error=str(e))
+        
+        return errors
+    
+    async def _check_mac_uniqueness(
+        self, 
+        mac_addresses: List[str],
+        exclude_dn: Optional[str] = None,
+        base_dn: Optional[str] = None
+    ) -> List[str]:
+        """
+        Check if MAC addresses are unique.
+        
+        Returns list of error messages for duplicates.
+        """
+        config = await self._get_validation_config()
+        
+        if not config.get("require_unique_mac", True):
+            return []
+        
+        errors = []
+        search_base = self._get_systems_container(base_dn)
+        
+        for mac in mac_addresses:
+            # Normalize MAC to uppercase for search
+            mac_upper = mac.upper()
+            search_filter = f"(macAddress={self._ldap._escape_filter(mac_upper)})"
+            
+            try:
+                entries = await self._ldap.search(
+                    search_base=search_base,
+                    search_filter=search_filter,
+                    attributes=["cn", "macAddress"],
+                    size_limit=2,
+                )
+                
+                for entry in entries:
+                    if exclude_dn and entry.dn == exclude_dn:
+                        continue
+                    errors.append(f"MAC address '{mac}' is already assigned to '{entry.get_first('cn')}'")
+                    break
+                    
+            except Exception as e:
+                logger.warning("mac_uniqueness_check_error", mac=mac, error=str(e))
+        
+        return errors
+    
+    async def validate_system(
+        self, 
+        data: SystemCreate,
+        exclude_dn: Optional[str] = None,
+        base_dn: Optional[str] = None
+    ) -> List[str]:
+        """
+        Validate a system against config-based rules.
+        
+        Checks:
+        - Hostname uniqueness (if enabled)
+        - IP address uniqueness (if enabled)
+        - MAC address uniqueness (if enabled)
+        
+        Returns:
+            List of validation errors (empty if all valid)
+        """
+        errors = []
+        
+        # Check hostname uniqueness
+        hostname_error = await self._check_hostname_uniqueness(data.cn, exclude_dn, base_dn)
+        if hostname_error:
+            errors.append(hostname_error)
+        
+        # Check IP uniqueness
+        if data.ip_addresses:
+            ip_errors = await self._check_ip_uniqueness(data.ip_addresses, exclude_dn, base_dn)
+            errors.extend(ip_errors)
+        
+        # Check MAC uniqueness
+        if data.mac_addresses:
+            mac_errors = await self._check_mac_uniqueness(data.mac_addresses, exclude_dn, base_dn)
+            errors.extend(mac_errors)
+        
+        return errors
+    
     def _get_all_attributes(self) -> List[str]:
         """Get all managed attributes."""
         attrs = set(self.COMMON_ATTRIBUTES)
@@ -321,6 +537,11 @@ class SystemService(TabService):
             raise SystemValidationError(
                 f"System '{data.cn}' of type '{data.system_type.value}' already exists"
             )
+        
+        # Validate against config-based rules (uniqueness checks)
+        validation_errors = await self.validate_system(data, base_dn=base_dn)
+        if validation_errors:
+            raise SystemValidationError("; ".join(validation_errors))
         
         # Get the DN for the new system
         dn = self._get_system_dn(data.cn, data.system_type, base_dn)

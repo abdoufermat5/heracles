@@ -18,8 +18,9 @@ def mock_auth_service():
     Mock the Auth service.
 
     Provides a fully configured mock with:
-    - Sync methods: verify_token, create_access_token, create_refresh_token, get_cookie_settings
-    - Async methods: is_token_revoked, get_session, create_session, etc.
+    - Sync methods: verify_token
+    - Async methods: create_access_token, create_refresh_token, get_cookie_settings,
+      is_token_revoked, get_session, create_session, etc.
     """
     service = MagicMock()
 
@@ -32,15 +33,20 @@ def mock_auth_service():
         jti="mock-jti",
         type="access"
     )
-    service.create_access_token.return_value = ("mock-access-token", "mock-jti")
-    service.create_refresh_token.return_value = ("mock-refresh-token", "mock-refresh-jti")
-    service.get_cookie_settings.return_value = {
+    
+    # Methods that are now async (read from config service)
+    service.create_access_token = AsyncMock(return_value=("mock-access-token", "mock-jti"))
+    service.create_refresh_token = AsyncMock(return_value=("mock-refresh-token", "mock-refresh-jti"))
+    service.get_cookie_settings = AsyncMock(return_value={
         "key": "access_token",
         "httponly": True,
         "secure": False,
         "samesite": "lax",
         "max_age": 3600,
-    }
+    })
+    service.get_access_token_expire_minutes = AsyncMock(return_value=60)
+    service.get_refresh_token_expire_days = AsyncMock(return_value=7)
+    service.get_max_concurrent_sessions = AsyncMock(return_value=5)
 
     # Async methods
     service.is_token_revoked = AsyncMock(return_value=False)

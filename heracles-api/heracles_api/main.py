@@ -19,6 +19,7 @@ from heracles_api.core.database import init_database, close_database, get_databa
 from heracles_api.services import init_ldap_service, close_ldap_service, get_ldap_service
 from heracles_api.services.config_service import init_config_service
 from heracles_api.plugins.loader import load_enabled_plugins, unload_all_plugins
+from heracles_api.middleware.rate_limit import RateLimitMiddleware
 
 logger = structlog.get_logger(__name__)
 
@@ -94,9 +95,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             config_service = None
         
         for plugin in loaded_plugins:
-            # Register plugin with config service
+            # Register plugin with config service (in-memory and database)
             if config_service:
                 config_service.register_plugin(plugin)
+                # Also register in database for persistence
+                try:
+                    await config_service.register_plugin_config(plugin)
+                except Exception as e:
+                    logger.warning(
+                        "plugin_db_registration_failed",
+                        plugin=plugin.info().name,
+                        error=str(e),
+                    )
             
             for route in plugin.routes():
                 app.include_router(route, prefix="/api/v1")
@@ -131,6 +141,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Rate limiting middleware (reads config from database)
+# Note: Redis client is injected dynamically when available
+app.add_middleware(RateLimitMiddleware)
 
 # Include API routers
 app.include_router(api_v1_router, prefix="/api/v1")

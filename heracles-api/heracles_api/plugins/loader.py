@@ -77,7 +77,6 @@ def load_enabled_plugins(
     config: Dict[str, Any],
     ldap_service: Any,
     plugins_package: str = "heracles_plugins",
-    config_service: Optional[Any] = None,
 ) -> List[Plugin]:
     """
     Load and activate enabled plugins.
@@ -86,7 +85,6 @@ def load_enabled_plugins(
         config: Application configuration with plugins section.
         ldap_service: LDAP service instance for plugin use.
         plugins_package: Package name to scan for plugins.
-        config_service: Optional ConfigService for plugin configuration.
         
     Returns:
         List of loaded and activated plugin instances.
@@ -160,26 +158,8 @@ def load_enabled_plugins(
                 f"Plugin '{name}' configuration invalid: {', '.join(errors)}"
             )
         
-        # Register plugin with config service if available
-        if config_service is not None:
-            try:
-                import asyncio
-                # Register plugin config schema in database
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    asyncio.create_task(
-                        config_service.register_plugin_config(instance)
-                    )
-                else:
-                    loop.run_until_complete(
-                        config_service.register_plugin_config(instance)
-                    )
-            except Exception as e:
-                logger.warning(
-                    "plugin_config_registration_failed",
-                    plugin=name,
-                    error=str(e),
-                )
+        # Note: Plugin database registration is handled in main.py lifespan
+        # after all plugins are loaded, where we have proper async context
         
         # Register and activate
         plugin_registry.register(instance)

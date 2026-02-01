@@ -109,9 +109,23 @@ export class AppError extends Error {
   }
 
   /**
+   * Get validation errors array if present
+   */
+  getValidationErrors(): string[] {
+    const errors = this.details?.validationErrors
+    return Array.isArray(errors) ? errors : []
+  }
+
+  /**
    * Get a user-friendly message for display
    */
   getUserMessage(): string {
+    // Use validation errors if present
+    const validationErrors = this.getValidationErrors()
+    if (validationErrors.length > 0) {
+      return validationErrors.join('. ')
+    }
+
     // Use field errors if present
     if (this.fieldErrors && Object.keys(this.fieldErrors).length > 0) {
       return Object.values(this.fieldErrors).join('. ')
@@ -131,11 +145,20 @@ export class AppError extends Error {
    */
   static fromApiResponse(
     response: Response,
-    body?: { detail?: string; field_errors?: Record<string, string>; code?: string }
+    body?: { detail?: string | { message?: string; errors?: string[] }; field_errors?: Record<string, string>; code?: string }
   ): AppError {
     const statusCode = response.status
     let code: ErrorCode
-    const message = body?.detail || `HTTP ${statusCode}`
+    let validationErrors: string[] | undefined
+    
+    // Handle structured detail object or plain string
+    let message: string
+    if (body?.detail && typeof body.detail === 'object') {
+      message = body.detail.message || `HTTP ${statusCode}`
+      validationErrors = body.detail.errors
+    } else {
+      message = (body?.detail as string) || `HTTP ${statusCode}`
+    }
 
     // Map HTTP status to error code
     switch (statusCode) {
@@ -170,7 +193,10 @@ export class AppError extends Error {
       message,
       code,
       statusCode,
-      details: body as Record<string, unknown>,
+      details: {
+        ...body as Record<string, unknown>,
+        validationErrors,
+      },
       fieldErrors: body?.field_errors,
     })
   }
@@ -216,4 +242,23 @@ export class AppError extends Error {
       code: ErrorCode.UNKNOWN,
     })
   }
-}
+
+  /**
+   * Display error as toast notification(s)
+   * Shows each validation error separately, or a single error message
+   */
+  static toastError(error: unknown, fallbackMessage = 'An error occurred'): void {
+    // Dynamic import to avoid circular dependency
+    import('sonner').then(({ toast }) => {
+      const appError = AppError.from(error)
+      const validationErrors = appError.getValidationErrors()
+      
+      if (validationErrors.length > 0) {
+        // Show each validation error as a separate toast
+        validationErrors.forEach((err) => toast.error(err))
+      } else {
+        const message = appError.getUserMessage()
+        toast.error(message || fallbackMessage)
+      }
+    })
+  }}

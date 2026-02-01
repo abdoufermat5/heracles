@@ -11,6 +11,11 @@ from dataclasses import dataclass
 from heracles_api.services.ldap_service import LdapService, LdapEntry, LdapOperationError
 from heracles_api.schemas.group import GroupCreate, GroupUpdate
 from heracles_api.config import settings
+from heracles_api.core.ldap_config import (
+    get_groups_rdn,
+    get_default_group_objectclasses,
+    DEFAULT_GROUPS_RDN,
+)
 
 import structlog
 
@@ -38,23 +43,42 @@ class GroupRepository:
         self.ldap = ldap
         self.base_dn = settings.LDAP_BASE_DN
     
-    def _build_group_dn(self, cn: str, ou: str = "groups", department_dn: Optional[str] = None) -> str:
+    async def _get_groups_container(self) -> str:
+        """
+        Get the groups container OU from config.
+        
+        Returns:
+            Groups OU (e.g., 'ou=groups')
+        """
+        rdn = await get_groups_rdn()
+        # Ensure proper format
+        if not rdn.startswith("ou="):
+            return f"ou={rdn}"
+        return rdn
+    
+    async def _build_group_dn(self, cn: str, ou: Optional[str] = None, department_dn: Optional[str] = None) -> str:
         """
         Build group DN from CN.
 
         Args:
             cn: Group common name
-            ou: Container OU name (default: "groups")
+            ou: Container OU name (None = use config default)
             department_dn: Optional department DN to create group within
 
         Returns:
             Group DN string
         """
+        # Get groups container from config if not specified
+        if ou is None:
+            groups_container = await self._get_groups_container()
+        else:
+            groups_container = f"ou={ou}" if not ou.startswith("ou=") else ou
+        
         if department_dn:
-            # Create under ou=groups within the department
+            # Create under groups container within the department
             # e.g., cn=dev-team,ou=groups,ou=Engineering,dc=heracles,dc=local
-            return f"cn={cn},ou={ou},{department_dn}"
-        return f"cn={cn},ou={ou},{self.base_dn}"
+            return f"cn={cn},{groups_container},{department_dn}"
+        return f"cn={cn},{groups_container},{self.base_dn}"
     
     @staticmethod
     def _extract_uid_from_dn(dn: str) -> str:
@@ -103,7 +127,7 @@ class GroupRepository:
 
         Args:
             search_term: Search in cn, description
-            ou: Filter by organizational unit (legacy, use base_dn for departments)
+            ou: Filter by organizational unit (None = use config default)
             base_dn: Base DN to search from (e.g., department DN for scoped search)
             limit: Maximum results (0 = unlimited)
         """
@@ -116,17 +140,20 @@ class GroupRepository:
             search_filter = base_filter
 
         # Determine search base
-        # We always search from ou=groups within the specified context
-        # to avoid returning groups from all departments when at root level
-        groups_ou = ou or "groups"
+        # Get groups container from config if not specified
+        if ou:
+            groups_container = f"ou={ou}" if not ou.startswith("ou=") else ou
+        else:
+            groups_container = await self._get_groups_container()
+        
         if base_dn:
             # Search within department's groups container
             # e.g., ou=groups,ou=Test,dc=heracles,dc=local
-            search_base = f"ou={groups_ou},{base_dn}"
+            search_base = f"{groups_container},{base_dn}"
         else:
             # Search only in root-level groups container
             # e.g., ou=groups,dc=heracles,dc=local
-            search_base = f"ou={groups_ou},{self.base_dn}"
+            search_base = f"{groups_container},{self.base_dn}"
 
         entries = await self.ldap.search(
             search_base=search_base,
@@ -156,10 +183,18 @@ class GroupRepository:
         Returns:
             Created group entry
         """
-        group_dn = self._build_group_dn(group.cn, group.ou, department_dn)
+        # Use config-based OU if group.ou not specified
+        group_dn = await self._build_group_dn(
+            group.cn, 
+            ou=group.ou if group.ou and group.ou != "groups" else None, 
+            department_dn=department_dn
+        )
         
         # groupOfNames requires at least one member
         members = member_dns if member_dns else [default_member_dn]
+        
+        # Get objectClasses from config
+        object_classes = await get_default_group_objectclasses()
         
         attrs = {
             "member": members,
@@ -170,7 +205,7 @@ class GroupRepository:
         
         await self.ldap.add(
             dn=group_dn,
-            object_classes=self.OBJECT_CLASSES,
+            object_classes=object_classes,
             attributes=attrs,
         )
         

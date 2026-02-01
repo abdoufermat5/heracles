@@ -328,8 +328,7 @@ class PosixPlugin(Plugin):
     ) -> None:
         """Handle configuration changes at runtime."""
         self.logger.info(
-            f"POSIX plugin configuration updated",
-            changed_keys=changed_keys,
+            f"POSIX plugin configuration updated: {changed_keys}"
         )
         
         # Log specific changes

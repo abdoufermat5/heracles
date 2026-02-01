@@ -207,7 +207,7 @@ async def update_plugin_config(
     success, errors = await config_service.update_plugin_config(
         plugin_name=plugin_name,
         config=request.config,
-        changed_by=current_user.dn,
+        changed_by=current_user.user_dn,
         reason=request.reason,
     )
     
@@ -236,7 +236,7 @@ async def enable_plugin(
     success, errors = await config_service.toggle_plugin(
         plugin_name=plugin_name,
         enabled=True,
-        changed_by=current_user.dn,
+        changed_by=current_user.user_dn,
         reason=reason,
     )
     
@@ -265,7 +265,7 @@ async def disable_plugin(
     success, errors = await config_service.toggle_plugin(
         plugin_name=plugin_name,
         enabled=False,
-        changed_by=current_user.dn,
+        changed_by=current_user.user_dn,
         reason=reason,
     )
     

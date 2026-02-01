@@ -1,6 +1,7 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { useEffect } from 'react'
 import { Terminal, Loader2, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,24 +29,24 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { HostSelector } from '@/components/common'
-import { useAvailableShells, usePosixGroups, useNextIds } from '@/hooks'
+import { useAvailableShells, usePosixGroups, useNextIds, usePluginConfig } from '@/hooks'
 import type { PosixAccountCreate, TrustMode, PrimaryGroupMode } from '@/types/posix'
 
 const posixActivateSchema = z.object({
   // ID allocation
-  uidNumber: z.number().min(1000).max(65534).optional().nullable(),
+  uidNumber: z.union([z.number().min(1000).max(65534), z.null()]).optional(),
   forceUid: z.boolean().default(false),
   // Primary group
   primaryGroupMode: z.enum(['select_existing', 'create_personal']).default('select_existing'),
-  gidNumber: z.number().min(1000).max(65534).optional().nullable(),
+  gidNumber: z.union([z.number().min(1000).max(65534), z.null()]).optional(),
   forceGid: z.boolean().default(false),
   // Basic attributes
-  homeDirectory: z.string().min(1).regex(/^\/[\w./-]+$/, 'Must be an absolute path').optional().nullable(),
+  homeDirectory: z.union([z.string().min(1).regex(/^\/[\w./-]+$/, 'Must be an absolute path'), z.null()]).optional(),
   loginShell: z.string().min(1).default('/bin/bash'),
-  gecos: z.string().optional().nullable(),
+  gecos: z.union([z.string(), z.null()]).optional(),
   // System trust
-  trustMode: z.enum(['fullaccess', 'byhost']).optional().nullable(),
-  host: z.array(z.string()).optional().nullable(),
+  trustMode: z.union([z.enum(['fullaccess', 'byhost']), z.null()]).optional(),
+  host: z.union([z.array(z.string()), z.null()]).optional(),
 }).refine(
   (data) => {
     if (data.primaryGroupMode === 'select_existing' && !data.gidNumber) {
@@ -75,21 +76,50 @@ type PosixActivateFormData = z.infer<typeof posixActivateSchema>
 interface PosixActivateFormProps {
   uid: string
   displayName: string
+  baseDn?: string
   onSubmit: (data: PosixAccountCreate) => Promise<void>
   onCancel: () => void
   isSubmitting?: boolean
 }
 
+// Type for POSIX plugin config
+interface PosixPluginConfig {
+  default_shell?: string
+  default_gid?: number | null
+  default_home_base?: string
+  home_directory_template?: string
+  uid_min?: number
+  uid_max?: number
+  gid_min?: number
+  gid_max?: number
+}
+
 export function PosixActivateForm({
   uid,
   displayName,
+  baseDn,
   onSubmit,
   onCancel,
   isSubmitting = false,
 }: PosixActivateFormProps) {
   const { data: shellsData } = useAvailableShells()
-  const { data: posixGroupsData, isLoading: groupsLoading } = usePosixGroups()
+  const { data: posixGroupsData, isLoading: groupsLoading } = usePosixGroups({ base: baseDn })
   const { data: nextIdsData } = useNextIds()
+  const { data: posixConfig } = usePluginConfig('posix')
+
+  // Extract config values with fallbacks
+  const pluginConfig = (posixConfig?.config || {}) as PosixPluginConfig
+  const defaultShell = pluginConfig.default_shell || shellsData?.default || '/bin/bash'
+  const defaultHomeBase = pluginConfig.default_home_base || '/home'
+  const defaultGid = pluginConfig.default_gid
+
+  // Build home directory from template or fallback
+  const buildHomeDirectory = (username: string) => {
+    const template = pluginConfig.home_directory_template || '{home_base}/{uid}'
+    return template
+      .replace('{home_base}', defaultHomeBase)
+      .replace('{uid}', username)
+  }
 
   const form = useForm<PosixActivateFormData>({
     resolver: zodResolver(posixActivateSchema),
@@ -99,13 +129,28 @@ export function PosixActivateForm({
       primaryGroupMode: 'select_existing',
       gidNumber: undefined,
       forceGid: false,
-      homeDirectory: `/home/${uid}`,
-      loginShell: shellsData?.default || '/bin/bash',
+      homeDirectory: buildHomeDirectory(uid),
+      loginShell: defaultShell,
       gecos: displayName || '',
       trustMode: undefined,
       host: [],
     },
   })
+
+  // Update form when plugin config loads
+  useEffect(() => {
+    if (posixConfig) {
+      // Only update if form hasn't been touched
+      if (!form.formState.isDirty) {
+        form.reset({
+          ...form.getValues(),
+          loginShell: defaultShell,
+          homeDirectory: buildHomeDirectory(uid),
+          gidNumber: defaultGid ?? undefined,
+        })
+      }
+    }
+  }, [posixConfig, defaultShell, defaultHomeBase, defaultGid, uid])
 
   const primaryGroupMode = form.watch('primaryGroupMode')
   const trustMode = form.watch('trustMode')

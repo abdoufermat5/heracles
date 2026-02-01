@@ -181,6 +181,7 @@ class PosixService(TabService):
         data: PosixAccountCreate,
         uid: Optional[str] = None,
         group_service: Optional["PosixGroupService"] = None,
+        base_dn: Optional[str] = None,
     ) -> PosixAccountRead:
         """
         Activate POSIX on a user.
@@ -190,6 +191,7 @@ class PosixService(TabService):
             data: POSIX account data
             uid: User's uid (for home directory generation and personal group)
             group_service: PosixGroupService instance (for auto-creating personal groups)
+            base_dn: Base DN for creating personal groups in department context
         """
         if await self.is_active(dn):
             raise PosixValidationError("POSIX is already active on this user")
@@ -246,7 +248,7 @@ class PosixService(TabService):
                     description=f"Personal group for {uid}",
                 )
                 
-                created_group = await group_service.create(personal_group_data)
+                created_group = await group_service.create(personal_group_data, base_dn=base_dn)
                 gid_number = created_group.gid_number
                 created_personal_group = True
                 
@@ -254,6 +256,7 @@ class PosixService(TabService):
                     "personal_group_created",
                     cn=uid,
                     gid_number=gid_number,
+                    base_dn=base_dn,
                 )
         else:
             # Use selected existing group

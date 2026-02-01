@@ -31,18 +31,18 @@ import { useAvailableShells, usePosixGroups } from '@/hooks'
 import type { PosixAccountData, PosixAccountUpdate, TrustMode } from '@/types/posix'
 
 const posixEditSchema = z.object({
-  gidNumber: z.number().min(1000).max(65534).optional().nullable(),
-  homeDirectory: z.string().min(1).regex(/^\/[\w./-]+$/, 'Must be an absolute path').optional().nullable(),
-  loginShell: z.string().optional().nullable(),
-  gecos: z.string().optional().nullable(),
-  shadowMin: z.number().min(0).optional().nullable(),
-  shadowMax: z.number().min(0).optional().nullable(),
-  shadowWarning: z.number().min(0).optional().nullable(),
-  shadowInactive: z.number().min(-1).optional().nullable(),
-  shadowExpire: z.number().min(-1).optional().nullable(),
+  gidNumber: z.union([z.number().min(1000).max(65534), z.null()]).optional(),
+  homeDirectory: z.union([z.string().min(1).regex(/^\/[\w./-]+$/, 'Must be an absolute path'), z.null()]).optional(),
+  loginShell: z.union([z.string(), z.null()]).optional(),
+  gecos: z.union([z.string(), z.null()]).optional(),
+  shadowMin: z.union([z.number().min(0), z.null()]).optional(),
+  shadowMax: z.union([z.number().min(0), z.null()]).optional(),
+  shadowWarning: z.union([z.number().min(0), z.null()]).optional(),
+  shadowInactive: z.union([z.number().min(-1), z.null()]).optional(),
+  shadowExpire: z.union([z.number().min(-1), z.null()]).optional(),
   // System trust
-  trustMode: z.enum(['fullaccess', 'byhost']).optional().nullable(),
-  host: z.array(z.string()).optional().nullable(),
+  trustMode: z.union([z.enum(['fullaccess', 'byhost']), z.null()]).optional(),
+  host: z.union([z.array(z.string()), z.null()]).optional(),
 }).refine(
   (data) => {
     if (data.trustMode === 'byhost' && (!data.host || data.host.length === 0)) {
@@ -60,17 +60,19 @@ type PosixEditFormData = z.infer<typeof posixEditSchema>
 
 interface PosixEditFormProps {
   data: PosixAccountData
+  baseDn?: string
   onSubmit: (data: PosixAccountUpdate) => Promise<void>
   isSubmitting?: boolean
 }
 
 export function PosixEditForm({
   data,
+  baseDn,
   onSubmit,
   isSubmitting = false,
 }: PosixEditFormProps) {
   const { data: shellsData } = useAvailableShells()
-  const { data: posixGroupsData, isLoading: groupsLoading } = usePosixGroups()
+  const { data: posixGroupsData, isLoading: groupsLoading } = usePosixGroups({ base: baseDn })
 
   const form = useForm<PosixEditFormData>({
     resolver: zodResolver(posixEditSchema),

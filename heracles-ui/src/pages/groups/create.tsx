@@ -18,6 +18,7 @@ import {
 import { PageHeader, LoadingSpinner } from '@/components/common'
 import { useCreateGroup } from '@/hooks'
 import { groupCreateSchema, type GroupCreateFormData } from '@/lib/schemas'
+import { AppError } from '@/lib/errors'
 import { ROUTES } from '@/config/constants'
 
 export function GroupCreatePage() {
@@ -38,7 +39,7 @@ export function GroupCreatePage() {
       toast.success(`Group "${data.cn}" created successfully`)
       navigate(ROUTES.GROUPS)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to create group')
+      AppError.toastError(error, 'Failed to create group')
     }
   }
 

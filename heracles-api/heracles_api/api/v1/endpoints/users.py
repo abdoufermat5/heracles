@@ -10,6 +10,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, status, Query
 
 from heracles_api.core.dependencies import CurrentUser, UserRepoDep, GroupRepoDep
+from heracles_api.core.password_policy import validate_password_policy
 from heracles_api.schemas import (
     UserCreate,
     UserUpdate,
@@ -131,6 +132,17 @@ async def create_user(
             detail=f"User '{user.uid}' already exists",
         )
     
+    # Validate password against policy
+    is_valid, errors = await validate_password_policy(user.password)
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "message": "Password does not meet policy requirements",
+                "errors": errors,
+            },
+        )
+    
     try:
         entry = await user_repo.create(user, department_dn=user.department_dn)
 
@@ -234,6 +246,17 @@ async def set_user_password(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User '{uid}' not found",
+        )
+    
+    # Validate password against policy
+    is_valid, errors = await validate_password_policy(request.password)
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "message": "Password does not meet policy requirements",
+                "errors": errors,
+            },
         )
     
     try:

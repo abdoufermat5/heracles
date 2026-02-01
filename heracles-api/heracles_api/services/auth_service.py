@@ -18,10 +18,11 @@ from heracles_api.config import settings
 
 logger = structlog.get_logger(__name__)
 
-# JWT Configuration
+# JWT Configuration - Defaults (can be overridden by DB config)
 JWT_ALGORITHM = "HS256"
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES = 60
-JWT_REFRESH_TOKEN_EXPIRE_DAYS = 7
+DEFAULT_ACCESS_TOKEN_EXPIRE_MINUTES = 60
+DEFAULT_REFRESH_TOKEN_EXPIRE_DAYS = 7
+DEFAULT_MAX_CONCURRENT_SESSIONS = 5
 
 
 class AuthenticationError(Exception):
@@ -63,14 +64,53 @@ class AuthService:
     Authentication service for Heracles.
     
     Handles JWT tokens and session management with Redis.
+    Token expiry and session settings are read from database configuration
+    with fallback to environment/default values.
     """
     
     def __init__(self, redis: Optional[Redis] = None):
         self.secret_key = settings.SECRET_KEY
         self.redis = redis
         self.session_timeout = settings.SESSION_TIMEOUT
+        # Cache for config values (updated via get_config methods)
+        self._access_token_expire: Optional[int] = None
+        self._refresh_token_expire: Optional[int] = None
+        self._max_concurrent_sessions: Optional[int] = None
     
-    def create_access_token(
+    async def get_access_token_expire_minutes(self) -> int:
+        """Get access token expiry in minutes from config with fallback."""
+        from heracles_api.services.config_service import get_config_value
+        
+        value = await get_config_value(
+            "session",
+            "access_token_expire_minutes",
+            default=DEFAULT_ACCESS_TOKEN_EXPIRE_MINUTES,
+        )
+        return int(value)
+    
+    async def get_refresh_token_expire_days(self) -> int:
+        """Get refresh token expiry in days from config with fallback."""
+        from heracles_api.services.config_service import get_config_value
+        
+        value = await get_config_value(
+            "session",
+            "refresh_token_expire_days",
+            default=DEFAULT_REFRESH_TOKEN_EXPIRE_DAYS,
+        )
+        return int(value)
+    
+    async def get_max_concurrent_sessions(self) -> int:
+        """Get max concurrent sessions from config with fallback."""
+        from heracles_api.services.config_service import get_config_value
+        
+        value = await get_config_value(
+            "session",
+            "max_concurrent_sessions",
+            default=DEFAULT_MAX_CONCURRENT_SESSIONS,
+        )
+        return int(value)
+    
+    async def create_access_token(
         self,
         user_dn: str,
         uid: str,
@@ -90,11 +130,14 @@ class AuthService:
         now = datetime.now(timezone.utc)
         jti = secrets.token_urlsafe(32)
         
+        # Get expiry from config
+        expire_minutes = await self.get_access_token_expire_minutes()
+        
         payload = {
             "sub": user_dn,
             "uid": uid,
             "iat": now,
-            "exp": now + timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
+            "exp": now + timedelta(minutes=expire_minutes),
             "jti": jti,
             "type": "access",
         }
@@ -103,11 +146,11 @@ class AuthService:
             payload.update(additional_claims)
         
         token = jwt.encode(payload, self.secret_key, algorithm=JWT_ALGORITHM)
-        logger.debug("access_token_created", uid=uid, jti=jti)
+        logger.debug("access_token_created", uid=uid, jti=jti, expires_in_minutes=expire_minutes)
         
         return token, jti
     
-    def create_refresh_token(
+    async def create_refresh_token(
         self,
         user_dn: str,
         uid: str,
@@ -125,21 +168,24 @@ class AuthService:
         now = datetime.now(timezone.utc)
         jti = secrets.token_urlsafe(32)
         
+        # Get expiry from config
+        expire_days = await self.get_refresh_token_expire_days()
+        
         payload = {
             "sub": user_dn,
             "uid": uid,
             "iat": now,
-            "exp": now + timedelta(days=JWT_REFRESH_TOKEN_EXPIRE_DAYS),
+            "exp": now + timedelta(days=expire_days),
             "jti": jti,
             "type": "refresh",
         }
         
         token = jwt.encode(payload, self.secret_key, algorithm=JWT_ALGORITHM)
-        logger.debug("refresh_token_created", uid=uid, jti=jti)
+        logger.debug("refresh_token_created", uid=uid, jti=jti, expires_in_days=expire_days)
         
         return token, jti
     
-    def get_cookie_settings(self, token_type: str = "access") -> Dict[str, Any]:
+    async def get_cookie_settings(self, token_type: str = "access") -> Dict[str, Any]:
         """
         Get cookie settings for a token type.
         
@@ -150,16 +196,18 @@ class AuthService:
             Dict of cookie settings (httponly, secure, etc.)
         """
         is_access = token_type == "access"
-        max_age = (
-            JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60 
-            if is_access 
-            else JWT_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
-        )
+        
+        if is_access:
+            expire_minutes = await self.get_access_token_expire_minutes()
+            max_age = expire_minutes * 60
+        else:
+            expire_days = await self.get_refresh_token_expire_days()
+            max_age = expire_days * 24 * 60 * 60
         
         return {
             "key": "access_token" if is_access else "refresh_token",
             "httponly": True,
-            "secure": False, # TODO: Set to True in production (requires HTTPS)
+            "secure": False,  # TODO: Set to True in production (requires HTTPS)
             "samesite": "lax",
             "domain": settings.COOKIE_DOMAIN,
             "max_age": max_age,

@@ -11,6 +11,12 @@ from dataclasses import dataclass
 from heracles_api.services.ldap_service import LdapService, LdapEntry, LdapOperationError
 from heracles_api.schemas.user import UserCreate, UserUpdate, UserResponse
 from heracles_api.config import settings
+from heracles_api.core.password_policy import get_password_hash_algorithm
+from heracles_api.core.ldap_config import (
+    get_users_rdn,
+    get_default_user_objectclasses,
+    DEFAULT_USERS_RDN,
+)
 
 import structlog
 
@@ -45,23 +51,42 @@ class UserRepository:
         self.ldap = ldap
         self.base_dn = settings.LDAP_BASE_DN
     
-    def _build_user_dn(self, uid: str, ou: str = "people", department_dn: Optional[str] = None) -> str:
+    async def _get_users_container(self) -> str:
+        """
+        Get the users container OU from config.
+        
+        Returns:
+            Users OU (e.g., 'ou=people')
+        """
+        rdn = await get_users_rdn()
+        # Ensure proper format
+        if not rdn.startswith("ou="):
+            return f"ou={rdn}"
+        return rdn
+    
+    async def _build_user_dn(self, uid: str, ou: Optional[str] = None, department_dn: Optional[str] = None) -> str:
         """
         Build user DN from UID.
 
         Args:
             uid: User UID
-            ou: Container OU name (default: "people")
+            ou: Container OU name (None = use config default)
             department_dn: Optional department DN to create user within
 
         Returns:
             User DN string
         """
+        # Get users container from config if not specified
+        if ou is None:
+            users_container = await self._get_users_container()
+        else:
+            users_container = f"ou={ou}" if not ou.startswith("ou=") else ou
+        
         if department_dn:
-            # Create under ou=people within the department
+            # Create under users container within the department
             # e.g., uid=john,ou=people,ou=Engineering,dc=heracles,dc=local
-            return f"uid={uid},ou={ou},{department_dn}"
-        return f"uid={uid},ou={ou},{self.base_dn}"
+            return f"uid={uid},{users_container},{department_dn}"
+        return f"uid={uid},{users_container},{self.base_dn}"
     
     def _entry_to_dict(self, entry: LdapEntry) -> dict:
         """Convert LDAP entry to dictionary."""
@@ -125,7 +150,7 @@ class UserRepository:
 
         Args:
             search_term: Search in uid, cn, mail
-            ou: Filter by organizational unit (legacy, use base_dn for departments)
+            ou: Filter by organizational unit (None = use config default)
             base_dn: Base DN to search from (e.g., department DN for scoped search)
             limit: Maximum results (0 = unlimited)
         """
@@ -139,17 +164,20 @@ class UserRepository:
             search_filter = base_filter
 
         # Determine search base
-        # We always search from ou=people within the specified context
-        # to avoid returning users from all departments when at root level
-        people_ou = ou or "people"
+        # Get users container from config if not specified
+        if ou:
+            people_container = f"ou={ou}" if not ou.startswith("ou=") else ou
+        else:
+            people_container = await self._get_users_container()
+        
         if base_dn:
             # Search within department's people container
             # e.g., ou=people,ou=Test,dc=heracles,dc=local
-            search_base = f"ou={people_ou},{base_dn}"
+            search_base = f"{people_container},{base_dn}"
         else:
             # Search only in root-level people container
             # e.g., ou=people,dc=heracles,dc=local
-            search_base = f"ou={people_ou},{self.base_dn}"
+            search_base = f"{people_container},{self.base_dn}"
 
         entries = await self.ldap.search(
             search_base=search_base,
@@ -174,13 +202,24 @@ class UserRepository:
         Raises:
             LdapOperationError: If creation fails
         """
-        user_dn = self._build_user_dn(user.uid, user.ou, department_dn)
+        # Use config-based OU if user.ou not specified
+        user_dn = await self._build_user_dn(
+            user.uid, 
+            ou=user.ou if user.ou and user.ou != "people" else None, 
+            department_dn=department_dn
+        )
+        
+        # Get hash algorithm from config
+        hash_algorithm = await get_password_hash_algorithm()
+        
+        # Get objectClasses from config
+        object_classes = await get_default_user_objectclasses()
         
         # Build attributes
         attrs = {
             "cn": user.cn,
             "sn": user.sn,
-            "userPassword": self.ldap._hash_password(user.password, settings.PASSWORD_HASH_METHOD),
+            "userPassword": self.ldap._hash_password(user.password, hash_algorithm),
         }
         
         if user.given_name:
@@ -196,11 +235,11 @@ class UserRepository:
         
         await self.ldap.add(
             dn=user_dn,
-            object_classes=self.OBJECT_CLASSES,
+            object_classes=object_classes,
             attributes=attrs,
         )
         
-        logger.info("user_created", uid=user.uid, dn=user_dn)
+        logger.info("user_created", uid=user.uid, dn=user_dn, hash_algorithm=hash_algorithm)
         
         # Return the created entry
         return await self.find_by_dn(user_dn)
@@ -283,13 +322,16 @@ class UserRepository:
         if not entry:
             return False
         
+        # Get hash algorithm from config
+        hash_algorithm = await get_password_hash_algorithm()
+        
         await self.ldap.set_password(
             entry.dn,
             password,
-            method=settings.PASSWORD_HASH_METHOD,
+            method=hash_algorithm,
         )
         
-        logger.info("user_password_set", uid=uid)
+        logger.info("user_password_set", uid=uid, hash_algorithm=hash_algorithm)
         return True
     
     async def authenticate(self, username: str, password: str) -> Optional[LdapEntry]:

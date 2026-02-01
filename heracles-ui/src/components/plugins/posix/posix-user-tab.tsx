@@ -24,6 +24,7 @@ import {
   useUpdateUserPosix,
   useDeactivateUserPosix,
 } from '@/hooks'
+import { AppError } from '@/lib/errors'
 import { useDepartmentStore } from '@/stores'
 import { PosixActivateForm } from './posix-activate-form'
 import { PosixEditForm } from './posix-edit-form'
@@ -53,7 +54,7 @@ export function PosixUserTab({ uid, displayName }: PosixUserTabProps) {
       toast.success('Unix account enabled successfully')
       setShowActivateForm(false)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to enable Unix account')
+      AppError.toastError(error, 'Failed to enable Unix account')
     }
   }
 
@@ -62,7 +63,7 @@ export function PosixUserTab({ uid, displayName }: PosixUserTabProps) {
       await updateMutation.mutateAsync({ data, baseDn: currentBase || undefined })
       toast.success('Unix account updated successfully')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update Unix account')
+      AppError.toastError(error, 'Failed to update Unix account')
     }
   }
 
@@ -72,7 +73,7 @@ export function PosixUserTab({ uid, displayName }: PosixUserTabProps) {
       toast.success('Unix account disabled successfully')
       setShowDeactivateDialog(false)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to disable Unix account')
+      AppError.toastError(error, 'Failed to disable Unix account')
     }
   }
 
@@ -167,6 +168,7 @@ export function PosixUserTab({ uid, displayName }: PosixUserTabProps) {
             <div className="space-y-6">
               <PosixEditForm
                 data={posixData}
+                baseDn={currentBase || undefined}
                 onSubmit={handleUpdate}
                 isSubmitting={updateMutation.isPending}
               />
@@ -185,6 +187,7 @@ export function PosixUserTab({ uid, displayName }: PosixUserTabProps) {
             <PosixActivateForm
               uid={uid}
               displayName={displayName}
+              baseDn={currentBase || undefined}
               onSubmit={handleActivate}
               onCancel={() => setShowActivateForm(false)}
               isSubmitting={activateMutation.isPending}

@@ -196,6 +196,30 @@ export function ConfigFieldComponent<T extends FieldValues>({
           />
         );
 
+      case "list": {
+        // Handle list type - array of strings, one per line
+        const listValue = Array.isArray(controllerField.value) 
+          ? controllerField.value 
+          : [];
+        return (
+          <Textarea
+            id={name}
+            value={listValue.join("\n")}
+            onChange={(e) => {
+              const lines = e.target.value
+                .split("\n")
+                .map((line) => line.trim())
+                .filter((line) => line.length > 0);
+              controllerField.onChange(lines);
+            }}
+            disabled={disabled}
+            placeholder="Enter one value per line"
+            className={cn("font-mono text-sm", error && "border-destructive")}
+            rows={4}
+          />
+        );
+      }
+
       case "url":
       case "email":
       case "path":

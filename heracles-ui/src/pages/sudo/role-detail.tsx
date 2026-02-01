@@ -29,6 +29,7 @@ import {
 
 import { useSudoRole, useUpdateSudoRole, useDeleteSudoRole } from '@/hooks/use-sudo'
 import { arrayToString, stringToArray } from '@/lib/string-helpers'
+import { AppError } from '@/lib/errors'
 import { PLUGIN_ROUTES } from '@/config/routes'
 import { useDepartmentStore } from '@/stores'
 
@@ -112,7 +113,7 @@ export function SudoRoleDetailPage() {
       toast.success('Sudo role updated successfully')
       setHasChanges(false)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update sudo role')
+      AppError.toastError(error, 'Failed to update sudo role')
     }
   }
 
@@ -125,7 +126,7 @@ export function SudoRoleDetailPage() {
       toast.success('Sudo role deleted successfully')
       navigate(PLUGIN_ROUTES.SUDO.ROLES)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete sudo role')
+      AppError.toastError(error, 'Failed to delete sudo role')
     }
   }
 

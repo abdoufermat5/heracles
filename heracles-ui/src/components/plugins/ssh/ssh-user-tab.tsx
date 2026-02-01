@@ -41,6 +41,7 @@ import {
   useAddSSHKey,
   useRemoveSSHKey,
 } from '@/hooks/use-ssh'
+import { AppError } from '@/lib/errors'
 import type { SSHKeyRead } from '@/types/ssh'
 
 interface SSHUserTabProps {
@@ -66,7 +67,7 @@ export function SSHUserTab({ uid, displayName }: SSHUserTabProps) {
       await activateMutation.mutateAsync({ uid })
       toast.success('SSH enabled for user')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to enable SSH')
+      AppError.toastError(error, 'Failed to enable SSH')
     }
   }
 
@@ -76,7 +77,7 @@ export function SSHUserTab({ uid, displayName }: SSHUserTabProps) {
       toast.success('SSH disabled for user')
       setShowDeactivateDialog(false)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to disable SSH')
+      AppError.toastError(error, 'Failed to disable SSH')
     }
   }
 
@@ -99,7 +100,7 @@ export function SSHUserTab({ uid, displayName }: SSHUserTabProps) {
       setNewKeyValue('')
       setNewKeyComment('')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to add SSH key')
+      AppError.toastError(error, 'Failed to add SSH key')
     }
   }
 
@@ -114,7 +115,7 @@ export function SSHUserTab({ uid, displayName }: SSHUserTabProps) {
       toast.success('SSH key removed')
       setKeyToDelete(null)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to remove SSH key')
+      AppError.toastError(error, 'Failed to remove SSH key')
     }
   }
 

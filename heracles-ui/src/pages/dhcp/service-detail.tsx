@@ -39,6 +39,7 @@ import {
   useCreateDhcpSubnet,
   useCreateDhcpHost,
 } from '@/hooks/use-dhcp'
+import { AppError } from '@/lib/errors'
 import { PLUGIN_ROUTES } from '@/config/routes'
 import { useDepartmentStore } from '@/stores'
 
@@ -74,7 +75,7 @@ export function DhcpServiceDetailPage() {
       toast.success(`Subnet ${data.cn} created successfully`)
       setCreateSubnetOpen(false)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to create subnet')
+      AppError.toastError(error, 'Failed to create subnet')
     }
   }
 
@@ -95,7 +96,7 @@ export function DhcpServiceDetailPage() {
       toast.success(`Host ${data.cn} created successfully`)
       setCreateHostOpen(false)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to create host')
+      AppError.toastError(error, 'Failed to create host')
     }
   }
 

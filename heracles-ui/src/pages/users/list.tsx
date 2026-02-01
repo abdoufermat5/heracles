@@ -10,6 +10,7 @@ import { DepartmentBreadcrumbs } from '@/components/departments'
 import { UsersTable } from '@/components/users'
 import { useUsers, useDeleteUser } from '@/hooks'
 import { useDepartmentStore } from '@/stores'
+import { AppError } from '@/lib/errors'
 import { ROUTES } from '@/config/constants'
 import type { User } from '@/types'
 
@@ -30,7 +31,7 @@ export function UsersListPage() {
       toast.success(`User "${deleteUser.uid}" deleted successfully`)
       setDeleteUser(null)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete user')
+      AppError.toastError(error, 'Failed to delete user')
     }
   }
 

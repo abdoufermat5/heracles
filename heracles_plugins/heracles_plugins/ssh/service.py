@@ -5,7 +5,7 @@ SSH Plugin Service
 Business logic for managing SSH public keys on user accounts.
 """
 
-from typing import Optional, List, Any, Dict
+from typing import Optional, List, Any, Dict, Tuple
 from datetime import datetime
 
 import structlog
@@ -33,6 +33,11 @@ from .schemas import (
 logger = structlog.get_logger(__name__)
 
 
+class SSHKeyValidationError(Exception):
+    """Raised when SSH key validation fails based on config rules."""
+    pass
+
+
 class SSHService(TabService):
     """
     Service for managing SSH public keys.
@@ -42,16 +47,156 @@ class SSHService(TabService):
     LDAP Schema:
         objectClass: ldapPublicKey (auxiliary)
         attribute: sshPublicKey (multi-valued)
+    
+    Config-based validation:
+        - allowed_key_types: List of permitted key types
+        - min_rsa_bits: Minimum RSA key size (default: 2048)
+        - reject_dsa_keys: Whether to reject DSA keys (default: True)
+        - validate_key_format: Whether to validate key format (default: True)
     """
     
     OBJECT_CLASS = "ldapPublicKey"
     SSH_KEY_ATTRIBUTE = "sshPublicKey"
+    
+    # Default config values (used if config service unavailable)
+    DEFAULT_ALLOWED_KEY_TYPES = [
+        "ssh-rsa",
+        "ssh-ed25519",
+        "ecdsa-sha2-nistp256",
+        "ecdsa-sha2-nistp384",
+        "ecdsa-sha2-nistp521",
+        "sk-ssh-ed25519@openssh.com",
+        "sk-ecdsa-sha2-nistp256@openssh.com",
+    ]
+    DEFAULT_MIN_RSA_BITS = 2048
+    DEFAULT_REJECT_DSA = True
+    DEFAULT_VALIDATE_FORMAT = True
     
     def __init__(self, ldap_service: LdapService, config: Optional[Dict[str, Any]] = None):
         """Initialize SSH service."""
         self._ldap = ldap_service
         self._config = config or {}
         self._log = logger.bind(service="ssh")
+    
+    # ========================================================================
+    # Config-Based Validation
+    # ========================================================================
+    
+    async def _get_validation_config(self) -> Dict[str, Any]:
+        """
+        Get SSH validation config with hot-reload support.
+        
+        Reads from database config with fallback to init-time config
+        and then to defaults.
+        """
+        try:
+            from heracles_api.services.config_service import get_plugin_config_value
+            
+            allowed_types = await get_plugin_config_value(
+                "ssh", 
+                "allowed_key_types", 
+                self._config.get("allowed_key_types", self.DEFAULT_ALLOWED_KEY_TYPES)
+            )
+            min_rsa_bits = await get_plugin_config_value(
+                "ssh",
+                "min_rsa_bits",
+                self._config.get("min_rsa_bits", self.DEFAULT_MIN_RSA_BITS)
+            )
+            reject_dsa = await get_plugin_config_value(
+                "ssh",
+                "reject_dsa_keys",
+                self._config.get("reject_dsa_keys", self.DEFAULT_REJECT_DSA)
+            )
+            validate_format = await get_plugin_config_value(
+                "ssh",
+                "validate_key_format",
+                self._config.get("validate_key_format", self.DEFAULT_VALIDATE_FORMAT)
+            )
+            
+            return {
+                "allowed_key_types": allowed_types,
+                "min_rsa_bits": int(min_rsa_bits),
+                "reject_dsa_keys": reject_dsa,
+                "validate_key_format": validate_format,
+            }
+            
+        except Exception as e:
+            self._log.warning("ssh_config_load_error", error=str(e))
+            # Fall back to init-time config or defaults
+            return {
+                "allowed_key_types": self._config.get("allowed_key_types", self.DEFAULT_ALLOWED_KEY_TYPES),
+                "min_rsa_bits": self._config.get("min_rsa_bits", self.DEFAULT_MIN_RSA_BITS),
+                "reject_dsa_keys": self._config.get("reject_dsa_keys", self.DEFAULT_REJECT_DSA),
+                "validate_key_format": self._config.get("validate_key_format", self.DEFAULT_VALIDATE_FORMAT),
+            }
+    
+    async def validate_ssh_key(self, key: str) -> Tuple[bool, List[str]]:
+        """
+        Validate an SSH key against config-based rules.
+        
+        Args:
+            key: SSH public key string
+            
+        Returns:
+            Tuple of (is_valid, list_of_errors)
+        """
+        errors = []
+        config = await self._get_validation_config()
+        
+        # Parse the key first
+        try:
+            key_info = parse_ssh_key(key)
+        except ValueError as e:
+            return False, [f"Invalid SSH key format: {str(e)}"]
+        
+        key_type = key_info["key_type"]
+        bits = key_info.get("bits")
+        
+        # Check if key type is allowed
+        allowed_types = config.get("allowed_key_types", self.DEFAULT_ALLOWED_KEY_TYPES)
+        if key_type not in allowed_types:
+            errors.append(
+                f"Key type '{key_type}' is not allowed. "
+                f"Permitted types: {', '.join(allowed_types)}"
+            )
+        
+        # Check DSA rejection
+        if config.get("reject_dsa_keys", True) and key_type == "ssh-dss":
+            errors.append(
+                "DSA keys are not allowed due to security concerns. "
+                "Please use RSA (2048+ bits) or Ed25519."
+            )
+        
+        # Check RSA minimum key size
+        if key_type == "ssh-rsa" and bits:
+            min_bits = config.get("min_rsa_bits", self.DEFAULT_MIN_RSA_BITS)
+            if bits < min_bits:
+                errors.append(
+                    f"RSA key size ({bits} bits) is below minimum requirement ({min_bits} bits). "
+                    f"Please use a key with at least {min_bits} bits."
+                )
+        
+        return len(errors) == 0, errors
+    
+    async def validate_ssh_key_or_raise(self, key: str) -> Dict[str, Any]:
+        """
+        Validate an SSH key and raise exception if invalid.
+        
+        Args:
+            key: SSH public key string
+            
+        Returns:
+            Parsed key info dict if valid
+            
+        Raises:
+            SSHKeyValidationError: If validation fails
+        """
+        is_valid, errors = await self.validate_ssh_key(key)
+        
+        if not is_valid:
+            raise SSHKeyValidationError("; ".join(errors))
+        
+        return parse_ssh_key(key)
     
     # ========================================================================
     # User SSH Status
@@ -160,8 +305,8 @@ class SSHService(TabService):
         
         # Add initial key if provided
         if data and data.initial_key:
-            # Validate key first
-            parse_ssh_key(data.initial_key)
+            # Validate key against config rules (raises SSHKeyValidationError)
+            await self.validate_ssh_key_or_raise(data.initial_key)
             mods[self.SSH_KEY_ATTRIBUTE] = ("replace", [data.initial_key])
         
         # Apply modifications
@@ -234,8 +379,8 @@ class SSHService(TabService):
         if not status.has_ssh:
             await self.activate_ssh(uid)
         
-        # Parse and validate key
-        key_info = parse_ssh_key(data.key)
+        # Validate key against config rules (raises SSHKeyValidationError)
+        key_info = await self.validate_ssh_key_or_raise(data.key)
         new_fingerprint = key_info["fingerprint"]
         
         # Check for duplicate
@@ -312,6 +457,9 @@ class SSHService(TabService):
             
         Returns:
             Updated UserSSHStatus
+            
+        Raises:
+            SSHKeyValidationError: If any key fails config-based validation
         """
         user_dn = await self._find_user_dn(uid)
         
@@ -320,14 +468,25 @@ class SSHService(TabService):
         if not status.has_ssh:
             await self.activate_ssh(uid)
         
-        # Validate all keys and check for duplicates
+        # Validate all keys against config rules and check for duplicates
         fingerprints = set()
+        validation_errors = []
+        
         for key in data.keys:
+            # Validate against config
+            is_valid, errors = await self.validate_ssh_key(key)
+            if not is_valid:
+                validation_errors.extend(errors)
+                continue
+            
             key_info = parse_ssh_key(key)
             fp = key_info["fingerprint"]
             if fp in fingerprints:
-                raise ValueError(f"Duplicate key in request: {fp}")
+                validation_errors.append(f"Duplicate key in request: {fp}")
             fingerprints.add(fp)
+        
+        if validation_errors:
+            raise SSHKeyValidationError("; ".join(validation_errors))
         
         # Replace all keys - format: {attr: (operation, values)}
         if data.keys:
@@ -390,12 +549,11 @@ class SSHService(TabService):
             filter_str = f"({self.SSH_KEY_ATTRIBUTE}={key_or_fingerprint})"
             fingerprint = compute_fingerprint(key_or_fingerprint)
         
-        # Search for users with SSH keys
+        # Search for users with SSH keys from base DN (supports nested OUs)
         from heracles_api.config import settings
-        users_base = f"ou=people,{settings.LDAP_BASE_DN}"
         
         results = await self._ldap.search(
-            search_base=users_base,
+            search_base=settings.LDAP_BASE_DN,
             search_filter=filter_str,
             attributes=["uid", self.SSH_KEY_ATTRIBUTE],
         )
@@ -426,6 +584,9 @@ class SSHService(TabService):
         """
         Find user DN by UID.
         
+        Searches the entire LDAP subtree to find users in any OU
+        (including department OUs like ou=people,ou=engineering,...).
+        
         Args:
             uid: User ID to find
             
@@ -437,11 +598,10 @@ class SSHService(TabService):
         """
         from heracles_api.config import settings
         
-        users_base = f"ou=people,{settings.LDAP_BASE_DN}"
-        
+        # Search from base DN with subtree scope to find users in any OU
         results = await self._ldap.search(
-            search_base=users_base,
-            search_filter=f"(uid={uid})",
+            search_base=settings.LDAP_BASE_DN,
+            search_filter=f"(&(objectClass=inetOrgPerson)(uid={uid}))",
             attributes=["dn"],
             size_limit=1,
         )

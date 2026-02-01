@@ -3,8 +3,13 @@ import { AppError, ErrorCode } from '@/lib/errors'
 
 const DEFAULT_TIMEOUT = 30000 // 30 seconds
 
+interface ApiErrorDetail {
+  message?: string
+  errors?: string[]
+}
+
 interface ApiErrorResponse {
-  detail?: string
+  detail?: string | ApiErrorDetail
   field_errors?: Record<string, string>
   code?: string
 }

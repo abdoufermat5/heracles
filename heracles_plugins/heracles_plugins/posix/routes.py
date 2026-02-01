@@ -15,6 +15,8 @@ from fastapi import APIRouter, HTTPException, status, Depends, Query
 
 import structlog
 
+from heracles_api.services.ldap_service import LdapService, LdapNotFoundError
+
 from .schemas import (
     PosixAccountCreate,
     PosixAccountRead,
@@ -44,8 +46,54 @@ router = APIRouter(tags=["posix"])
 
 
 # =============================================================================
+# Helper Functions
+# =============================================================================
+
+async def find_user_dn(uid: str, ldap_service: LdapService) -> str:
+    """
+    Find user DN by UID.
+    
+    Searches the entire LDAP subtree to find users in any OU
+    (including department OUs like ou=people,ou=engineering,...).
+    
+    Args:
+        uid: User ID to find
+        ldap_service: LDAP service instance
+        
+    Returns:
+        User DN
+        
+    Raises:
+        HTTPException: If user not found
+    """
+    from heracles_api.config import settings
+    
+    # Search from base DN with subtree scope to find users in any OU
+    results = await ldap_service.search(
+        search_base=settings.LDAP_BASE_DN,
+        search_filter=f"(&(objectClass=inetOrgPerson)(uid={uid}))",
+        attributes=["dn"],
+        size_limit=1,
+    )
+    
+    if not results:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User not found: {uid}",
+        )
+    
+    return results[0].dn
+
+
+# =============================================================================
 # Dependencies
 # =============================================================================
+
+async def get_ldap_service() -> LdapService:
+    """Get the LDAP service."""
+    from heracles_api.core.dependencies import get_ldap
+    return await get_ldap()
+
 
 def get_posix_service() -> PosixService:
     """Get the POSIX service from the plugin registry."""
@@ -104,22 +152,22 @@ async def get_user_posix(
     current_user: CurrentUser,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: PosixService = Depends(get_posix_service),
+    ldap_service: LdapService = Depends(get_ldap_service),
 ):
     """
     Get POSIX account status and data for a user.
     
     Returns whether POSIX is active and the account data if it is.
     """
-    from heracles_api.config import settings
-    
-    dn = f"uid={uid},ou=people,{settings.LDAP_BASE_DN}"
-    
     try:
+        dn = await find_user_dn(uid, ldap_service)
         is_active = await service.is_active(dn)
         data = await service.read(dn) if is_active else None
         
         return PosixStatusResponse(active=is_active, data=data)
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("get_user_posix_failed", uid=uid, error=str(e))
         raise HTTPException(
@@ -141,6 +189,7 @@ async def activate_user_posix(
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: PosixService = Depends(get_posix_service),
     group_service: PosixGroupService = Depends(get_posix_group_service),
+    ldap_service: LdapService = Depends(get_ldap_service),
 ):
     """
     Activate POSIX account for a user.
@@ -154,16 +203,27 @@ async def activate_user_posix(
     When primaryGroupMode is "create_personal", a personal group with the same
     name as the user will be automatically created.
     """
-    from heracles_api.config import settings
-    
-    base = base_dn if base_dn else settings.LDAP_BASE_DN
-    dn = f"uid={uid},ou=people,{base}"
-    
     try:
-        result = await service.activate(dn, data, uid=uid, group_service=group_service)
-        logger.info("posix_activated_via_api", uid=uid, by=current_user.uid)
+        dn = await find_user_dn(uid, ldap_service)
+        
+        # Extract base DN from user's DN for group creation context
+        # User DN is like: uid=xxx,ou=people,ou=dept,dc=heracles,dc=local
+        # We want the context after ou=people: ou=dept,dc=heracles,dc=local
+        effective_base_dn = base_dn
+        if effective_base_dn is None:
+            # Try to extract from user DN
+            dn_lower = dn.lower()
+            ou_people_idx = dn_lower.find(",ou=people,")
+            if ou_people_idx != -1:
+                # Get everything after ,ou=people,
+                effective_base_dn = dn[ou_people_idx + len(",ou=people,"):]
+        
+        result = await service.activate(dn, data, uid=uid, group_service=group_service, base_dn=effective_base_dn)
+        logger.info("posix_activated_via_api", uid=uid, by=current_user.uid, base_dn=effective_base_dn)
         return result
         
+    except HTTPException:
+        raise
     except PosixValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -188,22 +248,21 @@ async def update_user_posix(
     current_user: CurrentUser,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: PosixService = Depends(get_posix_service),
+    ldap_service: LdapService = Depends(get_ldap_service),
 ):
     """
     Update POSIX account attributes for a user.
     
     Only provided fields will be updated.
     """
-    from heracles_api.config import settings
-    
-    base = base_dn if base_dn else settings.LDAP_BASE_DN
-    dn = f"uid={uid},ou=people,{base}"
-    
     try:
+        dn = await find_user_dn(uid, ldap_service)
         result = await service.update(dn, data)
         logger.info("posix_updated_via_api", uid=uid, by=current_user.uid)
         return result
         
+    except HTTPException:
+        raise
     except PosixValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -232,6 +291,7 @@ async def deactivate_user_posix(
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: PosixService = Depends(get_posix_service),
     group_service: PosixGroupService = Depends(get_posix_group_service),
+    ldap_service: LdapService = Depends(get_ldap_service),
 ):
     """
     Deactivate POSIX account for a user.
@@ -242,12 +302,8 @@ async def deactivate_user_posix(
     If delete_personal_group is True and the user has a personal group
     (same name as uid) that is empty, it will be automatically deleted.
     """
-    from heracles_api.config import settings
-    
-    base = base_dn if base_dn else settings.LDAP_BASE_DN
-    dn = f"uid={uid},ou=people,{base}"
-    
     try:
+        dn = await find_user_dn(uid, ldap_service)
         await service.deactivate(
             dn,
             group_service=group_service,
@@ -255,6 +311,8 @@ async def deactivate_user_posix(
         )
         logger.info("posix_deactivated_via_api", uid=uid, by=current_user.uid)
         
+    except HTTPException:
+        raise
     except PosixValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

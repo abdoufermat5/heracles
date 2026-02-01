@@ -285,10 +285,10 @@ class TestAddKey:
         mock_ldap_service.modify.return_value = True
         
         user_updated = user_with_ssh.copy()
-        user_updated["sshPublicKey"] = [VALID_ED25519_KEY, VALID_RSA_KEY]
+        user_updated["sshPublicKey"] = [VALID_ED25519_KEY, VALID_ECDSA_KEY]
         mock_ldap_service.get_by_dn.side_effect = [user_with_ssh, user_updated]
         
-        data = SSHKeyCreate(key=VALID_RSA_KEY)
+        data = SSHKeyCreate(key=VALID_ECDSA_KEY)
         result = await ssh_service.add_key("testuser", data)
         
         mock_ldap_service.modify.assert_called_once()
@@ -393,7 +393,7 @@ class TestUpdateKeys:
         mock_ldap_service.get_by_dn.return_value = user_with_ssh
         mock_ldap_service.modify.return_value = True
         
-        new_keys = [VALID_RSA_KEY, VALID_ECDSA_KEY]
+        new_keys = [VALID_ED25519_KEY, VALID_ECDSA_KEY]
         user_updated = user_with_ssh.copy()
         user_updated["sshPublicKey"] = new_keys
         mock_ldap_service.get_by_dn.side_effect = [user_with_ssh, user_updated]

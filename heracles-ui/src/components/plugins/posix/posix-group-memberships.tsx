@@ -42,6 +42,7 @@ import {
   useAddUserToGroup,
   useRemoveUserFromGroup,
 } from '@/hooks'
+import { AppError } from '@/lib/errors'
 import { useDepartmentStore } from '@/stores'
 
 interface PosixGroupMembershipsProps {
@@ -81,7 +82,7 @@ export function PosixGroupMemberships({
       setSelectedGroup('')
       onMembershipChange?.()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to add to group')
+      AppError.toastError(error, 'Failed to add to group')
     }
   }
 
@@ -94,7 +95,7 @@ export function PosixGroupMemberships({
       setGroupToRemove(null)
       onMembershipChange?.()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to remove from group')
+      AppError.toastError(error, 'Failed to remove from group')
     }
   }
 

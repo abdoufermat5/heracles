@@ -15,9 +15,10 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
-import { PageHeader, LoadingSpinner } from '@/components/common'
+import { PageHeader, LoadingSpinner, PasswordRequirements } from '@/components/common'
 import { useCreateUser } from '@/hooks'
 import { userCreateSchema, type UserCreateFormData } from '@/lib/schemas'
+import { AppError } from '@/lib/errors'
 import { ROUTES } from '@/config/constants'
 import { useDepartmentStore } from '@/stores'
 
@@ -56,7 +57,7 @@ export function UserCreatePage() {
       toast.success(`User "${data.uid}" created successfully`)
       navigate(ROUTES.USERS)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to create user')
+      AppError.toastError(error, 'Failed to create user')
     }
   }
 
@@ -173,35 +174,37 @@ export function UserCreatePage() {
               <CardTitle>Password</CardTitle>
               <CardDescription>Set the initial password for this user</CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password *</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} />
-                    </FormControl>
-                    <FormDescription>Minimum 8 characters</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <CardContent className="space-y-4">
+              <PasswordRequirements />
+              <div className="grid gap-4 md:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password *</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="••••••••" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="confirmPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Confirm Password *</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirm Password *</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="••••••••" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </CardContent>
           </Card>
 

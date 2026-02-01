@@ -26,12 +26,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { PageHeader, LoadingPage, ErrorDisplay, LoadingSpinner, ConfirmDialog } from '@/components/common'
+import { PageHeader, LoadingPage, ErrorDisplay, LoadingSpinner, ConfirmDialog, PasswordRequirements } from '@/components/common'
 import { PosixUserTab } from '@/components/plugins/posix'
 import { SSHUserTab } from '@/components/plugins/ssh'
 import { MailUserTab } from '@/components/plugins/mail'
 import { useUser, useUpdateUser, useDeleteUser, useSetUserPassword, useUserLockStatus, useLockUser, useUnlockUser } from '@/hooks'
 import { userUpdateSchema, setPasswordSchema, type UserUpdateFormData, type SetPasswordFormData } from '@/lib/schemas'
+import { AppError } from '@/lib/errors'
 import { ROUTES } from '@/config/constants'
 
 export function UserDetailPage() {
@@ -87,7 +88,7 @@ export function UserDetailPage() {
       await updateMutation.mutateAsync(cleanedData)
       toast.success('User updated successfully')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update user')
+      AppError.toastError(error, 'Failed to update user')
     }
   }
 
@@ -98,7 +99,7 @@ export function UserDetailPage() {
       setShowPasswordDialog(false)
       passwordForm.reset()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to set password')
+      AppError.toastError(error, 'Failed to set password')
     }
   }
 
@@ -108,7 +109,7 @@ export function UserDetailPage() {
       toast.success(`User "${uid}" deleted successfully`)
       navigate(ROUTES.USERS)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete user')
+      AppError.toastError(error, 'Failed to delete user')
     }
   }
 
@@ -117,7 +118,7 @@ export function UserDetailPage() {
       await lockMutation.mutateAsync()
       toast.success(`User "${uid}" has been locked`)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to lock user')
+      AppError.toastError(error, 'Failed to lock user')
     }
   }
 
@@ -126,7 +127,7 @@ export function UserDetailPage() {
       await unlockMutation.mutateAsync()
       toast.success(`User "${uid}" has been unlocked`)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to unlock user')
+      AppError.toastError(error, 'Failed to unlock user')
     }
   }
 
@@ -404,6 +405,7 @@ export function UserDetailPage() {
           </DialogHeader>
           <form onSubmit={passwordForm.handleSubmit(onSetPassword)}>
             <div className="space-y-4 py-4">
+              <PasswordRequirements />
               <div className="space-y-2">
                 <Label>New Password</Label>
                 <Input

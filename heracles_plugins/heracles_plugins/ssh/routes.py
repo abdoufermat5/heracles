@@ -18,7 +18,7 @@ from .schemas import (
     UserSSHActivate,
     UserSSHKeysUpdate,
 )
-from .service import SSHService
+from .service import SSHService, SSHKeyValidationError
 
 
 logger = structlog.get_logger(__name__)
@@ -102,6 +102,11 @@ async def activate_user_ssh(
     """Activate SSH for a user account."""
     try:
         return await service.activate_ssh(uid, data)
+    except SSHKeyValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
     except Exception as e:
         if "not found" in str(e).lower():
             raise HTTPException(
@@ -190,6 +195,12 @@ async def add_user_ssh_key(
     """Add an SSH key to a user."""
     try:
         return await service.add_key(uid, data)
+    except SSHKeyValidationError as e:
+        # Config-based validation failure (e.g., key type not allowed, RSA too small)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -228,6 +239,12 @@ async def update_user_ssh_keys(
     """Replace all SSH keys for a user."""
     try:
         return await service.update_keys(uid, data)
+    except SSHKeyValidationError as e:
+        # Config-based validation failure (e.g., key type not allowed, RSA too small)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

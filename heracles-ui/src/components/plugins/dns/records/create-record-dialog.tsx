@@ -59,8 +59,8 @@ const createRecordSchema = z
       .toLowerCase(),
     recordType: z.enum(RECORD_TYPES as unknown as [RecordType, ...RecordType[]]),
     value: z.string().min(1, 'Value is required'),
-    ttl: z.coerce.number().int().min(60).max(604800).optional().nullable(),
-    priority: z.coerce.number().int().min(0).max(65535).optional().nullable(),
+    ttl: z.union([z.coerce.number().int().min(60).max(604800), z.null()]).optional(),
+    priority: z.union([z.coerce.number().int().min(0).max(65535), z.null()]).optional(),
   })
   .refine(
     (data) => {

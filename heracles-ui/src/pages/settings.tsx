@@ -3,7 +3,7 @@ import { PageHeader, LoadingPage, ErrorDisplay } from "@/components/common";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   CategorySettingsPanel,
-  PluginSettingsPanel,
+  PluginsTabContent,
   ConfigHistoryPanel,
 } from "@/components/settings";
 import { useConfig } from "@/hooks/use-config";
@@ -56,7 +56,7 @@ export function SettingsPage() {
   const { categories, plugins } = data;
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col overflow-hidden">
       <PageHeader
         title="Settings"
         description="Configure your Heracles instance and manage plugins"
@@ -65,9 +65,9 @@ export function SettingsPage() {
       <Tabs
         value={activeTab}
         onValueChange={setActiveTab}
-        className="flex-1 flex flex-col"
+        className="flex-1 flex flex-col min-h-0"
       >
-        <div className="border-b px-4 overflow-x-auto">
+        <div className="border-b px-4 shrink-0">
           <TabsList className="h-auto p-1 bg-transparent gap-1 flex-wrap justify-start">
             {/* Category tabs */}
             {categories.map((category) => {
@@ -104,10 +104,10 @@ export function SettingsPage() {
           </TabsList>
         </div>
 
-        <div className="flex-1 overflow-auto p-6">
+        <div className="flex-1 overflow-y-auto min-h-0 p-6">
           {/* Category content */}
           {categories.map((category) => (
-            <TabsContent key={category.name} value={category.name} className="mt-0">
+            <TabsContent key={category.name} value={category.name} className="mt-0 h-full">
               <div className="max-w-3xl">
                 <CategorySettingsPanel category={category} />
               </div>
@@ -115,35 +115,12 @@ export function SettingsPage() {
           ))}
 
           {/* Plugins content */}
-          <TabsContent value="plugins" className="mt-0">
-            <div className="max-w-3xl space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold">Plugin Configuration</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Enable, disable, and configure installed plugins
-                  </p>
-                </div>
-              </div>
-
-              {plugins.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  No plugins installed
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {plugins
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map((plugin) => (
-                      <PluginSettingsPanel key={plugin.name} plugin={plugin} />
-                    ))}
-                </div>
-              )}
-            </div>
+          <TabsContent value="plugins" className="mt-0 h-full">
+            <PluginsTabContent plugins={plugins} />
           </TabsContent>
 
           {/* History content */}
-          <TabsContent value="history" className="mt-0">
+          <TabsContent value="history" className="mt-0 h-full">
             <div className="max-w-4xl">
               <ConfigHistoryPanel />
             </div>

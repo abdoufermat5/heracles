@@ -113,7 +113,7 @@ export function ConfigHistoryPanel({
           </p>
         ) : (
           <>
-            <div className="max-h-[400px] overflow-auto">
+            <div>
               <Table>
                 <TableHeader>
                   <TableRow>

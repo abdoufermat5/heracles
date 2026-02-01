@@ -20,7 +20,7 @@ import {
   DepartmentCreatePage,
   DepartmentDetailPage,
 } from '@/pages/departments'
-import { PosixGroupsPage, PosixGroupDetailPage, MixedGroupsPage } from '@/pages/posix'
+import { PosixGroupsPage, PosixGroupDetailPage, MixedGroupsPage, MixedGroupDetailPage } from '@/pages/posix'
 import { SudoRolesPage, SudoRoleDetailPage } from '@/pages/sudo'
 import { DnsZonesListPage, DnsZoneDetailPage } from '@/pages/dns'
 import { DhcpServicesListPage, DhcpServiceDetailPage } from '@/pages/dhcp'
@@ -65,6 +65,7 @@ export function AppRouter() {
 
         {/* Mixed Groups (groupOfNames + posixGroup) */}
         <Route path={PLUGIN_ROUTES.POSIX.MIXED_GROUPS} element={<MixedGroupsPage />} />
+        <Route path={PLUGIN_ROUTES.POSIX.MIXED_GROUP_DETAIL} element={<MixedGroupDetailPage />} />
 
         {/* Sudo Roles */}
         <Route path={PLUGIN_ROUTES.SUDO.ROLES} element={<SudoRolesPage />} />

@@ -15,6 +15,7 @@ from heracles_api.core.dependencies import (
     AuthDep,
     UserRepoDep,
 )
+from heracles_api.core.password_policy import validate_password_policy
 from heracles_api.schemas import (
     LoginRequest,
     TokenResponse,
@@ -70,13 +71,13 @@ async def login(
         group_dns = [f"cn={g},ou=groups,{settings.LDAP_BASE_DN}" for g in groups]
         
         # Create tokens
-        access_token, access_jti = auth.create_access_token(
+        access_token, access_jti = await auth.create_access_token(
             user_dn=user.dn,
             uid=uid,
             additional_claims={"groups": groups},
         )
         
-        refresh_token, _ = auth.create_refresh_token(
+        refresh_token, _ = await auth.create_refresh_token(
             user_dn=user.dn,
             uid=uid,
         )
@@ -94,20 +95,23 @@ async def login(
         logger.info("login_success", uid=uid, user_dn=user.dn)
         
         # Set cookies
-        access_cookie = auth.get_cookie_settings("access")
-        refresh_cookie = auth.get_cookie_settings("refresh")
+        access_cookie = await auth.get_cookie_settings("access")
+        refresh_cookie = await auth.get_cookie_settings("refresh")
         
         response.set_cookie(value=access_token, **access_cookie)
         response.set_cookie(value=refresh_token, **refresh_cookie)
         
         logger.info("login_success", uid=uid, user_dn=user.dn)
         
+        # Get expires_in from config
+        expires_in_minutes = await auth.get_access_token_expire_minutes()
+        
         # Return tokens in body for non-browser clients (scripts/CLI)
         # UI will use cookies and ignore these
         return TokenResponse(
             access_token=access_token,
             refresh_token=refresh_token,
-            expires_in=3600,
+            expires_in=expires_in_minutes * 60,
         )
         
     except LdapAuthenticationError as e:
@@ -160,13 +164,13 @@ async def refresh_token(
         group_dns = [f"cn={g},ou=groups,{settings.LDAP_BASE_DN}" for g in groups]
         
         # Create new tokens
-        access_token, access_jti = auth.create_access_token(
+        access_token, access_jti = await auth.create_access_token(
             user_dn=user.dn,
             uid=uid,
             additional_claims={"groups": groups},
         )
         
-        refresh_token, _ = auth.create_refresh_token(
+        refresh_token, _ = await auth.create_refresh_token(
             user_dn=user.dn,
             uid=uid,
         )
@@ -184,18 +188,21 @@ async def refresh_token(
         logger.info("token_refreshed", uid=uid)
         
         # Set new cookies
-        access_cookie = auth.get_cookie_settings("access")
-        refresh_cookie = auth.get_cookie_settings("refresh")
+        access_cookie = await auth.get_cookie_settings("access")
+        refresh_cookie = await auth.get_cookie_settings("refresh")
         
         response.set_cookie(value=access_token, **access_cookie)
         response.set_cookie(value=refresh_token, **refresh_cookie)
         
         logger.info("token_refreshed", uid=uid)
         
+        # Get expires_in from config
+        expires_in_minutes = await auth.get_access_token_expire_minutes()
+        
         return TokenResponse(
             access_token=access_token,
             refresh_token=refresh_token,
-            expires_in=3600,
+            expires_in=expires_in_minutes * 60,
         )
         
     except TokenError as e:
@@ -277,6 +284,17 @@ async def change_password(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Current password is incorrect",
+        )
+    
+    # Validate new password against policy
+    is_valid, errors = await validate_password_policy(request.new_password)
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "message": "New password does not meet policy requirements",
+                "errors": errors,
+            },
         )
     
     # Set new password

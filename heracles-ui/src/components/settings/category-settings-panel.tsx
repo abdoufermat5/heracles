@@ -39,41 +39,53 @@ function buildSchema(settings: ConfigSetting[]) {
       case "boolean":
         fieldSchema = z.boolean();
         break;
-      case "integer":
-        fieldSchema = z.number().int();
-        if (setting.validation?.minValue !== undefined) {
-          fieldSchema = (fieldSchema as z.ZodNumber).min(setting.validation.minValue);
+      case "integer": {
+        let numSchema = z.number().int();
+        // Check for both undefined and null
+        if (setting.validation?.minValue != null) {
+          numSchema = numSchema.min(setting.validation.minValue);
         }
-        if (setting.validation?.maxValue !== undefined) {
-          fieldSchema = (fieldSchema as z.ZodNumber).max(setting.validation.maxValue);
+        if (setting.validation?.maxValue != null) {
+          numSchema = numSchema.max(setting.validation.maxValue);
         }
+        // Allow null for optional integer fields
+        fieldSchema = z.union([numSchema, z.null()]);
         break;
-      case "float":
-        fieldSchema = z.number();
-        if (setting.validation?.minValue !== undefined) {
-          fieldSchema = (fieldSchema as z.ZodNumber).min(setting.validation.minValue);
+      }
+      case "float": {
+        let floatSchema = z.number();
+        if (setting.validation?.minValue != null) {
+          floatSchema = floatSchema.min(setting.validation.minValue);
         }
-        if (setting.validation?.maxValue !== undefined) {
-          fieldSchema = (fieldSchema as z.ZodNumber).max(setting.validation.maxValue);
+        if (setting.validation?.maxValue != null) {
+          floatSchema = floatSchema.max(setting.validation.maxValue);
         }
+        // Allow null for optional float fields
+        fieldSchema = z.union([floatSchema, z.null()]);
         break;
+      }
       case "multiselect":
         fieldSchema = z.array(z.union([z.string(), z.number()]));
         break;
-      default:
-        fieldSchema = z.string();
-        if (setting.validation?.minLength !== undefined) {
-          fieldSchema = (fieldSchema as z.ZodString).min(setting.validation.minLength);
+      default: {
+        let strSchema = z.string();
+        // Check for both undefined and null
+        if (setting.validation?.minLength != null) {
+          strSchema = strSchema.min(setting.validation.minLength);
         }
-        if (setting.validation?.maxLength !== undefined) {
-          fieldSchema = (fieldSchema as z.ZodString).max(setting.validation.maxLength);
+        if (setting.validation?.maxLength != null) {
+          strSchema = strSchema.max(setting.validation.maxLength);
         }
         if (setting.validation?.pattern) {
-          fieldSchema = (fieldSchema as z.ZodString).regex(
+          strSchema = strSchema.regex(
             new RegExp(setting.validation.pattern),
             "Invalid format"
           );
         }
+        // Allow null for optional string fields
+        fieldSchema = z.union([strSchema, z.null()]);
+        break;
+      }
     }
 
     shape[setting.key] = fieldSchema.optional();

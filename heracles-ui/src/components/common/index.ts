@@ -6,6 +6,15 @@ export { ConfirmDialog } from './confirm-dialog'
 export { ErrorBoundary, withErrorBoundary } from './error-boundary'
 export { UnsavedChangesDialog } from './unsaved-changes-dialog'
 export { FormErrorSummary } from './form-error-summary'
+export { PasswordRequirements } from './password-requirements'
+export {
+  RestartNeededAlert,
+  RestartBanner,
+  useRestartTracker,
+  type RestartNeededAlertProps,
+  type RestartBannerProps,
+  type RestartTracker,
+} from './restart-needed-alert'
 export {
   TableSkeleton,
   CardSkeleton,

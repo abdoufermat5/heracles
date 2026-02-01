@@ -19,6 +19,7 @@ import { PosixGroupsTable, MixedGroupsTable } from '@/components/plugins/posix/g
 import { useGroups, useDeleteGroup } from '@/hooks'
 import { usePosixGroups, useDeletePosixGroup, useMixedGroups, useDeleteMixedGroup } from '@/hooks/use-posix'
 import { useDepartmentStore } from '@/stores'
+import { AppError } from '@/lib/errors'
 import { ROUTES } from '@/config/constants'
 import type { Group } from '@/types'
 import type { PosixGroupListItem, MixedGroupListItem } from '@/types/posix'
@@ -57,7 +58,7 @@ export function GroupsListPage() {
       toast.success(`Group "${deleteGroup.cn}" deleted successfully`)
       setDeleteGroup(null)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete group')
+      AppError.toastError(error, 'Failed to delete group')
     }
   }
 
@@ -71,7 +72,7 @@ export function GroupsListPage() {
       toast.success(`POSIX group "${deletePosixGroup.cn}" deleted successfully`)
       setDeletePosixGroup(null)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete POSIX group')
+      AppError.toastError(error, 'Failed to delete POSIX group')
     }
   }
 
@@ -85,7 +86,7 @@ export function GroupsListPage() {
       toast.success(`Mixed group "${deleteMixedGroup.cn}" deleted successfully`)
       setDeleteMixedGroup(null)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete mixed group')
+      AppError.toastError(error, 'Failed to delete mixed group')
     }
   }
 
