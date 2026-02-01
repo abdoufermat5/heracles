@@ -10,6 +10,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarSeparator,
 } from '@/components/ui/sidebar'
 import {
   DropdownMenu,
@@ -31,12 +32,15 @@ import {
   Globe,
   Network,
   Building2,
+  KeyRound,
+  Mail,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores'
 import { ROUTES, PLUGIN_ROUTES } from '@/config/constants'
 import { DepartmentSelector } from '@/components/departments'
 
-const mainNavItems = [
+// Main navigation - Core identity management
+const coreNavItems = [
   {
     title: 'Dashboard',
     url: ROUTES.DASHBOARD,
@@ -57,18 +61,17 @@ const mainNavItems = [
     url: ROUTES.DEPARTMENTS,
     icon: Building2,
   },
-  {
-    title: 'Sudo Roles',
-    url: PLUGIN_ROUTES.SUDO.ROLES,
-    icon: ShieldCheck,
-  },
+]
+
+// Infrastructure - Systems & Network
+const infrastructureNavItems = [
   {
     title: 'Systems',
     url: PLUGIN_ROUTES.SYSTEMS.LIST,
     icon: Server,
   },
   {
-    title: 'DNS',
+    title: 'DNS Zones',
     url: PLUGIN_ROUTES.DNS.ZONES,
     icon: Globe,
   },
@@ -79,13 +82,29 @@ const mainNavItems = [
   },
 ]
 
-const adminNavItems = [
+// Security & Access Control
+const securityNavItems = [
   {
-    title: 'Settings',
-    url: ROUTES.SETTINGS,
-    icon: Settings,
+    title: 'Sudo Roles',
+    url: PLUGIN_ROUTES.SUDO.ROLES,
+    icon: ShieldCheck,
+  },
+  {
+    title: 'SSH Keys',
+    url: '/ssh-keys',  // TODO: Add to routes when SSH management page is ready
+    icon: KeyRound,
+    disabled: true,
   },
 ]
+
+// Communication - Mail (future)
+// const communicationNavItems = [
+//   {
+//     title: 'Mail Accounts',
+//     url: '/mail',
+//     icon: Mail,
+//   },
+// ]
 
 export function AppSidebar() {
   const location = useLocation()
@@ -117,11 +136,12 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
+        {/* Core Identity Management */}
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel>Identity</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainNavItems.map((item) => (
+              {coreNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
@@ -138,28 +158,80 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {user?.is_admin && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Administration</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {adminNavItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={location.pathname === item.url}
-                    >
+        {/* Infrastructure */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Infrastructure</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {infrastructureNavItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location.pathname === item.url || location.pathname.startsWith(item.url + '/')}
+                  >
+                    <Link to={item.url}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Security & Access */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Security</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {securityNavItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location.pathname === item.url || location.pathname.startsWith(item.url + '/')}
+                    disabled={'disabled' in item && item.disabled}
+                    className={'disabled' in item && item.disabled ? 'opacity-50 cursor-not-allowed' : ''}
+                  >
+                    {'disabled' in item && item.disabled ? (
+                      <span className="flex items-center gap-2">
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </span>
+                    ) : (
                       <Link to={item.url}>
                         <item.icon />
                         <span>{item.title}</span>
                       </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+                    )}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarSeparator />
+
+        {/* Administration */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Administration</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location.pathname === ROUTES.SETTINGS || location.pathname.startsWith(ROUTES.SETTINGS + '/')}
+                >
+                  <Link to={ROUTES.SETTINGS}>
+                    <Settings />
+                    <span>Settings</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border">

@@ -3,12 +3,13 @@ Plugin Loader
 =============
 
 Discovers and loads plugins from the heracles_plugins package.
+Integrates with ConfigService for plugin configuration management.
 """
 
 import importlib
 import pkgutil
 from pathlib import Path
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List, Optional, Type
 
 import structlog
 
@@ -76,6 +77,7 @@ def load_enabled_plugins(
     config: Dict[str, Any],
     ldap_service: Any,
     plugins_package: str = "heracles_plugins",
+    config_service: Optional[Any] = None,
 ) -> List[Plugin]:
     """
     Load and activate enabled plugins.
@@ -84,6 +86,7 @@ def load_enabled_plugins(
         config: Application configuration with plugins section.
         ldap_service: LDAP service instance for plugin use.
         plugins_package: Package name to scan for plugins.
+        config_service: Optional ConfigService for plugin configuration.
         
     Returns:
         List of loaded and activated plugin instances.
@@ -127,17 +130,56 @@ def load_enabled_plugins(
     loaded = []
     for name in load_order:
         plugin_class = available[name]
+        
+        # Get plugin configuration (from file config or database)
         plugin_config = plugin_configs.get(name, {})
         
-        # Instantiate plugin
-        instance = plugin_class(plugin_config)
+        # Merge with plugin's default configuration
+        default_config = {}
+        try:
+            # Get defaults from the plugin class's config_schema
+            schema = plugin_class.config_schema()
+            if schema is not None:
+                for section in schema:
+                    if section and section.fields:
+                        for field in section.fields:
+                            default_config[field.key] = field.default_value
+        except Exception as e:
+            logger.debug("plugin_config_schema_error", plugin=name, error=str(e))
         
-        # Validate configuration
-        errors = instance.validate_config()
+        # Merge: defaults < file config
+        merged_config = {**default_config, **plugin_config}
+        
+        # Instantiate plugin with merged config
+        instance = plugin_class(merged_config)
+        
+        # Validate configuration using the contract
+        errors = instance.validate_plugin_config()
         if errors:
             raise ValueError(
                 f"Plugin '{name}' configuration invalid: {', '.join(errors)}"
             )
+        
+        # Register plugin with config service if available
+        if config_service is not None:
+            try:
+                import asyncio
+                # Register plugin config schema in database
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.create_task(
+                        config_service.register_plugin_config(instance)
+                    )
+                else:
+                    loop.run_until_complete(
+                        config_service.register_plugin_config(instance)
+                    )
+            except Exception as e:
+                logger.warning(
+                    "plugin_config_registration_failed",
+                    plugin=name,
+                    error=str(e),
+                )
         
         # Register and activate
         plugin_registry.register(instance)
@@ -148,6 +190,7 @@ def load_enabled_plugins(
             "plugin_loaded",
             name=name,
             version=plugin_class.info().version,
+            config_keys=list(merged_config.keys()),
         )
     
     return loaded

@@ -5,9 +5,18 @@ DNS Plugin Definition
 Main plugin class that registers DNS zone and record management functionality.
 """
 
-from typing import Any, List
+from typing import Any, Dict, List
 
-from heracles_api.plugins.base import Plugin, PluginInfo, TabDefinition
+from heracles_api.plugins.base import (
+    Plugin,
+    PluginInfo,
+    TabDefinition,
+    ConfigSection,
+    ConfigField,
+    ConfigFieldType,
+    ConfigFieldValidation,
+    ConfigFieldOption,
+)
 
 from .schemas import (
     DnsZoneCreate,
@@ -63,6 +72,168 @@ class DnsPlugin(Plugin):
             required_config=[],
             priority=30,  # Load after systems plugin
         )
+    
+    @staticmethod
+    def config_schema() -> List[ConfigSection]:
+        """Define DNS plugin configuration schema."""
+        return [
+            ConfigSection(
+                id="general",
+                label="General Settings",
+                description="General DNS configuration options",
+                icon="globe",
+                order=10,
+                fields=[
+                    ConfigField(
+                        key="dns_rdn",
+                        label="DNS RDN",
+                        field_type=ConfigFieldType.STRING,
+                        default_value="ou=dns",
+                        description="Relative DN where DNS zones are stored",
+                        validation=ConfigFieldValidation(
+                            required=True,
+                            pattern=r"^ou=[a-zA-Z0-9_-]+$",
+                        ),
+                    ),
+                    ConfigField(
+                        key="final_dot",
+                        label="Store Final Dot",
+                        field_type=ConfigFieldType.BOOLEAN,
+                        default_value=True,
+                        description="Store trailing dot in zone names (e.g., example.org.)",
+                    ),
+                ],
+            ),
+            ConfigSection(
+                id="defaults",
+                label="Default Values",
+                description="Default values for new DNS zones",
+                icon="settings",
+                order=20,
+                fields=[
+                    ConfigField(
+                        key="default_ttl",
+                        label="Default TTL",
+                        field_type=ConfigFieldType.INTEGER,
+                        default_value=3600,
+                        description="Default Time-To-Live in seconds for new records",
+                        validation=ConfigFieldValidation(
+                            required=True,
+                            min_value=60,
+                            max_value=604800,  # 1 week
+                        ),
+                    ),
+                    ConfigField(
+                        key="default_refresh",
+                        label="SOA Refresh",
+                        field_type=ConfigFieldType.INTEGER,
+                        default_value=10800,
+                        description="SOA refresh interval in seconds (default: 3 hours)",
+                        validation=ConfigFieldValidation(
+                            required=True,
+                            min_value=300,
+                            max_value=86400,
+                        ),
+                    ),
+                    ConfigField(
+                        key="default_retry",
+                        label="SOA Retry",
+                        field_type=ConfigFieldType.INTEGER,
+                        default_value=3600,
+                        description="SOA retry interval in seconds (default: 1 hour)",
+                        validation=ConfigFieldValidation(
+                            required=True,
+                            min_value=60,
+                            max_value=86400,
+                        ),
+                    ),
+                    ConfigField(
+                        key="default_expire",
+                        label="SOA Expire",
+                        field_type=ConfigFieldType.INTEGER,
+                        default_value=604800,
+                        description="SOA expire time in seconds (default: 1 week)",
+                        validation=ConfigFieldValidation(
+                            required=True,
+                            min_value=3600,
+                            max_value=2419200,  # 4 weeks
+                        ),
+                    ),
+                    ConfigField(
+                        key="default_minimum",
+                        label="SOA Minimum TTL",
+                        field_type=ConfigFieldType.INTEGER,
+                        default_value=3600,
+                        description="SOA minimum/negative TTL in seconds",
+                        validation=ConfigFieldValidation(
+                            required=True,
+                            min_value=60,
+                            max_value=86400,
+                        ),
+                    ),
+                ],
+            ),
+            ConfigSection(
+                id="serial",
+                label="Serial Number",
+                description="SOA serial number format configuration",
+                icon="hash",
+                order=30,
+                fields=[
+                    ConfigField(
+                        key="serial_format",
+                        label="Serial Format",
+                        field_type=ConfigFieldType.SELECT,
+                        default_value="date",
+                        description="Format for generating SOA serial numbers",
+                        options=[
+                            ConfigFieldOption("date", "Date-based (YYYYMMDDnn)"),
+                            ConfigFieldOption("increment", "Simple increment"),
+                            ConfigFieldOption("timestamp", "Unix timestamp"),
+                        ],
+                    ),
+                    ConfigField(
+                        key="auto_increment_serial",
+                        label="Auto-increment Serial",
+                        field_type=ConfigFieldType.BOOLEAN,
+                        default_value=True,
+                        description="Automatically increment SOA serial on record changes",
+                    ),
+                ],
+            ),
+        ]
+    
+    @staticmethod
+    def default_config() -> Dict[str, Any]:
+        """Return default configuration values."""
+        return {
+            "dns_rdn": "ou=dns",
+            "final_dot": True,
+            "default_ttl": 3600,
+            "default_refresh": 10800,
+            "default_retry": 3600,
+            "default_expire": 604800,
+            "default_minimum": 3600,
+            "serial_format": "date",
+            "auto_increment_serial": True,
+        }
+    
+    def validate_config_business_rules(self, config: Dict[str, Any]) -> List[str]:
+        """Custom business rule validation for DNS config."""
+        errors = []
+        
+        # SOA timing validation (RFC 1912 recommendations)
+        refresh = config.get("default_refresh", 10800)
+        retry = config.get("default_retry", 3600)
+        expire = config.get("default_expire", 604800)
+        
+        if retry >= refresh:
+            errors.append("SOA retry should be less than refresh")
+        
+        if expire <= refresh:
+            errors.append("SOA expire should be greater than refresh")
+        
+        return errors
 
     @staticmethod
     def tabs() -> List[TabDefinition]:
@@ -89,8 +260,8 @@ class DnsPlugin(Plugin):
 
     def on_activate(self) -> None:
         """Called when plugin is activated."""
-        dns_rdn = self._config.get("dns_rdn", "ou=dns")
-        default_ttl = self._config.get("default_ttl", 3600)
+        dns_rdn = self.get_config_value("dns_rdn", "ou=dns")
+        default_ttl = self.get_config_value("default_ttl", 3600)
         self.logger.info(
             f"DNS plugin activated (DNS RDN: {dns_rdn}, default TTL: {default_ttl})"
         )
@@ -98,6 +269,23 @@ class DnsPlugin(Plugin):
     def on_deactivate(self) -> None:
         """Called when plugin is deactivated."""
         self.logger.info("DNS plugin deactivated")
+    
+    def on_config_change(
+        self,
+        old_config: Dict[str, Any],
+        new_config: Dict[str, Any],
+        changed_keys: List[str],
+    ) -> None:
+        """Handle configuration changes at runtime."""
+        self.logger.info(
+            f"DNS plugin configuration updated",
+            changed_keys=changed_keys,
+        )
+    
+    @staticmethod
+    def routes() -> List[Any]:
+        """Return API routers for DNS endpoints."""
+        return [router]
 
     @staticmethod
     def routes() -> List[Any]:

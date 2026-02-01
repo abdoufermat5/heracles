@@ -7,10 +7,364 @@ Defines the base classes and interfaces for Heracles plugins.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Type
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, Type, Union
 import logging
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+# =============================================================================
+# Configuration Types
+# =============================================================================
+
+class ConfigFieldType(str, Enum):
+    """Types of configuration fields."""
+    STRING = "string"
+    INTEGER = "integer"
+    BOOLEAN = "boolean"
+    FLOAT = "float"
+    LIST = "list"
+    SELECT = "select"
+    MULTISELECT = "multiselect"
+    PASSWORD = "password"
+    PATH = "path"
+    URL = "url"
+    EMAIL = "email"
+    JSON = "json"
+
+
+@dataclass
+class ConfigFieldOption:
+    """Option for select/multiselect fields."""
+    value: Any
+    label: str
+    description: Optional[str] = None
+
+
+@dataclass
+class ConfigFieldValidation:
+    """Validation rules for a configuration field."""
+    required: bool = True
+    min_value: Optional[Union[int, float]] = None
+    max_value: Optional[Union[int, float]] = None
+    min_length: Optional[int] = None
+    max_length: Optional[int] = None
+    pattern: Optional[str] = None  # Regex pattern
+    custom_validator: Optional[Callable[[Any], List[str]]] = None
+
+
+@dataclass
+class ConfigField:
+    """
+    Definition of a configuration field.
+    
+    Used by plugins to declare their configuration schema.
+    """
+    key: str
+    """Unique key for this field (e.g., 'uid_min')."""
+    
+    label: str
+    """Human-readable label."""
+    
+    field_type: ConfigFieldType
+    """Type of field."""
+    
+    default_value: Any
+    """Default value if not configured."""
+    
+    description: Optional[str] = None
+    """Help text for UI."""
+    
+    validation: Optional[ConfigFieldValidation] = None
+    """Validation rules."""
+    
+    options: Optional[List[ConfigFieldOption]] = None
+    """Options for select/multiselect fields."""
+    
+    required: bool = True
+    """Whether this field is required."""
+    
+    requires_restart: bool = False
+    """Whether changes require service restart."""
+    
+    sensitive: bool = False
+    """Whether this is sensitive data (e.g., passwords)."""
+    
+    group: Optional[str] = None
+    """Group name for UI organization."""
+    
+    depends_on: Optional[str] = None
+    """Key of field this depends on (for conditional display)."""
+    
+    depends_on_value: Optional[Any] = None
+    """Value the dependency must have for this field to show."""
+
+
+@dataclass
+class ConfigSection:
+    """
+    A section of configuration fields for UI organization.
+    """
+    id: str
+    """Unique identifier for this section."""
+    
+    label: str
+    """Human-readable section title."""
+    
+    description: Optional[str] = None
+    """Section description."""
+    
+    icon: Optional[str] = None
+    """Lucide icon name."""
+    
+    fields: List[ConfigField] = field(default_factory=list)
+    """Fields in this section."""
+    
+    order: int = 50
+    """Display order (lower = first)."""
+
+
+class PluginConfigContract(ABC):
+    """
+    Contract for plugin configuration.
+    
+    Plugins must implement this contract to participate in the
+    centralized configuration system. This provides:
+    
+    1. Schema declaration: What config fields exist
+    2. Default values: Sane defaults for each field
+    3. Validation: Both schema and business rule validation
+    4. UI hints: How to render config in the settings UI
+    5. Hot reload: Handle config changes at runtime
+    
+    Example implementation:
+    
+        class MyPlugin(Plugin):
+            @staticmethod
+            def config_schema() -> List[ConfigSection]:
+                return [
+                    ConfigSection(
+                        id="general",
+                        label="General Settings",
+                        fields=[
+                            ConfigField(
+                                key="max_items",
+                                label="Maximum Items",
+                                field_type=ConfigFieldType.INTEGER,
+                                default_value=100,
+                                validation=ConfigFieldValidation(min_value=1, max_value=10000),
+                            ),
+                        ],
+                    ),
+                ]
+    """
+    
+    @staticmethod
+    def config_schema() -> List[ConfigSection]:
+        """
+        Declare the configuration schema for this plugin.
+        
+        Returns:
+            List of ConfigSection objects defining all config fields.
+            Return empty list if plugin has no configuration.
+        """
+        return []
+    
+    @staticmethod
+    def default_config() -> Dict[str, Any]:
+        """
+        Return default configuration values.
+        
+        This is derived from config_schema() by default but can be
+        overridden for complex initialization logic.
+        
+        Returns:
+            Dictionary of {key: default_value} for all config fields.
+        """
+        defaults = {}
+        for section in PluginConfigContract.config_schema():
+            for field in section.fields:
+                defaults[field.key] = field.default_value
+        return defaults
+    
+    def validate_config(self, config: Dict[str, Any]) -> List[str]:
+        """
+        Validate plugin configuration.
+        
+        Called when configuration is updated. Performs both:
+        1. Schema validation (types, ranges, patterns)
+        2. Business rule validation (cross-field dependencies)
+        
+        Args:
+            config: Configuration dictionary to validate.
+            
+        Returns:
+            List of error messages (empty if valid).
+        """
+        errors = []
+        schema = self.config_schema()
+        
+        for section in schema:
+            for field_def in section.fields:
+                value = config.get(field_def.key)
+                field_errors = self._validate_field(field_def, value)
+                errors.extend(field_errors)
+        
+        # Call custom validation hook
+        custom_errors = self.validate_config_business_rules(config)
+        if custom_errors:
+            if isinstance(custom_errors, str):
+                errors.append(custom_errors)
+            else:
+                errors.extend(custom_errors)
+        
+        return errors
+    
+    def validate_config_business_rules(self, config: Dict[str, Any]) -> List[str]:
+        """
+        Override this for custom business rule validation.
+        
+        Called after schema validation passes. Use for cross-field
+        validation or external checks.
+        
+        Args:
+            config: Configuration dictionary.
+            
+        Returns:
+            List of error messages.
+        """
+        return []
+    
+    def _validate_field(self, field_def: ConfigField, value: Any) -> List[str]:
+        """Validate a single field against its definition."""
+        errors = []
+        validation = field_def.validation or ConfigFieldValidation()
+        
+        # Required check - validation.required overrides field_def.required if explicitly set False
+        # This allows plugins to mark fields as optional even when field-level required=True
+        is_required = field_def.required
+        if validation.required is False:
+            is_required = False
+        
+        if is_required and value is None:
+            errors.append(f"{field_def.label}: This field is required")
+            return errors
+        
+        if value is None:
+            return errors  # Optional field with no value
+        
+        # Type validation
+        type_errors = self._validate_type(field_def, value)
+        if type_errors:
+            errors.extend(type_errors)
+            return errors  # Skip further validation if type is wrong
+        
+        # Range validation for numbers
+        if field_def.field_type in (ConfigFieldType.INTEGER, ConfigFieldType.FLOAT):
+            if validation.min_value is not None and value < validation.min_value:
+                errors.append(f"{field_def.label}: Must be at least {validation.min_value}")
+            if validation.max_value is not None and value > validation.max_value:
+                errors.append(f"{field_def.label}: Must be at most {validation.max_value}")
+        
+        # Length validation for strings
+        if field_def.field_type == ConfigFieldType.STRING:
+            if validation.min_length is not None and len(str(value)) < validation.min_length:
+                errors.append(f"{field_def.label}: Must be at least {validation.min_length} characters")
+            if validation.max_length is not None and len(str(value)) > validation.max_length:
+                errors.append(f"{field_def.label}: Must be at most {validation.max_length} characters")
+        
+        # Pattern validation
+        if validation.pattern:
+            import re
+            if not re.match(validation.pattern, str(value)):
+                errors.append(f"{field_def.label}: Invalid format")
+        
+        # Custom validator
+        if validation.custom_validator:
+            custom_errors = validation.custom_validator(value)
+            errors.extend(custom_errors)
+        
+        # Options validation for select fields
+        if field_def.options and field_def.field_type == ConfigFieldType.SELECT:
+            valid_values = [opt.value for opt in field_def.options]
+            if value not in valid_values:
+                errors.append(f"{field_def.label}: Invalid selection")
+        
+        return errors
+    
+    def _validate_type(self, field_def: ConfigField, value: Any) -> List[str]:
+        """Validate value type matches field type."""
+        errors = []
+        
+        type_checks = {
+            ConfigFieldType.STRING: lambda v: isinstance(v, str),
+            ConfigFieldType.INTEGER: lambda v: isinstance(v, int) and not isinstance(v, bool),
+            ConfigFieldType.BOOLEAN: lambda v: isinstance(v, bool),
+            ConfigFieldType.FLOAT: lambda v: isinstance(v, (int, float)) and not isinstance(v, bool),
+            ConfigFieldType.LIST: lambda v: isinstance(v, list),
+            ConfigFieldType.SELECT: lambda v: True,  # Any type for select
+            ConfigFieldType.MULTISELECT: lambda v: isinstance(v, list),
+            ConfigFieldType.PASSWORD: lambda v: isinstance(v, str),
+            ConfigFieldType.PATH: lambda v: isinstance(v, str),
+            ConfigFieldType.URL: lambda v: isinstance(v, str),
+            ConfigFieldType.EMAIL: lambda v: isinstance(v, str),
+            ConfigFieldType.JSON: lambda v: isinstance(v, (dict, list)),
+        }
+        
+        checker = type_checks.get(field_def.field_type, lambda v: True)
+        if not checker(value):
+            expected = field_def.field_type.value
+            actual = type(value).__name__
+            errors.append(f"{field_def.label}: Expected {expected}, got {actual}")
+        
+        return errors
+    
+    def on_config_change(
+        self,
+        old_config: Dict[str, Any],
+        new_config: Dict[str, Any],
+        changed_keys: List[str],
+    ) -> None:
+        """
+        Called when configuration changes at runtime.
+        
+        Use this to react to config changes without restart.
+        For example: update internal caches, reconnect services, etc.
+        
+        Args:
+            old_config: Previous configuration values.
+            new_config: New configuration values.
+            changed_keys: List of keys that changed.
+        """
+        pass
+    
+    def get_config_value(self, key: str, default: Any = None) -> Any:
+        """
+        Get a configuration value with global defaults and plugin override.
+        
+        Resolution order:
+        1. Plugin-specific config (from _config)
+        2. Global default (from default_config)
+        3. Provided default parameter
+        
+        Args:
+            key: Configuration key.
+            default: Fallback if not found anywhere.
+            
+        Returns:
+            Configuration value.
+        """
+        # Check plugin config first
+        if hasattr(self, '_config') and key in self._config:
+            return self._config[key]
+        
+        # Check default config
+        defaults = self.default_config()
+        if key in defaults:
+            return defaults[key]
+        
+        return default
 
 
 @dataclass
@@ -188,7 +542,7 @@ class TabService(ABC):
         pass
 
 
-class Plugin(ABC):
+class Plugin(PluginConfigContract, ABC):
     """
     Base class for all Heracles plugins.
     
@@ -197,6 +551,9 @@ class Plugin(ABC):
     - New management types (systems, sudo rules)
     - API endpoints
     - Background tasks
+    - Configuration with hot-reload support
+    
+    Implements PluginConfigContract for centralized configuration.
     """
     
     def __init__(self, config: Dict[str, Any] = None):
@@ -204,11 +561,19 @@ class Plugin(ABC):
         Initialize the plugin.
         
         Args:
-            config: Plugin-specific configuration.
+            config: Plugin-specific configuration (merged with defaults).
         """
-        self._config = config or {}
+        # Merge provided config with defaults
+        self._config = self._merge_config(config or {})
         info = self.info()
         self.logger = logging.getLogger(f"heracles.plugins.{info.name}")
+    
+    def _merge_config(self, provided: Dict[str, Any]) -> Dict[str, Any]:
+        """Merge provided config with defaults."""
+        defaults = self.default_config()
+        merged = defaults.copy()
+        merged.update(provided)
+        return merged
     
     @staticmethod
     @abstractmethod
@@ -261,9 +626,13 @@ class Plugin(ABC):
         """
         self.logger.info(f"Plugin {self.info().name} deactivated")
     
-    def validate_config(self) -> List[str]:
+    def validate_plugin_config(self) -> List[str]:
         """
-        Validate plugin configuration.
+        Validate plugin configuration using the schema.
+        
+        This combines:
+        1. Required config checks from PluginInfo
+        2. Schema-based validation from PluginConfigContract
         
         Returns:
             List of error messages (empty if valid).
@@ -271,8 +640,56 @@ class Plugin(ABC):
         errors = []
         info = self.info()
         
+        # Check required_config from PluginInfo (backwards compatibility)
         for key in info.required_config:
             if key not in self._config:
                 errors.append(f"Missing required config: {key}")
         
+        # Use schema-based validation from PluginConfigContract
+        schema_errors = super().validate_config(self._config)
+        errors.extend(schema_errors)
+        
         return errors
+    
+    def update_config(self, new_config: Dict[str, Any]) -> List[str]:
+        """
+        Update plugin configuration at runtime.
+        
+        Validates the new config, updates internal state, and calls
+        on_config_change hook for hot-reload support.
+        
+        Args:
+            new_config: New configuration values.
+            
+        Returns:
+            List of error messages (empty if valid and applied).
+        """
+        # Merge with defaults
+        merged = self.default_config()
+        merged.update(new_config)
+        
+        # Validate
+        errors = super().validate_config(merged)
+        if errors:
+            return errors
+        
+        # Find changed keys
+        old_config = self._config.copy()
+        changed_keys = [
+            key for key in set(list(old_config.keys()) + list(merged.keys()))
+            if old_config.get(key) != merged.get(key)
+        ]
+        
+        # Apply new config
+        self._config = merged
+        
+        # Call hot-reload hook
+        if changed_keys:
+            self.on_config_change(old_config, merged, changed_keys)
+        
+        return []
+    
+    @property
+    def config(self) -> Dict[str, Any]:
+        """Get the current plugin configuration."""
+        return self._config.copy()

@@ -15,7 +15,9 @@ import structlog
 from heracles_api.config import settings
 from heracles_api.api.v1 import router as api_v1_router
 from heracles_api.core.logging import setup_logging
+from heracles_api.core.database import init_database, close_database, get_database
 from heracles_api.services import init_ldap_service, close_ldap_service, get_ldap_service
+from heracles_api.services.config_service import init_config_service
 from heracles_api.plugins.loader import load_enabled_plugins, unload_all_plugins
 
 logger = structlog.get_logger(__name__)
@@ -34,6 +36,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         yield
         logger.info("shutting_down_heracles_api")
         return
+
+    # Initialize PostgreSQL connection pool
+    db_pool = None
+    try:
+        db_pool = await init_database()
+        logger.info("database_initialized")
+    except Exception as e:
+        logger.error("database_init_failed", error=str(e))
+    
+    # Initialize configuration service (requires database)
+    if db_pool is not None:
+        try:
+            init_config_service(db_pool)
+            logger.info("config_service_initialized")
+        except Exception as e:
+            logger.warning("config_service_init_failed", error=str(e))
+    else:
+        logger.warning("config_service_skipped", reason="database not available")
 
     # Initialize LDAP connection
     try:
@@ -65,7 +85,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
         # Register plugin routes
         from heracles_api.plugins.registry import plugin_registry
+        from heracles_api.services.config_service import get_config_service
+        
+        # Get config service if available
+        try:
+            config_service = get_config_service()
+        except RuntimeError:
+            config_service = None
+        
         for plugin in loaded_plugins:
+            # Register plugin with config service
+            if config_service:
+                config_service.register_plugin(plugin)
+            
             for route in plugin.routes():
                 app.include_router(route, prefix="/api/v1")
 
@@ -78,6 +110,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("shutting_down_heracles_api")
     unload_all_plugins()
     await close_ldap_service()
+    await close_database()
 
 
 app = FastAPI(
