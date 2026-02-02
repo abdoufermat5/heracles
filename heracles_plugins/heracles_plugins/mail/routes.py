@@ -21,9 +21,12 @@ from .schemas import (
     MailGroupUpdate,
     GroupMailStatus,
 )
-from .services.mail_user_service import MailUserService
-from .services.mail_group_service import MailGroupService
-from .services.base import MailValidationError, MailAlreadyExistsError
+from .service import (
+    MailUserService,
+    MailGroupService,
+    MailValidationError,
+    MailAlreadyExistsError,
+)
 
 
 logger = structlog.get_logger(__name__)

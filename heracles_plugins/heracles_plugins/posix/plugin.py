@@ -29,7 +29,7 @@ from .schemas import (
     MixedGroupRead,
     MixedGroupUpdate,
 )
-from .services import PosixService, PosixGroupService, MixedGroupService
+from .service import PosixService, PosixGroupService, MixedGroupService
 from .routes import router
 
 

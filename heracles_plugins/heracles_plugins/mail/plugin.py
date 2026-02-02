@@ -26,8 +26,7 @@ from .schemas import (
     MailGroupRead,
     MailGroupUpdate,
 )
-from .services.mail_user_service import MailUserService
-from .services.mail_group_service import MailGroupService
+from .service import MailUserService, MailGroupService
 from .routes import router
 
 

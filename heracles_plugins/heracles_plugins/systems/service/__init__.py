@@ -5,7 +5,8 @@ Systems Service Package
 Systems service implementation with constants and utilities.
 """
 
-from .service import SystemService, SystemValidationError
+from .systems_service import SystemService
+from .base import SystemValidationError
 from .constants import (
     TYPE_OBJECT_CLASSES,
     COMMON_ATTRIBUTES,
