@@ -5,7 +5,7 @@
 # Convert from heracles-systems.schema
 # =============================================================================
 
-dn: cn=heracles-systems,cn=schema,cn=config
+dn: cn=hrc-systems,cn=schema,cn=config
 objectClass: olcSchemaConfig
 cn: heracles-systems
 #

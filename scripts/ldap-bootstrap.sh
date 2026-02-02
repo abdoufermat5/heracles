@@ -26,7 +26,13 @@ LDAP_BASE_DN="${LDAP_BASE_DN:-dc=heracles,dc=local}"
 LDAP_CONTAINER="${LDAP_CONTAINER:-heracles-ldap}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-SCHEMAS_DIR="$PROJECT_ROOT/docker/ldap/schemas"
+# Schema directories:
+#   - Core schemas: docker/ldap/schemas/core/
+#   - Plugin schemas: heracles_plugins/heracles_plugins/*/ldap/
+#   - Compat symlinks: docker/ldap/schemas/ (symlinks to plugin schemas)
+CORE_SCHEMAS_DIR="$PROJECT_ROOT/docker/ldap/schemas/core"
+PLUGINS_DIR="$PROJECT_ROOT/heracles_plugins/heracles_plugins"
+COMPAT_SCHEMAS_DIR="$PROJECT_ROOT/docker/ldap/schemas"
 
 # Heracles admin user
 HRC_ADMIN_USER="${HRC_ADMIN_USER:-hrc-admin}"
@@ -118,10 +124,33 @@ EOF
 # =============================================================================
 # SCHEMAS: Load Custom Schemas
 # =============================================================================
+# Schema loading order:
+#   1. Core configuration schemas (docker/ldap/schemas/core/)
+#   2. Plugin schemas (heracles_plugins/heracles_plugins/*/ldap/)
+#   3. Compat schemas (docker/ldap/schemas/ - non-plugin schemas only)
+#
+# Note: docker/ldap/schemas/ contains symlinks to plugin schemas for backward
+# compatibility. These are skipped since plugins are loaded directly.
+# =============================================================================
+
+load_schema() {
+    local ldif="$1"
+    local schema_name=$(basename "$ldif" .ldif)
+    
+    if docker exec "$LDAP_CONTAINER" ldapsearch -Y EXTERNAL -H ldapi:/// -b "cn=schema,cn=config" "(cn=*${schema_name}*)" cn 2>/dev/null | grep -q "cn: {[0-9]*}${schema_name}"; then
+        echo "[i] Schema $schema_name already loaded"
+        return 0
+    fi
+    
+    echo "[*] Loading $schema_name..."
+    docker cp "$ldif" "$LDAP_CONTAINER:/tmp/${schema_name}.ldif"
+    docker exec "$LDAP_CONTAINER" ldapadd -Y EXTERNAL -H ldapi:/// -f "/tmp/${schema_name}.ldif" 2>&1 || true
+    docker exec "$LDAP_CONTAINER" rm -f "/tmp/${schema_name}.ldif"
+}
 
 cmd_schemas() {
     echo "========================================"
-    echo "  LDAP Schemas"
+    echo "  LDAP Schemas (Auto-Discovery)"
     echo "========================================"
 
     if ! docker ps --format '{{.Names}}' | grep -q "^${LDAP_CONTAINER}$"; then
@@ -129,19 +158,45 @@ cmd_schemas() {
         exit 1
     fi
 
-    for ldif in "$SCHEMAS_DIR"/*.ldif; do
-        [ -f "$ldif" ] || continue
-        schema_name=$(basename "$ldif" .ldif)
+    # 1. Load core configuration schemas
+    echo ""
+    echo "[*] Loading core schemas from: $CORE_SCHEMAS_DIR"
+    if [ -d "$CORE_SCHEMAS_DIR" ]; then
+        for ldif in "$CORE_SCHEMAS_DIR"/*.ldif; do
+            [ -f "$ldif" ] || continue
+            load_schema "$ldif"
+        done
+    else
+        echo "[i] No core schemas directory found"
+    fi
+
+    # 2. Auto-discover and load plugin schemas
+    echo ""
+    echo "[*] Discovering plugin schemas from: $PLUGINS_DIR"
+    for plugin_dir in "$PLUGINS_DIR"/*/; do
+        plugin_name=$(basename "$plugin_dir")
+        ldap_dir="$plugin_dir/ldap"
         
-        if docker exec "$LDAP_CONTAINER" ldapsearch -Y EXTERNAL -H ldapi:/// -b "cn=schema,cn=config" "(cn=*${schema_name}*)" cn 2>/dev/null | grep -q "cn: {[0-9]*}${schema_name}"; then
-            echo "[i] Schema $schema_name already loaded"
-        else
-            echo "[*] Loading $schema_name..."
-            docker cp "$ldif" "$LDAP_CONTAINER:/tmp/${schema_name}.ldif"
-            docker exec "$LDAP_CONTAINER" ldapadd -Y EXTERNAL -H ldapi:/// -f "/tmp/${schema_name}.ldif" 2>&1 || true
-            docker exec "$LDAP_CONTAINER" rm -f "/tmp/${schema_name}.ldif"
+        if [ -d "$ldap_dir" ]; then
+            echo "[*] Plugin: $plugin_name"
+            for ldif in "$ldap_dir"/*.ldif; do
+                [ -f "$ldif" ] || continue
+                load_schema "$ldif"
+            done
         fi
     done
+
+    # 3. Load non-plugin schemas from compat directory (skip symlinks)
+    echo ""
+    echo "[*] Loading additional schemas from: $COMPAT_SCHEMAS_DIR"
+    for ldif in "$COMPAT_SCHEMAS_DIR"/*.ldif; do
+        [ -f "$ldif" ] || continue
+        # Skip symlinks (they point to plugin schemas already loaded)
+        [ -L "$ldif" ] && continue
+        load_schema "$ldif"
+    done
+    
+    echo ""
     echo "[+] Schemas loaded!"
 }
 

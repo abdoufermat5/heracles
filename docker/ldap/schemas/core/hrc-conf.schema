@@ -1,0 +1,130 @@
+# =============================================================================
+# Heracles Core Configuration Schema
+# =============================================================================
+# Configuration schema for Heracles application settings stored in LDAP.
+# Separates configuration data from runtime data.
+#
+# OID Base: 1.3.6.1.4.1.99999.0 (Heracles Core Config)
+#   .1 = Attributes
+#   .2 = ObjectClasses
+#
+# NOTE: This uses a placeholder OID (99999). For production, register
+# a proper enterprise OID with IANA.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Configuration Attributes
+# -----------------------------------------------------------------------------
+
+# RDN paths for various object types
+attributetype ( 1.3.6.1.4.1.99999.0.1.1 
+    NAME 'hrcPeopleRDN'
+    DESC 'Heracles - RDN for people/users container'
+    EQUALITY caseIgnoreIA5Match
+    SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
+    SINGLE-VALUE )
+
+attributetype ( 1.3.6.1.4.1.99999.0.1.2 
+    NAME 'hrcGroupsRDN'
+    DESC 'Heracles - RDN for groups container'
+    EQUALITY caseIgnoreIA5Match
+    SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
+    SINGLE-VALUE )
+
+attributetype ( 1.3.6.1.4.1.99999.0.1.3 
+    NAME 'hrcSystemsRDN'
+    DESC 'Heracles - RDN for systems container'
+    EQUALITY caseIgnoreIA5Match
+    SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
+    SINGLE-VALUE )
+
+attributetype ( 1.3.6.1.4.1.99999.0.1.4 
+    NAME 'hrcSudoersRDN'
+    DESC 'Heracles - RDN for sudoers container'
+    EQUALITY caseIgnoreIA5Match
+    SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
+    SINGLE-VALUE )
+
+attributetype ( 1.3.6.1.4.1.99999.0.1.5 
+    NAME 'hrcDnsRDN'
+    DESC 'Heracles - RDN for DNS zones container'
+    EQUALITY caseIgnoreIA5Match
+    SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
+    SINGLE-VALUE )
+
+attributetype ( 1.3.6.1.4.1.99999.0.1.6 
+    NAME 'hrcDhcpRDN'
+    DESC 'Heracles - RDN for DHCP container'
+    EQUALITY caseIgnoreIA5Match
+    SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
+    SINGLE-VALUE )
+
+# UID/GID management
+attributetype ( 1.3.6.1.4.1.99999.0.1.10 
+    NAME 'hrcMinUid'
+    DESC 'Heracles - Minimum UID for auto-assignment'
+    EQUALITY integerMatch
+    ORDERING integerOrderingMatch
+    SYNTAX 1.3.6.1.4.1.1466.115.121.1.27
+    SINGLE-VALUE )
+
+attributetype ( 1.3.6.1.4.1.99999.0.1.11 
+    NAME 'hrcMaxUid'
+    DESC 'Heracles - Maximum UID for auto-assignment'
+    EQUALITY integerMatch
+    ORDERING integerOrderingMatch
+    SYNTAX 1.3.6.1.4.1.1466.115.121.1.27
+    SINGLE-VALUE )
+
+attributetype ( 1.3.6.1.4.1.99999.0.1.12 
+    NAME 'hrcMinGid'
+    DESC 'Heracles - Minimum GID for auto-assignment'
+    EQUALITY integerMatch
+    ORDERING integerOrderingMatch
+    SYNTAX 1.3.6.1.4.1.1466.115.121.1.27
+    SINGLE-VALUE )
+
+attributetype ( 1.3.6.1.4.1.99999.0.1.13 
+    NAME 'hrcMaxGid'
+    DESC 'Heracles - Maximum GID for auto-assignment'
+    EQUALITY integerMatch
+    ORDERING integerOrderingMatch
+    SYNTAX 1.3.6.1.4.1.1466.115.121.1.27
+    SINGLE-VALUE )
+
+# User defaults
+attributetype ( 1.3.6.1.4.1.99999.0.1.20 
+    NAME 'hrcDefaultShell'
+    DESC 'Heracles - Default login shell for new users'
+    EQUALITY caseExactIA5Match
+    SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
+    SINGLE-VALUE )
+
+attributetype ( 1.3.6.1.4.1.99999.0.1.21 
+    NAME 'hrcHomeDirTemplate'
+    DESC 'Heracles - Home directory template (use %u for username)'
+    EQUALITY caseExactIA5Match
+    SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
+    SINGLE-VALUE )
+
+# Plugin configuration
+attributetype ( 1.3.6.1.4.1.99999.0.1.30 
+    NAME 'hrcEnabledPlugins'
+    DESC 'Heracles - List of enabled plugin names'
+    EQUALITY caseIgnoreIA5Match
+    SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# -----------------------------------------------------------------------------
+# ObjectClass Definitions
+# -----------------------------------------------------------------------------
+
+objectclass ( 1.3.6.1.4.1.99999.0.2.1 
+    NAME 'hrcConfig'
+    DESC 'Heracles - Main configuration object'
+    SUP top
+    STRUCTURAL
+    MUST ( cn )
+    MAY ( hrcPeopleRDN $ hrcGroupsRDN $ hrcSystemsRDN $ hrcSudoersRDN $
+          hrcDnsRDN $ hrcDhcpRDN $ hrcMinUid $ hrcMaxUid $ hrcMinGid $
+          hrcMaxGid $ hrcDefaultShell $ hrcHomeDirTemplate $
+          hrcEnabledPlugins $ description ) )

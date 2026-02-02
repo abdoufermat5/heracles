@@ -6,369 +6,369 @@
 # Based on ISC DHCP LDAP schema with extensions for Heracles
 # =============================================================================
 
-dn: cn=dhcp-heracles,cn=schema,cn=config
+dn: cn=hrc-dhcp,cn=schema,cn=config
 objectClass: olcSchemaConfig
 cn: dhcp-heracles
 #
 # Attribute Definitions
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.1
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.1
   NAME 'dhcpPrimaryDN'
   EQUALITY distinguishedNameMatch
   DESC 'The DN of the dhcpServer which is the primary server for the configuration.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.12
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.2
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.2
   NAME 'dhcpSecondaryDN'
   EQUALITY distinguishedNameMatch
   DESC 'The DN of dhcpServer(s) which provide secondary service for the configuration.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.3
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.3
   NAME 'dhcpStatements'
   EQUALITY caseIgnoreIA5Match
   DESC 'Encoded DHCP statements.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.4
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.4
   NAME 'dhcpOption'
   EQUALITY caseIgnoreIA5Match
   DESC 'Encoded DHCP option.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.5
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.5
   NAME 'dhcpRange'
   EQUALITY caseIgnoreIA5Match
   DESC 'DHCP range - start IP and end IP.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.6
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.6
   NAME 'dhcpNetMask'
   EQUALITY integerMatch
   DESC 'The subnet mask length for the subnet. The mask can be easily computed from this length.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.27
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.7
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.7
   NAME 'dhcpPermitList'
   EQUALITY caseIgnoreIA5Match
   DESC 'This attribute contains permit lists associated with a pool.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.8
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.8
   NAME 'dhcpServiceDN'
   EQUALITY distinguishedNameMatch
   DESC 'The DN of dhcpService object(s) which contain the configuration for the server.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.9
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.9
   NAME 'dhcpVersion'
   EQUALITY caseIgnoreIA5Match
   DESC 'The version of the DHCP server software.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.10
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.10
   NAME 'dhcpImplementation'
   EQUALITY caseIgnoreIA5Match
   DESC 'The DHCP server implementation (e.g., ISC, Windows).'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.11
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.11
   NAME 'dhcpSharedNetworkDN'
   EQUALITY distinguishedNameMatch
   DESC 'The DNs of sharedNetwork objects in a DHCP service.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.12
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.12
   NAME 'dhcpSubnetDN'
   EQUALITY distinguishedNameMatch
   DESC 'The DNs of subnet objects in a DHCP service.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.13
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.13
   NAME 'dhcpPoolDN'
   EQUALITY distinguishedNameMatch
   DESC 'The DNs of pool objects in a subnet.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.14
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.14
   NAME 'dhcpGroupDN'
   EQUALITY distinguishedNameMatch
   DESC 'The DNs of group objects in a DHCP service.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.15
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.15
   NAME 'dhcpHostDN'
   EQUALITY distinguishedNameMatch
   DESC 'The DNs of host objects.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.16
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.16
   NAME 'dhcpClassesDN'
   EQUALITY distinguishedNameMatch
   DESC 'The DNs of class objects in a DHCP service.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.17
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.17
   NAME 'dhcpSubClassesDN'
   EQUALITY distinguishedNameMatch
   DESC 'The DNs of subclass objects in a class.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.18
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.18
   NAME 'dhcpOptionsDN'
   EQUALITY distinguishedNameMatch
   DESC 'The DN of an options object.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.19
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.19
   NAME 'dhcpLeaseDN'
   EQUALITY distinguishedNameMatch
   DESC 'The DNs of lease objects for a host.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.20
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.20
   NAME 'dhcpLeasesDN'
   EQUALITY distinguishedNameMatch
   DESC 'The DNs of lease objects in a subnet or pool.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.21
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.21
   NAME 'dhcpClassData'
   EQUALITY caseIgnoreIA5Match
   DESC 'Data for matching a class.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.22
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.22
   NAME 'dhcpAddressState'
   EQUALITY caseIgnoreIA5Match
   DESC 'The state of an IP address.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.23
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.23
   NAME 'dhcpExpirationTime'
   EQUALITY generalizedTimeMatch
   DESC 'The time when the lease expires.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.24
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.24
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.24
   NAME 'dhcpStartTimeOfState'
   EQUALITY generalizedTimeMatch
   DESC 'The time when the address entered its current state.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.24
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.25
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.25
   NAME 'dhcpLastTransactionTime'
   EQUALITY generalizedTimeMatch
   DESC 'The time of the last DHCP transaction for this address.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.24
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.26
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.26
   NAME 'dhcpBootpFlag'
   EQUALITY booleanMatch
   DESC 'True if address was assigned via BOOTP.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.7
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.27
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.27
   NAME 'dhcpDomainName'
   EQUALITY caseIgnoreIA5Match
   DESC 'The domain name assigned to the client.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.28
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.28
   NAME 'dhcpDnsStatus'
   EQUALITY integerMatch
   DESC 'The status of DNS update for this address.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.27
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.29
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.29
   NAME 'dhcpRequestedHostName'
   EQUALITY caseIgnoreIA5Match
   DESC 'The hostname requested by the client.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.30
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.30
   NAME 'dhcpAssignedHostName'
   EQUALITY caseIgnoreIA5Match
   DESC 'The actual hostname assigned to the client.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.31
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.31
   NAME 'dhcpReservedForClient'
   EQUALITY distinguishedNameMatch
   DESC 'The DN of a dhcpClient that an address is reserved for.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.12
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.32
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.32
   NAME 'dhcpAssignedToClient'
   EQUALITY distinguishedNameMatch
   DESC 'The DN of a dhcpClient that an address is currently assigned to.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.12
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.33
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.33
   NAME 'dhcpRelayAgentInfo'
   EQUALITY octetStringMatch
   DESC 'Information about the relay agent from the DHCP request.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.40
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.34
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.34
   NAME 'dhcpHWAddress'
   EQUALITY caseIgnoreIA5Match
   DESC 'The clients hardware address that requested this IP address.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.35
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.35
   NAME 'dhcpHashBucketAssignment'
   EQUALITY octetStringMatch
   DESC 'HashBucketAssignment bit map for the DHCP Server (RFC 3074).'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.40
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.36
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.36
   NAME 'dhcpDelayedServiceParameter'
   EQUALITY integerMatch
   DESC 'Delay in seconds for Delayed Service Parameter (RFC 3074).'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.27
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.37
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.37
   NAME 'dhcpMaxClientLeadTime'
   EQUALITY integerMatch
   DESC 'Maximum Client Lead Time in seconds (DHCP Failover).'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.27
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.38
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.38
   NAME 'dhcpFailOverEndpointState'
   EQUALITY caseIgnoreIA5Match
   DESC 'Server (Failover Endpoint) state (DHCP Failover).'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.39
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.39
   NAME 'dhcpErrorLog'
   EQUALITY caseIgnoreIA5Match
   DESC 'Generic error log attribute.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.40
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.40
   NAME 'dhcpLocatorDN'
   EQUALITY distinguishedNameMatch
   DESC 'The DN of dhcpLocator object containing DNs of all DHCP config objects.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.41
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.41
   NAME 'dhcpKeyAlgorithm'
   EQUALITY caseIgnoreIA5Match
   DESC 'Algorithm to generate TSIG Key.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.42
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.42
   NAME 'dhcpKeySecret'
   EQUALITY octetStringMatch
   DESC 'Secret to generate TSIG Key.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.40
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.43
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.43
   NAME 'dhcpDnsZoneServer'
   EQUALITY caseIgnoreIA5Match
   DESC 'Master server of the DNS Zone.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
   SINGLE-VALUE )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.44
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.44
   NAME 'dhcpKeyDN'
   EQUALITY distinguishedNameMatch
   DESC 'The DNs of TSIG Key for secure dynamic updates.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.45
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.45
   NAME 'dhcpZoneDN'
   EQUALITY distinguishedNameMatch
   DESC 'The DNs of DNS Zone.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.46
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.46
   NAME 'dhcpFailOverPrimaryServer'
   EQUALITY caseIgnoreIA5Match
   DESC 'IP address or DNS name of the primary failover server.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.47
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.47
   NAME 'dhcpFailOverSecondaryServer'
   EQUALITY caseIgnoreIA5Match
   DESC 'IP address or DNS name of the secondary failover server.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.48
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.48
   NAME 'dhcpFailOverPrimaryPort'
   EQUALITY integerMatch
   DESC 'Port on which primary server listens for failover connections.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.49
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.49
   NAME 'dhcpFailOverSecondaryPort'
   EQUALITY integerMatch
   DESC 'Port on which secondary server listens for failover connections.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.50
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.50
   NAME 'dhcpFailOverResponseDelay'
   EQUALITY integerMatch
   DESC 'Max response time in seconds before failover connection failure.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.51
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.51
   NAME 'dhcpFailOverUnackedUpdates'
   EQUALITY integerMatch
   DESC 'Number of BNDUPD messages before BNDACK from failover peer.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.52
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.52
   NAME 'dhcpFailOverSplit'
   EQUALITY integerMatch
   DESC 'Split between primary and secondary servers for failover.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.53
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.53
   NAME 'dhcpFailOverLoadBalanceTime'
   EQUALITY integerMatch
   DESC 'Cutoff time in seconds after which load balance is disabled.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.54
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.54
   NAME 'dhcpFailOverPeerDN'
   EQUALITY distinguishedNameMatch
   DESC 'The DNs of Failover peers.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.55
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.55
   NAME 'dhcpServerDN'
   EQUALITY distinguishedNameMatch
   DESC 'List of all DHCP Servers in the tree.'
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 )
 #
-olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.56
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.3.4.56
   NAME 'dhcpComments'
   EQUALITY caseIgnoreIA5Match
   DESC 'Generic attribute that allows comments within any DHCP object.'
@@ -377,7 +377,7 @@ olcAttributeTypes: ( 2.16.840.1.38414.1.203.4.56
 #
 # Object Class Definitions
 #
-olcObjectClasses: ( 2.16.840.1.38414.1.203.6.1
+olcObjectClasses: ( 1.3.6.1.4.1.99999.3.6.1
   NAME 'dhcpService'
   DESC 'Service object that represents the actual DHCP Service configuration.'
   SUP top
@@ -387,7 +387,7 @@ olcObjectClasses: ( 2.16.840.1.38414.1.203.6.1
         dhcpZoneDN $ dhcpKeyDN $ dhcpFailOverPeerDN $ dhcpStatements $
         dhcpComments $ dhcpOption ) )
 #
-olcObjectClasses: ( 2.16.840.1.38414.1.203.6.2
+olcObjectClasses: ( 1.3.6.1.4.1.99999.3.6.2
   NAME 'dhcpSharedNetwork'
   DESC 'Configuration for a shared network.'
   SUP top
@@ -395,7 +395,7 @@ olcObjectClasses: ( 2.16.840.1.38414.1.203.6.2
   MAY ( dhcpSubnetDN $ dhcpPoolDN $ dhcpOptionsDN $ dhcpZoneDN $ dhcpStatements $
         dhcpComments $ dhcpOption ) )
 #
-olcObjectClasses: ( 2.16.840.1.38414.1.203.6.3
+olcObjectClasses: ( 1.3.6.1.4.1.99999.3.6.3
   NAME 'dhcpSubnet'
   DESC 'Defines a subnet. Container object.'
   SUP top
@@ -404,7 +404,7 @@ olcObjectClasses: ( 2.16.840.1.38414.1.203.6.3
         dhcpLeasesDN $ dhcpOptionsDN $ dhcpZoneDN $ dhcpKeyDN $ dhcpFailOverPeerDN $
         dhcpStatements $ dhcpComments $ dhcpOption ) )
 #
-olcObjectClasses: ( 2.16.840.1.38414.1.203.6.4
+olcObjectClasses: ( 1.3.6.1.4.1.99999.3.6.4
   NAME 'dhcpPool'
   DESC 'Configuration for a pool.'
   SUP top
@@ -412,14 +412,14 @@ olcObjectClasses: ( 2.16.840.1.38414.1.203.6.4
   MAY ( dhcpClassesDN $ dhcpPermitList $ dhcpLeasesDN $ dhcpOptionsDN $
         dhcpZoneDN $ dhcpKeyDN $ dhcpStatements $ dhcpComments $ dhcpOption ) )
 #
-olcObjectClasses: ( 2.16.840.1.38414.1.203.6.5
+olcObjectClasses: ( 1.3.6.1.4.1.99999.3.6.5
   NAME 'dhcpGroup'
   DESC 'Group object that lists host DNs and parameters. Container object.'
   SUP top
   MUST ( cn )
   MAY ( dhcpHostDN $ dhcpOptionsDN $ dhcpStatements $ dhcpComments $ dhcpOption ) )
 #
-olcObjectClasses: ( 2.16.840.1.38414.1.203.6.6
+olcObjectClasses: ( 1.3.6.1.4.1.99999.3.6.6
   NAME 'dhcpHost'
   DESC 'Information about a particular client.'
   SUP top
@@ -427,21 +427,21 @@ olcObjectClasses: ( 2.16.840.1.38414.1.203.6.6
   MAY ( dhcpLeaseDN $ dhcpHWAddress $ dhcpOptionsDN $ dhcpStatements $
         dhcpComments $ dhcpOption ) )
 #
-olcObjectClasses: ( 2.16.840.1.38414.1.203.6.7
+olcObjectClasses: ( 1.3.6.1.4.1.99999.3.6.7
   NAME 'dhcpClass'
   DESC 'Information about a collection of related clients.'
   SUP top
   MUST ( cn )
   MAY ( dhcpSubClassesDN $ dhcpOptionsDN $ dhcpStatements $ dhcpComments $ dhcpOption ) )
 #
-olcObjectClasses: ( 2.16.840.1.38414.1.203.6.8
+olcObjectClasses: ( 1.3.6.1.4.1.99999.3.6.8
   NAME 'dhcpSubClass'
   DESC 'Information about a collection of related classes.'
   SUP top
   MUST ( cn )
   MAY ( dhcpClassData $ dhcpOptionsDN $ dhcpStatements $ dhcpComments $ dhcpOption ) )
 #
-olcObjectClasses: ( 2.16.840.1.38414.1.203.6.9
+olcObjectClasses: ( 1.3.6.1.4.1.99999.3.6.9
   NAME 'dhcpOptions'
   DESC 'Collection of options defined.'
   SUP top
@@ -449,7 +449,7 @@ olcObjectClasses: ( 2.16.840.1.38414.1.203.6.9
   MUST ( cn )
   MAY ( dhcpOption $ dhcpComments ) )
 #
-olcObjectClasses: ( 2.16.840.1.38414.1.203.6.10
+olcObjectClasses: ( 1.3.6.1.4.1.99999.3.6.10
   NAME 'dhcpLeases'
   DESC 'An IP Address which may or may not have been leased.'
   SUP top
@@ -459,7 +459,7 @@ olcObjectClasses: ( 2.16.840.1.38414.1.203.6.10
         dhcpAssignedHostName $ dhcpReservedForClient $ dhcpAssignedToClient $
         dhcpRelayAgentInfo $ dhcpHWAddress ) )
 #
-olcObjectClasses: ( 2.16.840.1.38414.1.203.6.11
+olcObjectClasses: ( 1.3.6.1.4.1.99999.3.6.11
   NAME 'dhcpLog'
   DESC 'Holds past information about the IP address.'
   SUP top
@@ -469,7 +469,7 @@ olcObjectClasses: ( 2.16.840.1.38414.1.203.6.11
         dhcpRequestedHostName $ dhcpAssignedHostName $ dhcpReservedForClient $
         dhcpAssignedToClient $ dhcpRelayAgentInfo $ dhcpHWAddress $ dhcpErrorLog ) )
 #
-olcObjectClasses: ( 2.16.840.1.38414.1.203.6.12
+olcObjectClasses: ( 1.3.6.1.4.1.99999.3.6.12
   NAME 'dhcpServer'
   DESC 'DHCP Server Object.'
   SUP top
@@ -479,21 +479,21 @@ olcObjectClasses: ( 2.16.840.1.38414.1.203.6.12
         dhcpHashBucketAssignment $ dhcpDelayedServiceParameter $ dhcpMaxClientLeadTime $
         dhcpFailOverEndpointState $ dhcpStatements $ dhcpComments $ dhcpOption ) )
 #
-olcObjectClasses: ( 2.16.840.1.38414.1.203.6.13
+olcObjectClasses: ( 1.3.6.1.4.1.99999.3.6.13
   NAME 'dhcpTSigKey'
   DESC 'TSIG key for secure dynamic updates.'
   SUP top
   MUST ( cn $ dhcpKeyAlgorithm $ dhcpKeySecret )
   MAY ( dhcpComments ) )
 #
-olcObjectClasses: ( 2.16.840.1.38414.1.203.6.14
+olcObjectClasses: ( 1.3.6.1.4.1.99999.3.6.14
   NAME 'dhcpDnsZone'
   DESC 'DNS Zone for updating leases.'
   SUP top
   MUST ( cn $ dhcpDnsZoneServer )
   MAY ( dhcpKeyDN $ dhcpComments ) )
 #
-olcObjectClasses: ( 2.16.840.1.38414.1.203.6.15
+olcObjectClasses: ( 1.3.6.1.4.1.99999.3.6.15
   NAME 'dhcpFailOverPeer'
   DESC 'Defines the Failover peer.'
   SUP top
@@ -503,7 +503,7 @@ olcObjectClasses: ( 2.16.840.1.38414.1.203.6.15
         dhcpMaxClientLeadTime $ dhcpFailOverSplit $ dhcpHashBucketAssignment $
         dhcpFailOverLoadBalanceTime $ dhcpComments ) )
 #
-olcObjectClasses: ( 2.16.840.1.38414.1.203.6.16
+olcObjectClasses: ( 1.3.6.1.4.1.99999.3.6.16
   NAME 'dhcpLocator'
   DESC 'Locator object for DHCP configuration in the tree.'
   SUP top

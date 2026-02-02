@@ -371,13 +371,13 @@ SELECT
     s.display_order
 FROM config_categories c
 CROSS JOIN (VALUES
-    ('language', '"en"', '"en"', 'Language', 'Default language for the interface', 'select', 
+    ('language', '"en"'::jsonb, '"en"'::jsonb, 'Language', 'Default language for the interface', 'select', 
      '[{"value":"en","label":"English"},{"value":"fr","label":"Français"},{"value":"de","label":"Deutsch"}]'::jsonb, 10),
-    ('timezone', '"UTC"', '"UTC"', 'Timezone', 'Default timezone for date/time display', 'string', NULL, 20),
-    ('date_format', '"YYYY-MM-DD"', '"YYYY-MM-DD"', 'Date Format', 'Format for displaying dates', 'select',
+    ('timezone', '"UTC"'::jsonb, '"UTC"'::jsonb, 'Timezone', 'Default timezone for date/time display', 'string', NULL::jsonb, 20),
+    ('date_format', '"YYYY-MM-DD"'::jsonb, '"YYYY-MM-DD"'::jsonb, 'Date Format', 'Format for displaying dates', 'select',
      '[{"value":"YYYY-MM-DD","label":"2026-01-31"},{"value":"DD/MM/YYYY","label":"31/01/2026"},{"value":"MM/DD/YYYY","label":"01/31/2026"}]'::jsonb, 30),
-    ('items_per_page', '25', '25', 'Items Per Page', 'Default number of items to show in lists', 'integer', NULL, 40),
-    ('theme', '"system"', '"system"', 'Theme', 'Color theme for the interface', 'select',
+    ('items_per_page', '25'::jsonb, '25'::jsonb, 'Items Per Page', 'Default number of items to show in lists', 'integer', NULL::jsonb, 40),
+    ('theme', '"system"'::jsonb, '"system"'::jsonb, 'Theme', 'Color theme for the interface', 'select',
      '[{"value":"light","label":"Light"},{"value":"dark","label":"Dark"},{"value":"system","label":"System"}]'::jsonb, 50)
 ) AS s(key, value, default_value, label, description, data_type, options, display_order)
 WHERE c.name = 'general'
@@ -399,14 +399,14 @@ SELECT
     s.display_order
 FROM config_categories c
 CROSS JOIN (VALUES
-    ('user_rdn', '"ou=people"', '"ou=people"', 'User RDN', 'Relative DN for user objects', 'string', 'RDN Settings', 10),
-    ('group_rdn', '"ou=groups"', '"ou=groups"', 'Group RDN', 'Relative DN for group objects', 'string', 'RDN Settings', 20),
-    ('system_rdn', '"ou=systems"', '"ou=systems"', 'System RDN', 'Relative DN for system objects', 'string', 'RDN Settings', 30),
-    ('dns_rdn', '"ou=dns"', '"ou=dns"', 'DNS RDN', 'Relative DN for DNS zones', 'string', 'RDN Settings', 40),
-    ('dhcp_rdn', '"ou=dhcp"', '"ou=dhcp"', 'DHCP RDN', 'Relative DN for DHCP configuration', 'string', 'RDN Settings', 50),
-    ('sudo_rdn', '"ou=sudoers"', '"ou=sudoers"', 'Sudo RDN', 'Relative DN for sudo rules', 'string', 'RDN Settings', 60),
-    ('size_limit', '1000', '1000', 'Size Limit', 'Maximum number of entries to return in searches', 'integer', 'Search Limits', 70),
-    ('time_limit', '30', '30', 'Time Limit', 'Maximum time in seconds for search operations', 'integer', 'Search Limits', 80)
+    ('user_rdn', '"ou=people"'::jsonb, '"ou=people"'::jsonb, 'User RDN', 'Relative DN for user objects', 'string', 'RDN Settings', 10),
+    ('group_rdn', '"ou=groups"'::jsonb, '"ou=groups"'::jsonb, 'Group RDN', 'Relative DN for group objects', 'string', 'RDN Settings', 20),
+    ('system_rdn', '"ou=systems"'::jsonb, '"ou=systems"'::jsonb, 'System RDN', 'Relative DN for system objects', 'string', 'RDN Settings', 30),
+    ('dns_rdn', '"ou=dns"'::jsonb, '"ou=dns"'::jsonb, 'DNS RDN', 'Relative DN for DNS zones', 'string', 'RDN Settings', 40),
+    ('dhcp_rdn', '"ou=dhcp"'::jsonb, '"ou=dhcp"'::jsonb, 'DHCP RDN', 'Relative DN for DHCP configuration', 'string', 'RDN Settings', 50),
+    ('sudo_rdn', '"ou=sudoers"'::jsonb, '"ou=sudoers"'::jsonb, 'Sudo RDN', 'Relative DN for sudo rules', 'string', 'RDN Settings', 60),
+    ('size_limit', '1000'::jsonb, '1000'::jsonb, 'Size Limit', 'Maximum number of entries to return in searches', 'integer', 'Search Limits', 70),
+    ('time_limit', '30'::jsonb, '30'::jsonb, 'Time Limit', 'Maximum time in seconds for search operations', 'integer', 'Search Limits', 80)
 ) AS s(key, value, default_value, label, description, data_type, section, display_order)
 WHERE c.name = 'ldap'
 ON CONFLICT (category_id, key) DO NOTHING;
@@ -428,16 +428,16 @@ SELECT
     s.display_order
 FROM config_categories c
 CROSS JOIN (VALUES
-    ('min_length', '8', '8', 'Minimum Length', 'Minimum password length', 'integer', 
-     '{"min": 4, "max": 128}'::jsonb, NULL, 10),
-    ('require_uppercase', 'true', 'true', 'Require Uppercase', 'Require at least one uppercase letter', 'boolean', NULL, NULL, 20),
-    ('require_lowercase', 'true', 'true', 'Require Lowercase', 'Require at least one lowercase letter', 'boolean', NULL, NULL, 30),
-    ('require_numbers', 'true', 'true', 'Require Numbers', 'Require at least one number', 'boolean', NULL, NULL, 40),
-    ('require_special', 'false', 'false', 'Require Special Characters', 'Require at least one special character', 'boolean', NULL, NULL, 50),
-    ('default_hash_method', '"ssha"', '"ssha"', 'Hash Method', 'Default password hashing algorithm', 'select', NULL,
+    ('min_length', '8'::jsonb, '8'::jsonb, 'Minimum Length', 'Minimum password length', 'integer', 
+     '{"min": 4, "max": 128}'::jsonb, NULL::jsonb, 10),
+    ('require_uppercase', 'true'::jsonb, 'true'::jsonb, 'Require Uppercase', 'Require at least one uppercase letter', 'boolean', NULL::jsonb, NULL::jsonb, 20),
+    ('require_lowercase', 'true'::jsonb, 'true'::jsonb, 'Require Lowercase', 'Require at least one lowercase letter', 'boolean', NULL::jsonb, NULL::jsonb, 30),
+    ('require_numbers', 'true'::jsonb, 'true'::jsonb, 'Require Numbers', 'Require at least one number', 'boolean', NULL::jsonb, NULL::jsonb, 40),
+    ('require_special', 'false'::jsonb, 'false'::jsonb, 'Require Special Characters', 'Require at least one special character', 'boolean', NULL::jsonb, NULL::jsonb, 50),
+    ('default_hash_method', '"ssha"'::jsonb, '"ssha"'::jsonb, 'Hash Method', 'Default password hashing algorithm', 'select', NULL::jsonb,
      '[{"value":"ssha","label":"SSHA (Salted SHA-1)"},{"value":"ssha256","label":"SSHA256"},{"value":"ssha512","label":"SSHA512"},{"value":"argon2","label":"Argon2"}]'::jsonb, 60),
-    ('expiration_days', '0', '0', 'Expiration Days', 'Days until password expires (0 = never)', 'integer',
-     '{"min": 0, "max": 365}'::jsonb, NULL, 70)
+    ('expiration_days', '0'::jsonb, '0'::jsonb, 'Expiration Days', 'Days until password expires (0 = never)', 'integer',
+     '{"min": 0, "max": 365}'::jsonb, NULL::jsonb, 70)
 ) AS s(key, value, default_value, label, description, data_type, validation_rules, options, display_order)
 WHERE c.name = 'password'
 ON CONFLICT (category_id, key) DO NOTHING;
@@ -458,11 +458,11 @@ SELECT
     s.display_order
 FROM config_categories c
 CROSS JOIN (VALUES
-    ('session_timeout', '3600', '3600', 'Session Timeout', 'Session timeout in seconds', 'integer',
+    ('session_timeout', '3600'::jsonb, '3600'::jsonb, 'Session Timeout', 'Session timeout in seconds', 'integer',
      '{"min": 300, "max": 86400}'::jsonb, 10),
-    ('max_concurrent_sessions', '5', '5', 'Max Concurrent Sessions', 'Maximum concurrent sessions per user (0 = unlimited)', 'integer',
+    ('max_concurrent_sessions', '5'::jsonb, '5'::jsonb, 'Max Concurrent Sessions', 'Maximum concurrent sessions per user (0 = unlimited)', 'integer',
      '{"min": 0, "max": 100}'::jsonb, 20),
-    ('idle_timeout', '1800', '1800', 'Idle Timeout', 'Idle timeout in seconds before auto-logout', 'integer',
+    ('idle_timeout', '1800'::jsonb, '1800'::jsonb, 'Idle Timeout', 'Idle timeout in seconds before auto-logout', 'integer',
      '{"min": 300, "max": 86400}'::jsonb, 30)
 ) AS s(key, value, default_value, label, description, data_type, validation_rules, display_order)
 WHERE c.name = 'session'
@@ -484,10 +484,10 @@ SELECT
     s.display_order
 FROM config_categories c
 CROSS JOIN (VALUES
-    ('enable_audit_log', 'true', 'true', 'Enable Audit Log', 'Log all user actions', 'boolean', NULL, 10),
-    ('log_level', '"INFO"', '"INFO"', 'Log Level', 'Application log level', 'select',
+    ('enable_audit_log', 'true'::jsonb, 'true'::jsonb, 'Enable Audit Log', 'Log all user actions', 'boolean', NULL::jsonb, 10),
+    ('log_level', '"INFO"'::jsonb, '"INFO"'::jsonb, 'Log Level', 'Application log level', 'select',
      '[{"value":"DEBUG","label":"Debug"},{"value":"INFO","label":"Info"},{"value":"WARNING","label":"Warning"},{"value":"ERROR","label":"Error"}]'::jsonb, 20),
-    ('retention_days', '90', '90', 'Retention Days', 'Days to keep audit logs', 'integer', NULL, 30)
+    ('retention_days', '90'::jsonb, '90'::jsonb, 'Retention Days', 'Days to keep audit logs', 'integer', NULL::jsonb, 30)
 ) AS s(key, value, default_value, label, description, data_type, options, display_order)
 WHERE c.name = 'audit'
 ON CONFLICT (category_id, key) DO NOTHING;

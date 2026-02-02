@@ -1,0 +1,66 @@
+# DHCP Plugin Metadata
+# =====================
+# Plugin descriptor for Heracles DHCP plugin.
+
+information:
+  name: dhcp
+  version: "1.0.0"
+  description: DHCP configuration management for ISC DHCP server via LDAP
+  author: Heracles Team
+  status: Stable
+  license: MIT
+  tags:
+    - dhcp
+    - infrastructure
+    - network
+
+# LDAP schema files provided by this plugin
+ldap_schemas:
+  - hrc-dhcp.schema
+  - hrc-dhcp.ldif
+
+# UI form schema files (JSON Schema)
+# Note: DHCP uses a schemas/ directory with multiple files
+ui_schemas:
+  - schemas/
+
+# Plugin dependencies
+dependencies: []
+
+# Optional dependencies
+optional_dependencies:
+  - systems
+  - dns
+
+# Object classes this plugin manages
+object_classes:
+  - dhcpService
+  - dhcpSharedNetwork
+  - dhcpSubnet
+  - dhcpPool
+  - dhcpGroup
+  - dhcpHost
+  - dhcpClass
+  - dhcpSubClass
+  - dhcpOptions
+  - dhcpLeases
+  - dhcpLog
+  - dhcpServer
+  - dhcpTSigKey
+  - dhcpDnsZone
+  - dhcpFailOverPeer
+  - dhcpLocator
+
+# Object types this plugin provides (new object management)
+object_types:
+  - dhcp_service
+  - dhcp_subnet
+  - dhcp_pool
+  - dhcp_host
+  - dhcp_group
+
+# OID information
+oid:
+  base: "1.3.6.1.4.1.99999.3"
+  registered: false
+  note: "Placeholder OID for development. Register with IANA for production."

@@ -1,0 +1,47 @@
+# Sudo Plugin Metadata
+# =====================
+# Plugin descriptor for Heracles Sudo plugin.
+
+information:
+  name: sudo
+  version: "1.0.0"
+  description: Sudoers rules management via sudoRole objectClass
+  author: Heracles Team
+  status: Stable
+  license: MIT
+  tags:
+    - security
+    - sudo
+    - privileges
+    - authorization
+
+# LDAP schema files provided by this plugin
+ldap_schemas:
+  - sudo.schema
+  - sudo.ldif
+
+# UI form schema files (JSON Schema)
+ui_schemas:
+  - schema_sudo_role.json
+
+# Plugin dependencies
+dependencies: []
+
+# Optional dependencies
+optional_dependencies:
+  - posix
+
+# Object classes this plugin manages
+object_classes:
+  - sudoRole
+
+# Object types this plugin provides (new object management)
+object_types:
+  - sudoer
+
+# OID information
+oid:
+  base: "1.3.6.1.4.1.15953.9"
+  registered: true
+  owner: "sudo project"
+  url: "https://www.sudo.ws/docs/man/sudoers.ldap.man/"

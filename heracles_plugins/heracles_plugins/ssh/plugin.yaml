@@ -1,0 +1,45 @@
+# SSH Plugin Metadata
+# ====================
+# Plugin descriptor for Heracles SSH plugin.
+
+information:
+  name: ssh
+  version: "1.0.0"
+  description: SSH public key management via ldapPublicKey objectClass
+  author: Heracles Team
+  status: Stable
+  license: MIT
+  tags:
+    - user
+    - security
+    - authentication
+
+# LDAP schema files provided by this plugin
+ldap_schemas:
+  - openssh-lpk.schema
+  - openssh-lpk.ldif
+
+# UI form schema files (JSON Schema)
+ui_schemas:
+  - schema_ssh.json
+
+# Plugin dependencies
+dependencies: []
+
+# Optional dependencies (enhance functionality if present)
+optional_dependencies:
+  - posix
+
+# Object classes this plugin manages
+object_classes:
+  - ldapPublicKey
+
+# Object types this plugin extends
+object_types:
+  - user
+
+# OID information
+oid:
+  base: "1.3.6.1.4.1.24552.500.1.1"
+  registered: true
+  owner: "Eric AUGE"

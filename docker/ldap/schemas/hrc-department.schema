@@ -1,13 +1,12 @@
 # Heracles Department Schema
 # =========================================
-# This schema defines heraclesDepartment as AUXILIARY,
+# This schema defines hrcDepartment as AUXILIARY,
 # marking organizationalUnits as departments for UI navigation.
 #
-# Similar to FusionDirectory's gosaDepartment approach.
-# OID base: 1.3.6.1.4.1.99999.2 (Heracles Department)
+# OID base: 1.3.6.1.4.1.99999.4 (Heracles Department)
 
 # Optional attribute: Department category (e.g., division, team, project)
-attributetype ( 1.3.6.1.4.1.99999.2.1.1
+attributetype ( 1.3.6.1.4.1.99999.4.1.1
     NAME 'hrcDepartmentCategory'
     DESC 'Department category (e.g., division, team, project)'
     EQUALITY caseIgnoreMatch
@@ -16,7 +15,7 @@ attributetype ( 1.3.6.1.4.1.99999.2.1.1
     SINGLE-VALUE )
 
 # Optional attribute: DN of department manager
-attributetype ( 1.3.6.1.4.1.99999.2.1.2
+attributetype ( 1.3.6.1.4.1.99999.4.1.2
     NAME 'hrcDepartmentManager'
     DESC 'DN of department manager'
     EQUALITY distinguishedNameMatch
@@ -24,8 +23,8 @@ attributetype ( 1.3.6.1.4.1.99999.2.1.2
     SINGLE-VALUE )
 
 # Auxiliary objectClass to mark OUs as departments
-objectclass ( 1.3.6.1.4.1.99999.2.2.1
-    NAME 'heraclesDepartment'
+objectclass ( 1.3.6.1.4.1.99999.4.2.1
+    NAME 'hrcDepartment'
     DESC 'Marks an organizationalUnit as a Heracles department'
     SUP top
     AUXILIARY

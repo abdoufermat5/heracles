@@ -1,0 +1,59 @@
+# POSIX Plugin Metadata
+# ======================
+# Plugin descriptor for Heracles POSIX plugin.
+
+information:
+  name: posix
+  version: "1.0.0"
+  description: POSIX account and group management (nis.schema + custom posixGroupAux)
+  author: Heracles Team
+  status: Stable
+  license: MIT
+  tags:
+    - user
+    - group
+    - posix
+    - unix
+
+# LDAP schema files provided by this plugin
+# Note: posix uses standard nis.schema (built-in to OpenLDAP) plus our custom aux schema
+ldap_schemas:
+  - hrc-aux.schema
+  - hrc-aux.ldif
+
+# UI form schema files (JSON Schema)
+ui_schemas:
+  - schema_user.json
+  - schema_group.json
+  - schema_mixed_group.json
+
+# Plugin dependencies
+dependencies: []
+
+# Optional dependencies
+optional_dependencies: []
+
+# Object classes this plugin manages
+object_classes:
+  # Standard (from nis.schema - built-in)
+  - posixAccount
+  - posixGroup
+  - shadowAccount
+  # Custom (from heracles-aux.schema)
+  - posixGroupAux
+
+# Object types this plugin extends
+object_types:
+  - user
+  - group
+
+# OID information
+oid:
+  base: "1.3.6.1.4.1.99999.1"
+  registered: false
+  note: "posixGroupAux uses placeholder OID. Standard POSIX classes use RFC 2307 OIDs."
+
+# Standard schemas this plugin depends on (built-in to OpenLDAP)
+required_builtin_schemas:
+  - nis
+  - inetorgperson

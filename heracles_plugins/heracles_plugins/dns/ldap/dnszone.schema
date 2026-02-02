@@ -1,0 +1,77 @@
+# DNS Zone Schema for LDAP (.schema format)
+# Based on standard dnszone.schema for PowerDNS/BIND LDAP backend
+# OID base: 1.3.6.1.4.1.2428.20
+#
+# NOTE: This schema only defines attributes NOT already in the cosine schema.
+# The following attributes are inherited from cosine (cn={1}cosine):
+#   - aRecord, mDRecord, mXRecord, nSRecord, sOARecord, cNAMERecord
+#
+
+# Attribute Type Definitions
+
+attributetype ( 1.3.6.1.4.1.2428.20.0.0 
+    NAME 'dNSTTL'
+    DESC 'An integer denoting time to live'
+    EQUALITY integerMatch
+    ORDERING integerOrderingMatch
+    SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 )
+
+attributetype ( 1.3.6.1.4.1.2428.20.0.1 
+    NAME 'dNSClass'
+    DESC 'The class of a resource record'
+    EQUALITY caseIgnoreIA5Match
+    SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+attributetype ( 1.3.6.1.4.1.2428.20.0.2 
+    NAME 'zoneName'
+    DESC 'The name of a zone, i.e. the name of the highest node in the zone'
+    EQUALITY caseIgnoreIA5Match
+    SUBSTR caseIgnoreIA5SubstringsMatch
+    SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+attributetype ( 1.3.6.1.4.1.2428.20.0.3 
+    NAME 'relativeDomainName'
+    DESC 'The starting labels of a domain name'
+    EQUALITY caseIgnoreIA5Match
+    SUBSTR caseIgnoreIA5SubstringsMatch
+    SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+attributetype ( 1.3.6.1.4.1.2428.20.1.12 
+    NAME 'pTRRecord'
+    DESC 'domain name pointer, RFC 1035'
+    EQUALITY caseIgnoreIA5Match
+    SUBSTR caseIgnoreIA5SubstringsMatch
+    SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+attributetype ( 1.3.6.1.4.1.2428.20.1.16 
+    NAME 'tXTRecord'
+    DESC 'text string, RFC 1035'
+    EQUALITY caseIgnoreIA5Match
+    SUBSTR caseIgnoreIA5SubstringsMatch
+    SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+attributetype ( 1.3.6.1.4.1.2428.20.1.28 
+    NAME 'aAAARecord'
+    DESC 'IPv6 address, RFC 1886'
+    EQUALITY caseIgnoreIA5Match
+    SUBSTR caseIgnoreIA5SubstringsMatch
+    SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+attributetype ( 1.3.6.1.4.1.2428.20.1.33 
+    NAME 'sRVRecord'
+    DESC 'service location, RFC 2782'
+    EQUALITY caseIgnoreIA5Match
+    SUBSTR caseIgnoreIA5SubstringsMatch
+    SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Object Class Definitions
+
+objectclass ( 1.3.6.1.4.1.2428.20.3 
+    NAME 'dNSZone'
+    DESC 'A DNS Zone entry'
+    SUP top
+    STRUCTURAL
+    MUST ( zoneName $ relativeDomainName )
+    MAY ( dNSTTL $ dNSClass $ aRecord $ mDRecord $ mXRecord $ nSRecord $
+          sOARecord $ cNAMERecord $ pTRRecord $ tXTRecord $ aAAARecord $
+          sRVRecord ) )
