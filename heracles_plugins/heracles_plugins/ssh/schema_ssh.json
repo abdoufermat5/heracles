@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SSH Keys",
+  "description": "Schema for SSH public key management on users",
+  "type": "object",
+  "properties": {
+    "key": {
+      "type": "string",
+      "title": "SSH Public Key",
+      "description": "Full SSH public key (type + key data + optional comment)",
+      "minLength": 20,
+      "ui:widget": "textarea",
+      "ui:placeholder": "ssh-ed25519 AAAA... user@host",
+      "ui:autofocus": true
+    },
+    "comment": {
+      "type": "string",
+      "title": "Comment",
+      "description": "Optional label to identify this key",
+      "maxLength": 255,
+      "ui:placeholder": "Work laptop, Home desktop, etc."
+    },
+    "keyType": {
+      "type": "string",
+      "title": "Key Type",
+      "description": "SSH key algorithm type",
+      "enum": [
+        "ssh-rsa",
+        "ssh-dss",
+        "ssh-ed25519",
+        "ecdsa-sha2-nistp256",
+        "ecdsa-sha2-nistp384",
+        "ecdsa-sha2-nistp521",
+        "sk-ssh-ed25519@openssh.com",
+        "sk-ecdsa-sha2-nistp256@openssh.com"
+      ],
+      "ui:widget": "select",
+      "ui:enumNames": [
+        "RSA",
+        "DSA (deprecated)",
+        "Ed25519",
+        "ECDSA P-256",
+        "ECDSA P-384",
+        "ECDSA P-521",
+        "Ed25519-SK (Security Key)",
+        "ECDSA-SK (Security Key)"
+      ],
+      "ui:readonly": true
+    },
+    "fingerprint": {
+      "type": "string",
+      "title": "Fingerprint",
+      "description": "SHA256 fingerprint of the key",
+      "ui:readonly": true
+    },
+    "bits": {
+      "type": "integer",
+      "title": "Key Size",
+      "description": "Key size in bits (for RSA/DSA keys)",
+      "ui:readonly": true
+    },
+    "addedAt": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Added At",
+      "description": "When the key was added",
+      "ui:readonly": true
+    }
+  },
+  "required": ["key"],
+  "ui:order": ["key", "comment", "keyType", "fingerprint", "bits", "addedAt"],
+  "ui:sections": {
+    "add_key": {
+      "title": "Add SSH Key",
+      "description": "Paste your SSH public key to add it to this user",
+      "fields": ["key", "comment"]
+    },
+    "key_info": {
+      "title": "Key Information",
+      "description": "Details about the SSH key (auto-detected)",
+      "collapsed": true,
+      "fields": ["keyType", "fingerprint", "bits", "addedAt"]
+    }
+  }
+}

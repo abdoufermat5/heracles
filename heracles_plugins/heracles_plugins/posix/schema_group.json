@@ -1,151 +1,97 @@
 {
-  "$schema": "https://heracles.example.com/schemas/form-schema-v1.json",
-  "id": "posix-group",
-  "version": "1.0.0",
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "POSIX Group",
-  "description": "POSIX/Unix group settings",
-  "icon": "users",
-
-  "activation": {
-    "label": "Enable POSIX group",
-    "description": "Add POSIX attributes to enable Unix/Linux group functionality"
-  },
-
-  "sections": [
-    {
-      "id": "main",
-      "title": "Group Settings",
-      "description": "POSIX group configuration",
-      "fields": [
-        {
-          "name": "cn",
-          "type": "string",
-          "label": "Group Name",
-          "description": "Unique identifier for the group",
-          "required": true,
-          "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$",
-          "minLength": 1,
-          "maxLength": 64,
-          "placeholder": "developers",
-          "helpText": "Must start with a letter, can contain letters, numbers, underscores, and hyphens"
-        },
-        {
-          "name": "gidNumber",
-          "type": "number",
-          "label": "GID Number",
-          "description": "Unix group ID (auto-allocated if empty)",
-          "required": false,
-          "readonlyAfterCreate": true,
-          "min": 1000,
-          "max": 65534,
-          "placeholder": "Auto",
-          "helpText": "Leave empty to auto-allocate the next available GID"
-        },
-        {
-          "name": "forceGid",
-          "type": "boolean",
-          "label": "Force GID",
-          "description": "Force use of specific GID even if it appears allocated",
-          "required": false,
-          "default": false,
-          "helpText": "Use with caution - allows specifying GIDs that may conflict"
-        },
-        {
-          "name": "description",
-          "type": "string",
-          "label": "Description",
-          "description": "Human-readable description of the group",
-          "required": false,
-          "maxLength": 255,
-          "placeholder": "Development team members"
-        }
-      ]
+  "description": "Schema for POSIX/Unix group management",
+  "type": "object",
+  "properties": {
+    "cn": {
+      "type": "string",
+      "title": "Group Name",
+      "description": "Unique identifier for the group",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$",
+      "ui:placeholder": "developers",
+      "ui:autofocus": true
     },
-    {
-      "id": "members",
-      "title": "POSIX Members",
-      "description": "Unix group membership via memberUid",
-      "fields": [
-        {
-          "name": "memberUid",
-          "type": "user_select",
-          "label": "Unix Members",
-          "description": "Users who are members of this Unix group (by uid)",
-          "required": false,
-          "multiple": true,
-          "filter": "(objectClass=posixAccount)",
-          "displayField": "uid",
-          "valueField": "uid",
-          "helpText": "Select users to add as Unix group members"
-        }
-      ]
+    "gidNumber": {
+      "type": "integer",
+      "title": "GID Number",
+      "description": "Unix group ID (auto-allocated if empty)",
+      "minimum": 1000,
+      "maximum": 65534,
+      "ui:placeholder": "Auto",
+      "ui:readonlyAfterCreate": true
     },
-    {
-      "id": "system_trust",
-      "title": "System Trust",
-      "description": "Restrict group to specific hosts (requires systems plugin)",
-      "collapsed": true,
-      "fields": [
-        {
-          "name": "trustMode",
-          "type": "select",
-          "label": "Trust Mode",
-          "description": "Control which systems this group is available on",
-          "required": false,
-          "options": [
-            {"value": null, "label": "No restriction"},
-            {"value": "fullaccess", "label": "Available on all systems"},
-            {"value": "byhost", "label": "Restricted to specific hosts"}
-          ],
-          "helpText": "Select 'Restricted to specific hosts' to limit this group to certain systems"
-        },
-        {
-          "name": "host",
-          "type": "host_select",
-          "label": "Allowed Hosts",
-          "description": "Systems where this group is available",
-          "required": false,
-          "multiple": true,
-          "filter": "(objectClass=ipHost)",
-          "displayField": "cn",
-          "valueField": "cn",
-          "visibleWhen": {
-            "field": "trustMode",
-            "equals": "byhost"
-          },
-          "helpText": "Select the hosts where this group should be available. NOTE: Full validation requires the systems plugin."
-        }
-      ]
+    "forceGid": {
+      "type": "boolean",
+      "title": "Force GID",
+      "description": "Force use of specific GID even if it appears allocated",
+      "default": false
+    },
+    "description": {
+      "type": "string",
+      "title": "Description",
+      "description": "Human-readable description of the group",
+      "maxLength": 255,
+      "ui:widget": "textarea",
+      "ui:placeholder": "Development team members"
+    },
+    "memberUid": {
+      "type": "array",
+      "title": "Unix Members",
+      "description": "Users who are members of this Unix group (by uid)",
+      "items": {
+        "type": "string"
+      },
+      "ui:widget": "user-select",
+      "ui:filter": "(objectClass=posixAccount)",
+      "ui:displayField": "uid",
+      "ui:valueField": "uid",
+      "ui:placeholder": "Select users to add as Unix group members"
+    },
+    "trustMode": {
+      "type": "string",
+      "title": "Trust Mode",
+      "description": "Control which systems this group is available on",
+      "enum": [null, "fullaccess", "byhost"],
+      "ui:widget": "select",
+      "ui:enumNames": ["No restriction", "Available on all systems", "Restricted to specific hosts"],
+      "ui:section": "trust"
+    },
+    "host": {
+      "type": "array",
+      "title": "Allowed Hosts",
+      "description": "Systems where this group is available",
+      "items": {
+        "type": "string"
+      },
+      "ui:widget": "host-select",
+      "ui:filter": "(objectClass=ipHost)",
+      "ui:displayField": "cn",
+      "ui:valueField": "cn",
+      "ui:visibleWhen": {
+        "field": "trustMode",
+        "equals": "byhost"
+      },
+      "ui:section": "trust"
     }
-  ],
-
-  "validation": {
-    "rules": [
-      {
-        "type": "unique",
-        "field": "cn",
-        "scope": "global",
-        "message": "A group with this name already exists"
-      },
-      {
-        "type": "unique",
-        "field": "gidNumber",
-        "scope": "global",
-        "message": "This GID is already in use"
-      },
-      {
-        "type": "conditional_required",
-        "field": "host",
-        "condition": {
-          "field": "trustMode",
-          "equals": "byhost"
-        },
-        "message": "At least one host is required when trust mode is 'byhost'"
-      }
-    ]
   },
-
-  "notes": [
-    "System trust features require the systems plugin to be installed for full host validation."
-  ]
+  "required": ["cn"],
+  "ui:order": ["cn", "gidNumber", "forceGid", "description", "memberUid", "trustMode", "host"],
+  "ui:sections": {
+    "main": {
+      "title": "Group Settings",
+      "fields": ["cn", "gidNumber", "forceGid", "description"]
+    },
+    "members": {
+      "title": "POSIX Members",
+      "fields": ["memberUid"]
+    },
+    "trust": {
+      "title": "System Trust",
+      "collapsed": true,
+      "fields": ["trustMode", "host"]
+    }
+  }
 }

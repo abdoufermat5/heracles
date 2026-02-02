@@ -1,164 +1,110 @@
 {
-  "$schema": "https://heracles.example.com/schemas/form-schema-v1.json",
-  "id": "posix-mixed-group",
-  "version": "1.0.0",
-  "title": "Mixed Group (LDAP + POSIX)",
-  "description": "Combined groupOfNames and posixGroup for LDAP access control and Unix permissions",
-  "icon": "users-cog",
-
-  "activation": {
-    "label": "Create Mixed Group",
-    "description": "Create a group with both LDAP (member DNs) and POSIX (memberUid) membership"
-  },
-
-  "sections": [
-    {
-      "id": "main",
-      "title": "Group Settings",
-      "description": "Basic group configuration",
-      "fields": [
-        {
-          "name": "cn",
-          "type": "string",
-          "label": "Group Name",
-          "description": "Unique identifier for the group",
-          "required": true,
-          "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$",
-          "minLength": 1,
-          "maxLength": 64,
-          "placeholder": "developers",
-          "helpText": "Must start with a letter, can contain letters, numbers, underscores, and hyphens"
-        },
-        {
-          "name": "gidNumber",
-          "type": "number",
-          "label": "GID Number",
-          "description": "Unix group ID (auto-allocated if empty)",
-          "required": false,
-          "readonlyAfterCreate": true,
-          "min": 1000,
-          "max": 65534,
-          "placeholder": "Auto",
-          "helpText": "Leave empty to auto-allocate the next available GID"
-        },
-        {
-          "name": "description",
-          "type": "string",
-          "label": "Description",
-          "description": "Human-readable description of the group",
-          "required": false,
-          "maxLength": 255,
-          "placeholder": "Development team members"
-        }
-      ]
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Mixed Group",
+  "description": "Schema for combined LDAP (groupOfNames) and POSIX (posixGroup) group management",
+  "type": "object",
+  "properties": {
+    "cn": {
+      "type": "string",
+      "title": "Group Name",
+      "description": "Unique identifier for the group",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$",
+      "ui:placeholder": "developers",
+      "ui:autofocus": true
     },
-    {
-      "id": "ldap_members",
+    "gidNumber": {
+      "type": "integer",
+      "title": "GID Number",
+      "description": "Unix group ID (auto-allocated if empty)",
+      "minimum": 1000,
+      "maximum": 65534,
+      "ui:placeholder": "Auto",
+      "ui:readonlyAfterCreate": true
+    },
+    "description": {
+      "type": "string",
+      "title": "Description",
+      "description": "Human-readable description of the group",
+      "maxLength": 255,
+      "ui:widget": "textarea",
+      "ui:placeholder": "Development team members"
+    },
+    "member": {
+      "type": "array",
+      "title": "LDAP Members",
+      "description": "Members identified by Distinguished Name (for LDAP-based access control)",
+      "items": {
+        "type": "string"
+      },
+      "ui:widget": "dn-select",
+      "ui:filter": "(objectClass=inetOrgPerson)",
+      "ui:displayField": "cn",
+      "ui:valueField": "dn",
+      "ui:placeholder": "Select members for LDAP group-based access control (ACLs, application permissions)"
+    },
+    "memberUid": {
+      "type": "array",
+      "title": "Unix Members",
+      "description": "Members identified by uid (for Unix/POSIX permissions)",
+      "items": {
+        "type": "string"
+      },
+      "ui:widget": "user-select",
+      "ui:filter": "(objectClass=posixAccount)",
+      "ui:displayField": "uid",
+      "ui:valueField": "uid",
+      "ui:placeholder": "Select users for Unix file permissions and NFS access"
+    },
+    "trustMode": {
+      "type": "string",
+      "title": "Trust Mode",
+      "description": "Control which systems this group is available on",
+      "enum": [null, "fullaccess", "byhost"],
+      "ui:widget": "select",
+      "ui:enumNames": ["No restriction", "Available on all systems", "Restricted to specific hosts"],
+      "ui:section": "trust"
+    },
+    "host": {
+      "type": "array",
+      "title": "Allowed Hosts",
+      "description": "Systems where this group is available",
+      "items": {
+        "type": "string"
+      },
+      "ui:widget": "host-select",
+      "ui:filter": "(objectClass=ipHost)",
+      "ui:displayField": "cn",
+      "ui:valueField": "cn",
+      "ui:visibleWhen": {
+        "field": "trustMode",
+        "equals": "byhost"
+      },
+      "ui:section": "trust"
+    }
+  },
+  "required": ["cn"],
+  "ui:order": ["cn", "gidNumber", "description", "member", "memberUid", "trustMode", "host"],
+  "ui:sections": {
+    "main": {
+      "title": "Group Settings",
+      "fields": ["cn", "gidNumber", "description"]
+    },
+    "ldap_members": {
       "title": "LDAP Members (groupOfNames)",
       "description": "Members identified by their full LDAP Distinguished Name",
-      "fields": [
-        {
-          "name": "member",
-          "type": "dn_select",
-          "label": "LDAP Members",
-          "description": "Members identified by Distinguished Name (for LDAP-based access control)",
-          "required": false,
-          "multiple": true,
-          "filter": "(objectClass=inetOrgPerson)",
-          "displayField": "cn",
-          "valueField": "dn",
-          "helpText": "These members are used for LDAP group-based access control (ACLs, application permissions)"
-        }
-      ]
+      "fields": ["member"]
     },
-    {
-      "id": "posix_members",
+    "posix_members": {
       "title": "POSIX Members (memberUid)",
       "description": "Members identified by their Unix uid attribute",
-      "fields": [
-        {
-          "name": "memberUid",
-          "type": "user_select",
-          "label": "Unix Members",
-          "description": "Members identified by uid (for Unix/POSIX permissions)",
-          "required": false,
-          "multiple": true,
-          "filter": "(objectClass=posixAccount)",
-          "displayField": "uid",
-          "valueField": "uid",
-          "helpText": "These members are used for Unix file permissions and NFS access"
-        }
-      ]
+      "fields": ["memberUid"]
     },
-    {
-      "id": "system_trust",
+    "trust": {
       "title": "System Trust",
-      "description": "Restrict group to specific hosts (requires systems plugin)",
       "collapsed": true,
-      "fields": [
-        {
-          "name": "trustMode",
-          "type": "select",
-          "label": "Trust Mode",
-          "description": "Control which systems this group is available on",
-          "required": false,
-          "options": [
-            {"value": null, "label": "No restriction"},
-            {"value": "fullaccess", "label": "Available on all systems"},
-            {"value": "byhost", "label": "Restricted to specific hosts"}
-          ],
-          "helpText": "Select 'Restricted to specific hosts' to limit this group to certain systems"
-        },
-        {
-          "name": "host",
-          "type": "host_select",
-          "label": "Allowed Hosts",
-          "description": "Systems where this group is available",
-          "required": false,
-          "multiple": true,
-          "filter": "(objectClass=ipHost)",
-          "displayField": "cn",
-          "valueField": "cn",
-          "visibleWhen": {
-            "field": "trustMode",
-            "equals": "byhost"
-          },
-          "helpText": "Select the hosts where this group should be available. NOTE: Full validation requires the systems plugin."
-        }
-      ]
+      "fields": ["trustMode", "host"]
     }
-  ],
-
-  "validation": {
-    "rules": [
-      {
-        "type": "unique",
-        "field": "cn",
-        "scope": "global",
-        "message": "A group with this name already exists"
-      },
-      {
-        "type": "unique",
-        "field": "gidNumber",
-        "scope": "global",
-        "message": "This GID is already in use"
-      },
-      {
-        "type": "conditional_required",
-        "field": "host",
-        "condition": {
-          "field": "trustMode",
-          "equals": "byhost"
-        },
-        "message": "At least one host is required when trust mode is 'byhost'"
-      }
-    ]
-  },
-
-  "notes": [
-    "Mixed Groups combine LDAP groupOfNames (member DNs) with POSIX posixGroup (memberUid).",
-    "Use LDAP members for application-level access control (e.g., who can login to a web app).",
-    "Use POSIX members for Unix file permissions and NFS/CIFS access.",
-    "System trust features require the systems plugin to be installed for full host validation."
-  ]
+  }
 }

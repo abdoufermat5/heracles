@@ -1,173 +1,163 @@
 {
-  "$schema": "https://heracles.example.com/schemas/form-schema-v1.json",
-  "id": "posix",
-  "version": "1.0.0",
-  "title": "Unix Account",
-  "description": "POSIX/Unix account settings for Linux/Unix systems",
-  "icon": "terminal",
-
-  "activation": {
-    "label": "Enable Unix account",
-    "description": "Add POSIX attributes to enable Unix/Linux system access"
-  },
-
-  "sections": [
-    {
-      "id": "main",
-      "title": "Account Settings",
-      "description": "Core POSIX account configuration",
-      "fields": [
-        {
-          "name": "uidNumber",
-          "type": "number",
-          "label": "UID Number",
-          "description": "Unix user ID (auto-allocated if empty)",
-          "required": false,
-          "readonlyAfterCreate": true,
-          "min": 1000,
-          "max": 65534,
-          "placeholder": "Auto",
-          "helpText": "Leave empty to auto-allocate the next available UID"
-        },
-        {
-          "name": "gidNumber",
-          "type": "group_select",
-          "label": "Primary Group",
-          "description": "Primary Unix group for this user",
-          "required": true,
-          "filter": "(objectClass=posixGroup)",
-          "displayField": "cn",
-          "valueField": "gidNumber",
-          "helpText": "Select the user's primary Unix group"
-        },
-        {
-          "name": "homeDirectory",
-          "type": "string",
-          "label": "Home Directory",
-          "description": "User's home directory path",
-          "required": true,
-          "pattern": "^/[\\w./-]+$",
-          "defaultTemplate": "/home/{uid}",
-          "placeholder": "/home/username",
-          "helpText": "Leave empty to auto-generate from username"
-        },
-        {
-          "name": "loginShell",
-          "type": "select",
-          "label": "Login Shell",
-          "description": "Default shell when user logs in",
-          "required": false,
-          "default": "/bin/bash",
-          "options": [
-            {"value": "/bin/bash", "label": "Bash"},
-            {"value": "/bin/zsh", "label": "Zsh"},
-            {"value": "/bin/sh", "label": "Sh"},
-            {"value": "/bin/fish", "label": "Fish"},
-            {"value": "/usr/sbin/nologin", "label": "No Login"},
-            {"value": "/bin/false", "label": "False (disabled)"}
-          ]
-        }
-      ]
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "POSIX Account",
+  "description": "Schema for POSIX/Unix account settings on users",
+  "type": "object",
+  "properties": {
+    "uidNumber": {
+      "type": "integer",
+      "title": "UID Number",
+      "description": "Unix user ID (auto-allocated if empty)",
+      "minimum": 1000,
+      "maximum": 65534,
+      "ui:placeholder": "Auto",
+      "ui:readonlyAfterCreate": true
     },
-    {
-      "id": "gecos",
+    "gidNumber": {
+      "type": "integer",
+      "title": "Primary Group",
+      "description": "Primary Unix group for this user",
+      "minimum": 1000,
+      "maximum": 65534,
+      "ui:widget": "group-select",
+      "ui:filter": "(objectClass=posixGroup)",
+      "ui:displayField": "cn",
+      "ui:valueField": "gidNumber"
+    },
+    "homeDirectory": {
+      "type": "string",
+      "title": "Home Directory",
+      "description": "User's home directory path",
+      "pattern": "^/[\\w./-]+$",
+      "ui:placeholder": "/home/username",
+      "ui:defaultTemplate": "/home/{uid}"
+    },
+    "loginShell": {
+      "type": "string",
+      "title": "Login Shell",
+      "description": "Default shell when user logs in",
+      "enum": [
+        "/bin/bash",
+        "/bin/zsh",
+        "/bin/sh",
+        "/bin/fish",
+        "/usr/sbin/nologin",
+        "/bin/false"
+      ],
+      "default": "/bin/bash",
+      "ui:widget": "select",
+      "ui:enumNames": ["Bash", "Zsh", "Sh", "Fish", "No Login", "False (disabled)"]
+    },
+    "gecos": {
+      "type": "string",
+      "title": "GECOS",
+      "description": "General information field (typically full name)",
+      "ui:placeholder": "Full Name",
+      "ui:defaultTemplate": "{cn}"
+    },
+    "shadowMin": {
+      "type": "integer",
+      "title": "Minimum Days Between Changes",
+      "description": "Minimum days before password can be changed",
+      "minimum": 0,
+      "ui:placeholder": "0",
+      "ui:section": "shadow"
+    },
+    "shadowMax": {
+      "type": "integer",
+      "title": "Maximum Password Age (Days)",
+      "description": "Maximum days password is valid",
+      "minimum": 0,
+      "default": 99999,
+      "ui:placeholder": "99999",
+      "ui:section": "shadow"
+    },
+    "shadowWarning": {
+      "type": "integer",
+      "title": "Warning Days Before Expiry",
+      "description": "Days before expiry to start warning user",
+      "minimum": 0,
+      "default": 7,
+      "ui:placeholder": "7",
+      "ui:section": "shadow"
+    },
+    "shadowInactive": {
+      "type": "integer",
+      "title": "Inactive Days After Expiry",
+      "description": "Days after expiry before account is disabled (-1 = never, 0 = immediately)",
+      "minimum": -1,
+      "ui:placeholder": "-1",
+      "ui:section": "shadow"
+    },
+    "shadowExpire": {
+      "type": "integer",
+      "title": "Account Expiration Date",
+      "description": "Date when account expires (epoch days)",
+      "ui:widget": "date",
+      "ui:format": "epoch-days",
+      "ui:section": "shadow"
+    },
+    "trustMode": {
+      "type": "string",
+      "title": "Trust Mode",
+      "description": "Control which systems this account can access",
+      "enum": [null, "fullaccess", "byhost"],
+      "ui:widget": "select",
+      "ui:enumNames": ["No restriction", "Available on all systems", "Restricted to specific hosts"],
+      "ui:section": "trust"
+    },
+    "host": {
+      "type": "array",
+      "title": "Allowed Hosts",
+      "description": "Systems where this account can login",
+      "items": {
+        "type": "string"
+      },
+      "ui:widget": "host-select",
+      "ui:filter": "(objectClass=ipHost)",
+      "ui:displayField": "cn",
+      "ui:valueField": "cn",
+      "ui:visibleWhen": {
+        "field": "trustMode",
+        "equals": "byhost"
+      },
+      "ui:section": "trust"
+    }
+  },
+  "required": ["gidNumber", "homeDirectory"],
+  "ui:order": [
+    "uidNumber",
+    "gidNumber",
+    "homeDirectory",
+    "loginShell",
+    "gecos",
+    "shadowMin",
+    "shadowMax",
+    "shadowWarning",
+    "shadowInactive",
+    "shadowExpire",
+    "trustMode",
+    "host"
+  ],
+  "ui:sections": {
+    "main": {
+      "title": "Account Settings",
+      "fields": ["uidNumber", "gidNumber", "homeDirectory", "loginShell"]
+    },
+    "gecos": {
       "title": "Additional Info",
       "collapsed": true,
-      "fields": [
-        {
-          "name": "gecos",
-          "type": "string",
-          "label": "GECOS",
-          "description": "General information field (typically full name)",
-          "required": false,
-          "defaultTemplate": "{cn}",
-          "placeholder": "Full Name",
-          "helpText": "Leave empty to use the user's display name"
-        }
-      ]
+      "fields": ["gecos"]
     },
-    {
-      "id": "shadow",
+    "shadow": {
       "title": "Password Policy",
-      "description": "Shadow account settings for password expiration",
       "collapsed": true,
-      "fields": [
-        {
-          "name": "shadowMin",
-          "type": "number",
-          "label": "Minimum Days Between Changes",
-          "description": "Minimum days before password can be changed",
-          "required": false,
-          "min": 0,
-          "placeholder": "0",
-          "helpText": "User cannot change password until this many days pass"
-        },
-        {
-          "name": "shadowMax",
-          "type": "number",
-          "label": "Maximum Password Age (Days)",
-          "description": "Maximum days password is valid",
-          "required": false,
-          "min": 0,
-          "default": 99999,
-          "placeholder": "99999",
-          "helpText": "Password must be changed after this many days"
-        },
-        {
-          "name": "shadowWarning",
-          "type": "number",
-          "label": "Warning Days Before Expiry",
-          "description": "Days before expiry to start warning user",
-          "required": false,
-          "min": 0,
-          "default": 7,
-          "placeholder": "7",
-          "helpText": "User will be warned this many days before password expires"
-        },
-        {
-          "name": "shadowInactive",
-          "type": "number",
-          "label": "Inactive Days After Expiry",
-          "description": "Days after expiry before account is disabled",
-          "required": false,
-          "min": -1,
-          "placeholder": "-1",
-          "helpText": "-1 means never disable, 0 disables immediately on expiry"
-        },
-        {
-          "name": "shadowExpire",
-          "type": "date",
-          "label": "Account Expiration Date",
-          "description": "Date when account expires",
-          "required": false,
-          "format": "epoch-days",
-          "helpText": "Leave empty for no expiration"
-        }
-      ]
+      "fields": ["shadowMin", "shadowMax", "shadowWarning", "shadowInactive", "shadowExpire"]
+    },
+    "trust": {
+      "title": "System Trust",
+      "collapsed": true,
+      "fields": ["trustMode", "host"]
     }
-  ],
-
-  "validation": {
-    "rules": [
-      {
-        "type": "unique",
-        "field": "uidNumber",
-        "scope": "global",
-        "message": "This UID is already in use"
-      },
-      {
-        "type": "dependency",
-        "field": "shadowWarning",
-        "dependsOn": "shadowMax",
-        "message": "Warning days requires maximum password age to be set"
-      },
-      {
-        "type": "comparison",
-        "field": "shadowMin",
-        "operator": "lte",
-        "compareTo": "shadowMax",
-        "message": "Minimum days cannot exceed maximum days"
-      }
-    ]
   }
 }
