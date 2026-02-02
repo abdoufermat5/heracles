@@ -145,13 +145,13 @@ class DhcpPlugin(Plugin):
                     ConfigField(
                         key="dhcp_rdn",
                         label="DHCP RDN",
-                        description="Base RDN for DHCP entries in LDAP",
+                        description="Base RDN for DHCP entries in LDAP (use ou=dhcp for standard setup)",
                         field_type=ConfigFieldType.STRING,
-                        default_value="cn=dhcp",
+                        default_value="ou=dhcp",
                         required=True,
                         requires_restart=True,
                         validation=ConfigFieldValidation(
-                            pattern=r"^[a-z]+=.+$",
+                            pattern=r"^ou=.+$",
                         ),
                     ),
                     ConfigField(

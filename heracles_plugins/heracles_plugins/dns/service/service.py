@@ -18,7 +18,7 @@ from heracles_api.services.ldap_service import (
     LdapNotFoundError,
 )
 
-from .schemas import (
+from ..schemas import (
     RecordType,
     ZoneType,
     SoaRecord,
@@ -36,6 +36,17 @@ from .schemas import (
     detect_zone_type,
     generate_serial,
     increment_serial,
+)
+
+from .constants import (
+    DNS_BASE_RDN,
+    OBJECT_CLASSES,
+    DNS_CLASS,
+    MANAGED_ATTRIBUTES,
+)
+from .utils import (
+    get_first_value,
+    get_list_value,
 )
 
 logger = structlog.get_logger(__name__)
@@ -63,32 +74,11 @@ class DnsService(TabService):
             └── zoneName=168.192.in-addr.arpa,...   # Reverse zone (nested)
     """
 
-    DNS_BASE_RDN = "ou=dns"
-    OBJECT_CLASSES = ["dNSZone"]
-    DNS_CLASS = "IN"
-
-    # All DNS-related attributes we manage
-    MANAGED_ATTRIBUTES = [
-        "zoneName",
-        "relativeDomainName",
-        "dNSTTL",
-        "dNSClass",
-        "sOARecord",
-        "aRecord",
-        "aAAARecord",
-        "mXRecord",
-        "nSRecord",
-        "cNAMERecord",
-        "pTRRecord",
-        "tXTRecord",
-        "sRVRecord",
-    ]
-
     def __init__(self, ldap_service: LdapService, config: Dict[str, Any]):
         super().__init__(ldap_service, config)
 
         # Configuration
-        self._dns_rdn = config.get("dns_rdn", self.DNS_BASE_RDN)
+        self._dns_rdn = config.get("dns_rdn", DNS_BASE_RDN)
         self._base_dn = config.get("base_dn", ldap_service.base_dn)
         self._dns_base_dn = f"{self._dns_rdn},{self._base_dn}"
         self._default_ttl = config.get("default_ttl", 3600)
@@ -173,7 +163,7 @@ class DnsService(TabService):
 
             zones = []
             for entry in entries:
-                zone_name = self._get_first_value(entry, "zoneName")
+                zone_name = get_first_value(entry, "zoneName")
                 if not zone_name:
                     continue
 
@@ -230,13 +220,13 @@ class DnsService(TabService):
         try:
             entry = await self._ldap.get_by_dn(
                 dn,
-                attributes=self.MANAGED_ATTRIBUTES + ["objectClass"]
+                attributes=MANAGED_ATTRIBUTES + ["objectClass"]
             )
             if entry is None:
                 return None
             
             # Verify it has relativeDomainName=@ (zone apex indicator)
-            rel_domain = self._get_first_value(entry, "relativeDomainName")
+            rel_domain = get_first_value(entry, "relativeDomainName")
             if rel_domain != "@":
                 return None
             
@@ -258,9 +248,9 @@ class DnsService(TabService):
         base_dn: Optional[str] = None
     ) -> DnsZoneRead:
         """Convert LDAP entry to DnsZoneRead."""
-        zone_name = self._get_first_value(entry, "zoneName")
-        soa_string = self._get_first_value(entry, "sOARecord")
-        ttl_str = self._get_first_value(entry, "dNSTTL")
+        zone_name = get_first_value(entry, "zoneName")
+        soa_string = get_first_value(entry, "sOARecord")
+        ttl_str = get_first_value(entry, "dNSTTL")
 
         if not zone_name or not soa_string:
             raise DnsValidationError("Invalid zone entry: missing zoneName or SOA")
@@ -322,14 +312,14 @@ class DnsService(TabService):
             "zoneName": [zone_name],
             "relativeDomainName": ["@"],
             "dNSTTL": [str(data.default_ttl)],
-            "dNSClass": [self.DNS_CLASS],
+            "dNSClass": [DNS_CLASS],
             "sOARecord": [soa.to_soa_string()],
         }
 
         try:
             await self._ldap.add(
                 dn=dn,
-                object_classes=self.OBJECT_CLASSES,
+                object_classes=OBJECT_CLASSES,
                 attributes=attributes,
             )
 
@@ -478,7 +468,7 @@ class DnsService(TabService):
             entries = await self._ldap.search(
                 search_base=zone_dn,
                 search_filter="(objectClass=dNSZone)",
-                attributes=self.MANAGED_ATTRIBUTES,
+                attributes=MANAGED_ATTRIBUTES,
             )
 
             records = []
@@ -507,8 +497,8 @@ class DnsService(TabService):
         """Extract all DNS records from an LDAP entry."""
         records = []
         dn = entry.dn if hasattr(entry, 'dn') else entry.get("dn", "")
-        name = self._get_first_value(entry, "relativeDomainName") or "@"
-        ttl_str = self._get_first_value(entry, "dNSTTL")
+        name = get_first_value(entry, "relativeDomainName") or "@"
+        ttl_str = get_first_value(entry, "dNSTTL")
         ttl = int(ttl_str) if ttl_str else None
 
         # Check each record type attribute
@@ -591,7 +581,7 @@ class DnsService(TabService):
             # Check if entry exists
             existing = await self._ldap.get_by_dn(
                 dn,
-                attributes=self.MANAGED_ATTRIBUTES
+                attributes=MANAGED_ATTRIBUTES
             )
 
             if existing:
@@ -608,7 +598,7 @@ class DnsService(TabService):
                 attributes = {
                     "zoneName": [zone_name],
                     "relativeDomainName": [name],
-                    "dNSClass": [self.DNS_CLASS],
+                    "dNSClass": [DNS_CLASS],
                     attr_name: [record_value],
                 }
                 if data.ttl is not None:
@@ -616,7 +606,7 @@ class DnsService(TabService):
 
                 await self._ldap.add(
                     dn=dn,
-                    object_classes=self.OBJECT_CLASSES,
+                    object_classes=OBJECT_CLASSES,
                     attributes=attributes,
                 )
 
@@ -720,7 +710,7 @@ class DnsService(TabService):
 
         try:
             # Get existing entry
-            entry = await self._ldap.get_by_dn(dn, attributes=self.MANAGED_ATTRIBUTES)
+            entry = await self._ldap.get_by_dn(dn, attributes=MANAGED_ATTRIBUTES)
             if entry is None:
                 raise LdapNotFoundError(f"Record entry '{name}' not found")
 
@@ -842,7 +832,7 @@ class DnsService(TabService):
 
         try:
             # Get existing entry
-            entry = await self._ldap.get_by_dn(dn, attributes=self.MANAGED_ATTRIBUTES)
+            entry = await self._ldap.get_by_dn(dn, attributes=MANAGED_ATTRIBUTES)
             if entry is None:
                 raise LdapNotFoundError(f"Record entry '{name}' not found")
 
@@ -938,19 +928,6 @@ class DnsService(TabService):
             )
 
     # ========================================================================
-    # Helper Methods
-    # ========================================================================
-
-    def _get_first_value(self, entry: LdapEntry, attr: str) -> Optional[str]:
-        """Get the first value of an attribute."""
-        if hasattr(entry, 'get_first'):
-            return entry.get_first(attr)
-        vals = entry.get(attr, [])
-        if isinstance(vals, str):
-            return vals
-        return vals[0] if vals else None
-
-    # ========================================================================
     # TabService Abstract Method Implementations
     # ========================================================================
 
@@ -971,7 +948,7 @@ class DnsService(TabService):
         try:
             entry = await self._ldap.get_by_dn(
                 dn,
-                attributes=self.MANAGED_ATTRIBUTES + ["objectClass"]
+                attributes=MANAGED_ATTRIBUTES + ["objectClass"]
             )
             if entry is None:
                 return None

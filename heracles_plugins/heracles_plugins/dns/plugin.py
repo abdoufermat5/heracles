@@ -24,7 +24,7 @@ from .schemas import (
     DnsZoneUpdate,
 )
 from .service import DnsService
-from .router import router
+from .routes import router
 
 
 class DnsPlugin(Plugin):

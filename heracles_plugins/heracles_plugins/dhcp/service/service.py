@@ -19,7 +19,7 @@ from heracles_api.services.ldap_service import (
     LdapNotFoundError,
 )
 
-from .schemas import (
+from ..schemas import (
     DhcpObjectType,
     TsigKeyAlgorithm,
     # Service
@@ -91,6 +91,31 @@ from .schemas import (
     DhcpTreeResponse,
 )
 
+from .constants import (
+    TYPE_OBJECT_CLASSES,
+    COMMON_ATTRIBUTES,
+    SERVICE_ATTRIBUTES,
+    SUBNET_ATTRIBUTES,
+    POOL_ATTRIBUTES,
+    HOST_ATTRIBUTES,
+    SHARED_NETWORK_ATTRIBUTES,
+    GROUP_ATTRIBUTES,
+    CLASS_ATTRIBUTES,
+    SUBCLASS_ATTRIBUTES,
+    TSIG_KEY_ATTRIBUTES,
+    DNS_ZONE_ATTRIBUTES,
+    FAILOVER_PEER_ATTRIBUTES,
+    get_all_attributes,
+)
+from .utils import (
+    get_first_value,
+    get_list_value,
+    extract_fixed_address,
+    detect_object_type,
+    get_parent_dn as utils_get_parent_dn,
+    build_object_dn,
+)
+
 logger = structlog.get_logger(__name__)
 
 
@@ -102,7 +127,7 @@ class DhcpValidationError(Exception):
 class DhcpService(TabService):
     """
     Service for managing DHCP configuration in LDAP.
-    
+
     Handles all DHCP object types:
     - Service (dhcpService) - root configuration
     - SharedNetwork (dhcpSharedNetwork)
@@ -116,124 +141,7 @@ class DhcpService(TabService):
     - DnsZone (dhcpDnsZone)
     - FailoverPeer (dhcpFailOverPeer)
     """
-    
-    # Map object types to their LDAP objectClasses
-    TYPE_OBJECT_CLASSES = {
-        DhcpObjectType.SERVICE: ["dhcpService"],
-        DhcpObjectType.SHARED_NETWORK: ["dhcpSharedNetwork"],
-        DhcpObjectType.SUBNET: ["dhcpSubnet"],
-        DhcpObjectType.POOL: ["dhcpPool"],
-        DhcpObjectType.HOST: ["dhcpHost"],
-        DhcpObjectType.GROUP: ["dhcpGroup"],
-        DhcpObjectType.CLASS: ["dhcpClass"],
-        DhcpObjectType.SUBCLASS: ["dhcpSubClass"],
-        DhcpObjectType.TSIG_KEY: ["dhcpTSigKey"],
-        DhcpObjectType.DNS_ZONE: ["dhcpDnsZone"],
-        DhcpObjectType.FAILOVER_PEER: ["dhcpFailOverPeer"],
-    }
-    
-    # Common attributes for all DHCP types
-    COMMON_ATTRIBUTES = [
-        "cn",
-        "objectClass",
-        "dhcpStatements",
-        "dhcpOption",
-        "dhcpComments",
-    ]
-    
-    # Service-specific attributes
-    SERVICE_ATTRIBUTES = [
-        "dhcpPrimaryDN",
-        "dhcpSecondaryDN",
-        "dhcpServerDN",
-        "dhcpSharedNetworkDN",
-        "dhcpSubnetDN",
-        "dhcpGroupDN",
-        "dhcpHostDN",
-        "dhcpClassesDN",
-        "dhcpZoneDN",
-        "dhcpKeyDN",
-        "dhcpFailOverPeerDN",
-    ]
-    
-    # Subnet-specific attributes
-    SUBNET_ATTRIBUTES = [
-        "dhcpNetMask",
-        "dhcpRange",
-        "dhcpPoolDN",
-        "dhcpGroupDN",
-        "dhcpHostDN",
-        "dhcpClassesDN",
-        "dhcpLeasesDN",
-        "dhcpZoneDN",
-        "dhcpKeyDN",
-        "dhcpFailOverPeerDN",
-    ]
-    
-    # Pool-specific attributes
-    POOL_ATTRIBUTES = [
-        "dhcpRange",
-        "dhcpPermitList",
-        "dhcpClassesDN",
-        "dhcpLeasesDN",
-        "dhcpZoneDN",
-        "dhcpKeyDN",
-    ]
-    
-    # Host-specific attributes
-    HOST_ATTRIBUTES = [
-        "dhcpHWAddress",
-        "dhcpLeaseDN",
-    ]
-    
-    # Shared network-specific attributes
-    SHARED_NETWORK_ATTRIBUTES = [
-        "dhcpSubnetDN",
-        "dhcpPoolDN",
-        "dhcpZoneDN",
-    ]
-    
-    # Group-specific attributes
-    GROUP_ATTRIBUTES = [
-        "dhcpHostDN",
-    ]
-    
-    # Class-specific attributes
-    CLASS_ATTRIBUTES = [
-        "dhcpSubClassesDN",
-    ]
-    
-    # SubClass-specific attributes
-    SUBCLASS_ATTRIBUTES = [
-        "dhcpClassData",
-    ]
-    
-    # TSIG Key-specific attributes
-    TSIG_KEY_ATTRIBUTES = [
-        "dhcpKeyAlgorithm",
-        "dhcpKeySecret",
-    ]
-    
-    # DNS Zone-specific attributes
-    DNS_ZONE_ATTRIBUTES = [
-        "dhcpDnsZoneServer",
-        "dhcpKeyDN",
-    ]
-    
-    # Failover Peer-specific attributes
-    FAILOVER_PEER_ATTRIBUTES = [
-        "dhcpFailOverPrimaryServer",
-        "dhcpFailOverSecondaryServer",
-        "dhcpFailOverPrimaryPort",
-        "dhcpFailOverSecondaryPort",
-        "dhcpFailOverResponseDelay",
-        "dhcpFailOverUnackedUpdates",
-        "dhcpMaxClientLeadTime",
-        "dhcpFailOverSplit",
-        "dhcpHashBucketAssignment",
-        "dhcpFailOverLoadBalanceTime",
-    ]
-    
+
     def __init__(self, ldap_service: LdapService, config: Dict[str, Any]):
         super().__init__(ldap_service, config)
         
@@ -267,50 +175,6 @@ class DhcpService(TabService):
         """Set the systems service for host validation integration."""
         self._systems_service = systems_service
     
-    @staticmethod
-    def _get_first_value(entry: LdapEntry, attr: str, default: Any = None) -> Any:
-        """
-        Safely get the first value of an attribute.
-        
-        Handles both single values and lists returned by LdapEntry.
-        """
-        value = entry.get(attr)
-        if value is None:
-            return default
-        if isinstance(value, list):
-            return value[0] if value else default
-        return value
-    
-    @staticmethod
-    def _get_list_value(entry: LdapEntry, attr: str) -> List[str]:
-        """
-        Safely get an attribute as a list.
-        
-        Handles both single values and lists returned by LdapEntry.
-        """
-        value = entry.get(attr)
-        if value is None:
-            return []
-        if isinstance(value, list):
-            return value
-        return [value]
-    
-    def _get_all_attributes(self) -> List[str]:
-        """Get all managed attributes."""
-        attrs = set(self.COMMON_ATTRIBUTES)
-        attrs.update(self.SERVICE_ATTRIBUTES)
-        attrs.update(self.SUBNET_ATTRIBUTES)
-        attrs.update(self.POOL_ATTRIBUTES)
-        attrs.update(self.HOST_ATTRIBUTES)
-        attrs.update(self.SHARED_NETWORK_ATTRIBUTES)
-        attrs.update(self.GROUP_ATTRIBUTES)
-        attrs.update(self.CLASS_ATTRIBUTES)
-        attrs.update(self.SUBCLASS_ATTRIBUTES)
-        attrs.update(self.TSIG_KEY_ATTRIBUTES)
-        attrs.update(self.DNS_ZONE_ATTRIBUTES)
-        attrs.update(self.FAILOVER_PEER_ATTRIBUTES)
-        return list(attrs)
-    
     def _get_dhcp_container(self, base_dn: Optional[str] = None) -> str:
         """Get the DHCP container DN for the given context.
         
@@ -337,23 +201,7 @@ class DhcpService(TabService):
         if len(parts) > 1:
             return parts[1]
         return self._dhcp_dn
-    
-    def _extract_fixed_address(self, statements: List[str]) -> Optional[str]:
-        """Extract fixed-address from dhcpStatements."""
-        for stmt in statements:
-            if stmt.startswith("fixed-address "):
-                return stmt.split(" ", 1)[1].strip().rstrip(";")
-        return None
-    
-    def _detect_object_type(self, entry: LdapEntry) -> Optional[DhcpObjectType]:
-        """Detect object type from LDAP entry objectClasses."""
-        object_classes = entry.get("objectClass", [])
-        for oc in object_classes:
-            obj_type = DhcpObjectType.from_object_class(oc)
-            if obj_type:
-                return obj_type
-        return None
-    
+
     # ========================================================================
     # OU Management
     # ========================================================================
@@ -416,7 +264,7 @@ class DhcpService(TabService):
         entries = await self._ldap.search(
             search_base=search_base,
             search_filter=ldap_filter,
-            attributes=self.COMMON_ATTRIBUTES + self.SERVICE_ATTRIBUTES,
+            attributes=COMMON_ATTRIBUTES + SERVICE_ATTRIBUTES,
             scope="onelevel",
         )
         
@@ -425,8 +273,8 @@ class DhcpService(TabService):
         for entry in entries:
             items.append(DhcpServiceListItem(
                 dn=entry.dn,
-                cn=self._get_first_value(entry, "cn", ""),
-                comments=self._get_first_value(entry, "dhcpComments"),
+                cn=get_first_value(entry, "cn", ""),
+                comments=get_first_value(entry, "dhcpComments"),
             ))
         
         # Pagination
@@ -452,7 +300,7 @@ class DhcpService(TabService):
         
         entry = await self._ldap.get_by_dn(
             dn,
-            attributes=self.COMMON_ATTRIBUTES + self.SERVICE_ATTRIBUTES,
+            attributes=COMMON_ATTRIBUTES + SERVICE_ATTRIBUTES,
         )
         
         if entry is None:
@@ -460,12 +308,12 @@ class DhcpService(TabService):
         
         return DhcpServiceRead(
             dn=entry.dn or dn,
-            cn=self._get_first_value(entry, "cn", cn),
-            dhcpPrimaryDN=self._get_first_value(entry, "dhcpPrimaryDN"),
-            dhcpSecondaryDN=self._get_first_value(entry, "dhcpSecondaryDN"),
-            dhcpStatements=self._get_list_value(entry, "dhcpStatements"),
-            dhcpOption=self._get_list_value(entry, "dhcpOption"),
-            dhcpComments=self._get_first_value(entry, "dhcpComments"),
+            cn=get_first_value(entry, "cn", cn),
+            dhcpPrimaryDN=get_first_value(entry, "dhcpPrimaryDN"),
+            dhcpSecondaryDN=get_first_value(entry, "dhcpSecondaryDN"),
+            dhcpStatements=get_list_value(entry, "dhcpStatements"),
+            dhcpOption=get_list_value(entry, "dhcpOption"),
+            dhcpComments=get_first_value(entry, "dhcpComments"),
         )
     
     async def create_service(
@@ -502,7 +350,7 @@ class DhcpService(TabService):
         # Create entry
         await self._ldap.add(
             dn=dn,
-            object_classes=self.TYPE_OBJECT_CLASSES[DhcpObjectType.SERVICE],
+            object_classes=TYPE_OBJECT_CLASSES[DhcpObjectType.SERVICE],
             attributes=attributes,
         )
         
@@ -609,19 +457,19 @@ class DhcpService(TabService):
         entries = await self._ldap.search(
             search_base=search_base,
             search_filter=ldap_filter,
-            attributes=self.COMMON_ATTRIBUTES + self.SUBNET_ATTRIBUTES,
+            attributes=COMMON_ATTRIBUTES + SUBNET_ATTRIBUTES,
             scope="subtree",
         )
         
         items = []
         for entry in entries:
-            netmask_val = self._get_first_value(entry, "dhcpNetMask", 0)
+            netmask_val = get_first_value(entry, "dhcpNetMask", 0)
             items.append(SubnetListItem(
                 dn=entry.dn,
-                cn=self._get_first_value(entry, "cn", ""),
+                cn=get_first_value(entry, "cn", ""),
                 dhcpNetMask=int(netmask_val) if netmask_val else 0,
-                dhcpRange=self._get_list_value(entry, "dhcpRange"),
-                dhcpComments=self._get_first_value(entry, "dhcpComments"),
+                dhcpRange=get_list_value(entry, "dhcpRange"),
+                dhcpComments=get_first_value(entry, "dhcpComments"),
             ))
         
         total = len(items)
@@ -639,21 +487,21 @@ class DhcpService(TabService):
         """Get a subnet by DN."""
         entry = await self._ldap.get_by_dn(
             dn,
-            attributes=self.COMMON_ATTRIBUTES + self.SUBNET_ATTRIBUTES,
+            attributes=COMMON_ATTRIBUTES + SUBNET_ATTRIBUTES,
         )
         
         if entry is None:
             raise LdapNotFoundError(f"Subnet not found: {dn}")
         
-        netmask_val = self._get_first_value(entry, "dhcpNetMask", 0)
+        netmask_val = get_first_value(entry, "dhcpNetMask", 0)
         return SubnetRead(
             dn=entry.dn or dn,
-            cn=self._get_first_value(entry, "cn", ""),
+            cn=get_first_value(entry, "cn", ""),
             dhcpNetMask=int(netmask_val) if netmask_val else 0,
-            dhcpRange=self._get_list_value(entry, "dhcpRange"),
-            dhcpStatements=self._get_list_value(entry, "dhcpStatements"),
-            dhcpOption=self._get_list_value(entry, "dhcpOption"),
-            dhcpComments=self._get_first_value(entry, "dhcpComments"),
+            dhcpRange=get_list_value(entry, "dhcpRange"),
+            dhcpStatements=get_list_value(entry, "dhcpStatements"),
+            dhcpOption=get_list_value(entry, "dhcpOption"),
+            dhcpComments=get_first_value(entry, "dhcpComments"),
             parentDn=self._get_parent_dn(dn),
         )
     
@@ -687,7 +535,7 @@ class DhcpService(TabService):
         
         await self._ldap.add(
             dn=dn,
-            object_classes=self.TYPE_OBJECT_CLASSES[DhcpObjectType.SUBNET],
+            object_classes=TYPE_OBJECT_CLASSES[DhcpObjectType.SUBNET],
             attributes=attributes,
         )
         
@@ -754,14 +602,14 @@ class DhcpService(TabService):
         entries = await self._ldap.search(
             search_base=parent_dn,
             search_filter=ldap_filter,
-            attributes=self.COMMON_ATTRIBUTES + self.POOL_ATTRIBUTES,
+            attributes=COMMON_ATTRIBUTES + POOL_ATTRIBUTES,
             scope="onelevel",
         )
         
         items = [
             PoolListItem(
                 dn=entry.dn,
-                cn=self._get_first_value(entry, "cn", ""),
+                cn=get_first_value(entry, "cn", ""),
                 dhcpRange=entry.get("dhcpRange", []),
                 dhcpComments=entry.get("dhcpComments", [None])[0],
             )
@@ -783,7 +631,7 @@ class DhcpService(TabService):
         """Get a pool by DN."""
         entry = await self._ldap.get_by_dn(
             dn,
-            attributes=self.COMMON_ATTRIBUTES + self.POOL_ATTRIBUTES,
+            attributes=COMMON_ATTRIBUTES + POOL_ATTRIBUTES,
         )
         
         if entry is None:
@@ -791,7 +639,7 @@ class DhcpService(TabService):
         
         return PoolRead(
             dn=entry.dn or dn,
-            cn=self._get_first_value(entry, "cn", ""),
+            cn=get_first_value(entry, "cn", ""),
             dhcpRange=entry.get("dhcpRange", []),
             dhcpPermitList=entry.get("dhcpPermitList", []),
             dhcpStatements=entry.get("dhcpStatements", []),
@@ -824,7 +672,7 @@ class DhcpService(TabService):
         
         await self._ldap.add(
             dn=dn,
-            object_classes=self.TYPE_OBJECT_CLASSES[DhcpObjectType.POOL],
+            object_classes=TYPE_OBJECT_CLASSES[DhcpObjectType.POOL],
             attributes=attributes,
         )
         
@@ -888,21 +736,21 @@ class DhcpService(TabService):
         entries = await self._ldap.search(
             search_base=parent_dn,
             search_filter=ldap_filter,
-            attributes=self.COMMON_ATTRIBUTES + self.HOST_ATTRIBUTES,
+            attributes=COMMON_ATTRIBUTES + HOST_ATTRIBUTES,
             scope="subtree",
         )
         
         items = []
         for entry in entries:
-            statements = self._get_list_value(entry, "dhcpStatements")
-            fixed_addr = self._extract_fixed_address(statements)
+            statements = get_list_value(entry, "dhcpStatements")
+            fixed_addr = extract_fixed_address(statements)
             
             items.append(HostListItem(
                 dn=entry.dn,
-                cn=self._get_first_value(entry, "cn", ""),
-                dhcpHWAddress=self._get_first_value(entry, "dhcpHWAddress"),
+                cn=get_first_value(entry, "cn", ""),
+                dhcpHWAddress=get_first_value(entry, "dhcpHWAddress"),
                 fixedAddress=fixed_addr,
-                dhcpComments=self._get_first_value(entry, "dhcpComments"),
+                dhcpComments=get_first_value(entry, "dhcpComments"),
             ))
         
         total = len(items)
@@ -920,23 +768,23 @@ class DhcpService(TabService):
         """Get a host by DN."""
         entry = await self._ldap.get_by_dn(
             dn,
-            attributes=self.COMMON_ATTRIBUTES + self.HOST_ATTRIBUTES,
+            attributes=COMMON_ATTRIBUTES + HOST_ATTRIBUTES,
         )
         
         if entry is None:
             raise LdapNotFoundError(f"Host not found: {dn}")
         
-        statements = self._get_list_value(entry, "dhcpStatements")
-        fixed_addr = self._extract_fixed_address(statements)
+        statements = get_list_value(entry, "dhcpStatements")
+        fixed_addr = extract_fixed_address(statements)
         
         return HostRead(
             dn=entry.dn or dn,
-            cn=self._get_first_value(entry, "cn", ""),
-            dhcpHWAddress=self._get_first_value(entry, "dhcpHWAddress"),
+            cn=get_first_value(entry, "cn", ""),
+            dhcpHWAddress=get_first_value(entry, "dhcpHWAddress"),
             fixedAddress=fixed_addr,
             dhcpStatements=statements,
-            dhcpOption=self._get_list_value(entry, "dhcpOption"),
-            dhcpComments=self._get_first_value(entry, "dhcpComments"),
+            dhcpOption=get_list_value(entry, "dhcpOption"),
+            dhcpComments=get_first_value(entry, "dhcpComments"),
             parentDn=self._get_parent_dn(dn),
         )
     
@@ -969,7 +817,7 @@ class DhcpService(TabService):
         
         await self._ldap.add(
             dn=dn,
-            object_classes=self.TYPE_OBJECT_CLASSES[DhcpObjectType.HOST],
+            object_classes=TYPE_OBJECT_CLASSES[DhcpObjectType.HOST],
             attributes=attributes,
         )
         
@@ -1044,14 +892,14 @@ class DhcpService(TabService):
         entries = await self._ldap.search(
             search_base=base_dn,
             search_filter=ldap_filter,
-            attributes=self.COMMON_ATTRIBUTES + self.SHARED_NETWORK_ATTRIBUTES,
+            attributes=COMMON_ATTRIBUTES + SHARED_NETWORK_ATTRIBUTES,
             scope="onelevel",
         )
         
         items = [
             SharedNetworkListItem(
                 dn=entry.dn,
-                cn=self._get_first_value(entry, "cn", ""),
+                cn=get_first_value(entry, "cn", ""),
                 dhcpComments=entry.get("dhcpComments", [None])[0],
             )
             for entry in entries
@@ -1072,7 +920,7 @@ class DhcpService(TabService):
         """Get a shared network by DN."""
         entry = await self._ldap.get_by_dn(
             dn,
-            attributes=self.COMMON_ATTRIBUTES + self.SHARED_NETWORK_ATTRIBUTES,
+            attributes=COMMON_ATTRIBUTES + SHARED_NETWORK_ATTRIBUTES,
         )
         
         if entry is None:
@@ -1080,7 +928,7 @@ class DhcpService(TabService):
         
         return SharedNetworkRead(
             dn=entry.dn or dn,
-            cn=self._get_first_value(entry, "cn", ""),
+            cn=get_first_value(entry, "cn", ""),
             dhcpStatements=entry.get("dhcpStatements", []),
             dhcpOption=entry.get("dhcpOption", []),
             dhcpComments=entry.get("dhcpComments", [None])[0],
@@ -1113,7 +961,7 @@ class DhcpService(TabService):
         
         await self._ldap.add(
             dn=dn,
-            object_classes=self.TYPE_OBJECT_CLASSES[DhcpObjectType.SHARED_NETWORK],
+            object_classes=TYPE_OBJECT_CLASSES[DhcpObjectType.SHARED_NETWORK],
             attributes=attributes,
         )
         
@@ -1176,14 +1024,14 @@ class DhcpService(TabService):
         entries = await self._ldap.search(
             search_base=parent_dn,
             search_filter=ldap_filter,
-            attributes=self.COMMON_ATTRIBUTES + self.GROUP_ATTRIBUTES,
+            attributes=COMMON_ATTRIBUTES + GROUP_ATTRIBUTES,
             scope="subtree",
         )
         
         items = [
             GroupListItem(
                 dn=entry.dn,
-                cn=self._get_first_value(entry, "cn", ""),
+                cn=get_first_value(entry, "cn", ""),
                 dhcpComments=entry.get("dhcpComments", [None])[0],
             )
             for entry in entries
@@ -1204,7 +1052,7 @@ class DhcpService(TabService):
         """Get a group by DN."""
         entry = await self._ldap.get_by_dn(
             dn,
-            attributes=self.COMMON_ATTRIBUTES + self.GROUP_ATTRIBUTES,
+            attributes=COMMON_ATTRIBUTES + GROUP_ATTRIBUTES,
         )
         
         if entry is None:
@@ -1212,7 +1060,7 @@ class DhcpService(TabService):
         
         return GroupRead(
             dn=entry.dn or dn,
-            cn=self._get_first_value(entry, "cn", ""),
+            cn=get_first_value(entry, "cn", ""),
             dhcpStatements=entry.get("dhcpStatements", []),
             dhcpOption=entry.get("dhcpOption", []),
             dhcpComments=entry.get("dhcpComments", [None])[0],
@@ -1240,7 +1088,7 @@ class DhcpService(TabService):
         
         await self._ldap.add(
             dn=dn,
-            object_classes=self.TYPE_OBJECT_CLASSES[DhcpObjectType.GROUP],
+            object_classes=TYPE_OBJECT_CLASSES[DhcpObjectType.GROUP],
             attributes=attributes,
         )
         
@@ -1303,14 +1151,14 @@ class DhcpService(TabService):
         entries = await self._ldap.search(
             search_base=parent_dn,
             search_filter=ldap_filter,
-            attributes=self.COMMON_ATTRIBUTES + self.CLASS_ATTRIBUTES,
+            attributes=COMMON_ATTRIBUTES + CLASS_ATTRIBUTES,
             scope="subtree",
         )
         
         items = [
             DhcpClassListItem(
                 dn=entry.dn,
-                cn=self._get_first_value(entry, "cn", ""),
+                cn=get_first_value(entry, "cn", ""),
                 dhcpComments=entry.get("dhcpComments", [None])[0],
             )
             for entry in entries
@@ -1331,7 +1179,7 @@ class DhcpService(TabService):
         """Get a class by DN."""
         entry = await self._ldap.get_by_dn(
             dn,
-            attributes=self.COMMON_ATTRIBUTES + self.CLASS_ATTRIBUTES,
+            attributes=COMMON_ATTRIBUTES + CLASS_ATTRIBUTES,
         )
         
         if entry is None:
@@ -1339,7 +1187,7 @@ class DhcpService(TabService):
         
         return DhcpClassRead(
             dn=entry.dn or dn,
-            cn=self._get_first_value(entry, "cn", ""),
+            cn=get_first_value(entry, "cn", ""),
             dhcpStatements=entry.get("dhcpStatements", []),
             dhcpOption=entry.get("dhcpOption", []),
             dhcpComments=entry.get("dhcpComments", [None])[0],
@@ -1367,7 +1215,7 @@ class DhcpService(TabService):
         
         await self._ldap.add(
             dn=dn,
-            object_classes=self.TYPE_OBJECT_CLASSES[DhcpObjectType.CLASS],
+            object_classes=TYPE_OBJECT_CLASSES[DhcpObjectType.CLASS],
             attributes=attributes,
         )
         
@@ -1416,7 +1264,7 @@ class DhcpService(TabService):
         """Get a subclass by DN."""
         entry = await self._ldap.get_by_dn(
             dn,
-            attributes=self.COMMON_ATTRIBUTES + self.SUBCLASS_ATTRIBUTES,
+            attributes=COMMON_ATTRIBUTES + SUBCLASS_ATTRIBUTES,
         )
         
         if entry is None:
@@ -1424,7 +1272,7 @@ class DhcpService(TabService):
         
         return SubClassRead(
             dn=entry.dn or dn,
-            cn=self._get_first_value(entry, "cn", ""),
+            cn=get_first_value(entry, "cn", ""),
             dhcpClassData=entry.get("dhcpClassData", [None])[0],
             dhcpStatements=entry.get("dhcpStatements", []),
             dhcpOption=entry.get("dhcpOption", []),
@@ -1455,7 +1303,7 @@ class DhcpService(TabService):
         
         await self._ldap.add(
             dn=dn,
-            object_classes=self.TYPE_OBJECT_CLASSES[DhcpObjectType.SUBCLASS],
+            object_classes=TYPE_OBJECT_CLASSES[DhcpObjectType.SUBCLASS],
             attributes=attributes,
         )
         
@@ -1517,14 +1365,14 @@ class DhcpService(TabService):
         entries = await self._ldap.search(
             search_base=parent_dn,
             search_filter=ldap_filter,
-            attributes=self.COMMON_ATTRIBUTES + ["dhcpKeyAlgorithm"],  # Don't fetch secret
+            attributes=COMMON_ATTRIBUTES + ["dhcpKeyAlgorithm"],  # Don't fetch secret
             scope="subtree",
         )
         
         items = [
             TsigKeyListItem(
                 dn=entry.dn,
-                cn=self._get_first_value(entry, "cn", ""),
+                cn=get_first_value(entry, "cn", ""),
                 dhcpKeyAlgorithm=TsigKeyAlgorithm(entry.get("dhcpKeyAlgorithm", ["hmac-md5"])[0]),
                 dhcpComments=entry.get("dhcpComments", [None])[0],
             )
@@ -1546,7 +1394,7 @@ class DhcpService(TabService):
         """Get a TSIG key by DN (secret not returned)."""
         entry = await self._ldap.get_by_dn(
             dn,
-            attributes=self.COMMON_ATTRIBUTES + ["dhcpKeyAlgorithm"],
+            attributes=COMMON_ATTRIBUTES + ["dhcpKeyAlgorithm"],
         )
         
         if entry is None:
@@ -1554,7 +1402,7 @@ class DhcpService(TabService):
         
         return TsigKeyRead(
             dn=entry.dn or dn,
-            cn=self._get_first_value(entry, "cn", ""),
+            cn=get_first_value(entry, "cn", ""),
             dhcpKeyAlgorithm=TsigKeyAlgorithm(entry.get("dhcpKeyAlgorithm", ["hmac-md5"])[0]),
             dhcpStatements=entry.get("dhcpStatements", []),
             dhcpOption=entry.get("dhcpOption", []),
@@ -1585,7 +1433,7 @@ class DhcpService(TabService):
         
         await self._ldap.add(
             dn=dn,
-            object_classes=self.TYPE_OBJECT_CLASSES[DhcpObjectType.TSIG_KEY],
+            object_classes=TYPE_OBJECT_CLASSES[DhcpObjectType.TSIG_KEY],
             attributes=attributes,
         )
         
@@ -1649,14 +1497,14 @@ class DhcpService(TabService):
         entries = await self._ldap.search(
             search_base=parent_dn,
             search_filter=ldap_filter,
-            attributes=self.COMMON_ATTRIBUTES + self.DNS_ZONE_ATTRIBUTES,
+            attributes=COMMON_ATTRIBUTES + DNS_ZONE_ATTRIBUTES,
             scope="subtree",
         )
         
         items = [
             DnsZoneListItem(
                 dn=entry.dn,
-                cn=self._get_first_value(entry, "cn", ""),
+                cn=get_first_value(entry, "cn", ""),
                 dhcpDnsZoneServer=entry.get("dhcpDnsZoneServer", [""])[0],
                 dhcpComments=entry.get("dhcpComments", [None])[0],
             )
@@ -1678,7 +1526,7 @@ class DhcpService(TabService):
         """Get a DNS zone by DN."""
         entry = await self._ldap.get_by_dn(
             dn,
-            attributes=self.COMMON_ATTRIBUTES + self.DNS_ZONE_ATTRIBUTES,
+            attributes=COMMON_ATTRIBUTES + DNS_ZONE_ATTRIBUTES,
         )
         
         if entry is None:
@@ -1686,7 +1534,7 @@ class DhcpService(TabService):
         
         return DnsZoneRead(
             dn=entry.dn or dn,
-            cn=self._get_first_value(entry, "cn", ""),
+            cn=get_first_value(entry, "cn", ""),
             dhcpDnsZoneServer=entry.get("dhcpDnsZoneServer", [""])[0],
             dhcpKeyDN=entry.get("dhcpKeyDN", [None])[0],
             dhcpStatements=entry.get("dhcpStatements", []),
@@ -1719,7 +1567,7 @@ class DhcpService(TabService):
         
         await self._ldap.add(
             dn=dn,
-            object_classes=self.TYPE_OBJECT_CLASSES[DhcpObjectType.DNS_ZONE],
+            object_classes=TYPE_OBJECT_CLASSES[DhcpObjectType.DNS_ZONE],
             attributes=attributes,
         )
         
@@ -1783,14 +1631,14 @@ class DhcpService(TabService):
         entries = await self._ldap.search(
             search_base=parent_dn,
             search_filter=ldap_filter,
-            attributes=self.COMMON_ATTRIBUTES + self.FAILOVER_PEER_ATTRIBUTES,
+            attributes=COMMON_ATTRIBUTES + FAILOVER_PEER_ATTRIBUTES,
             scope="subtree",
         )
         
         items = [
             FailoverPeerListItem(
                 dn=entry.dn,
-                cn=self._get_first_value(entry, "cn", ""),
+                cn=get_first_value(entry, "cn", ""),
                 dhcpFailOverPrimaryServer=entry.get("dhcpFailOverPrimaryServer", [""])[0],
                 dhcpFailOverSecondaryServer=entry.get("dhcpFailOverSecondaryServer", [""])[0],
                 dhcpComments=entry.get("dhcpComments", [None])[0],
@@ -1813,7 +1661,7 @@ class DhcpService(TabService):
         """Get a failover peer by DN."""
         entry = await self._ldap.get_by_dn(
             dn,
-            attributes=self.COMMON_ATTRIBUTES + self.FAILOVER_PEER_ATTRIBUTES,
+            attributes=COMMON_ATTRIBUTES + FAILOVER_PEER_ATTRIBUTES,
         )
         
         if entry is None:
@@ -1821,7 +1669,7 @@ class DhcpService(TabService):
         
         return FailoverPeerRead(
             dn=entry.dn or dn,
-            cn=self._get_first_value(entry, "cn", ""),
+            cn=get_first_value(entry, "cn", ""),
             dhcpFailOverPrimaryServer=entry.get("dhcpFailOverPrimaryServer", [""])[0],
             dhcpFailOverSecondaryServer=entry.get("dhcpFailOverSecondaryServer", [""])[0],
             dhcpFailOverPrimaryPort=int(entry.get("dhcpFailOverPrimaryPort", [647])[0]),
@@ -1876,7 +1724,7 @@ class DhcpService(TabService):
         
         await self._ldap.add(
             dn=dn,
-            object_classes=self.TYPE_OBJECT_CLASSES[DhcpObjectType.FAILOVER_PEER],
+            object_classes=TYPE_OBJECT_CLASSES[DhcpObjectType.FAILOVER_PEER],
             attributes=attributes,
         )
         
@@ -1955,7 +1803,7 @@ class DhcpService(TabService):
         """Recursively build a tree node with its children."""
         # Get entry details
         entry = await self._ldap.get_by_dn(dn, attributes=["dhcpComments"])
-        comments = self._get_first_value(entry, "dhcpComments") if entry else None
+        comments = get_first_value(entry, "dhcpComments") if entry else None
         
         # Get allowed child types
         allowed_children = DhcpObjectType.get_allowed_children(obj_type)
@@ -1973,7 +1821,7 @@ class DhcpService(TabService):
             
             for child_entry in child_entries:
                 child_dn = child_entry.dn
-                child_cn = self._get_first_value(child_entry, "cn", "")
+                child_cn = get_first_value(child_entry, "cn", "")
                 
                 # Recursively build child nodes
                 child_node = await self._build_tree_node(child_dn, child_cn, child_type)
@@ -2003,7 +1851,7 @@ class DhcpService(TabService):
         entries = await self._ldap.search(
             search_base=self._dhcp_dn,
             search_filter=f"(&(objectClass=dhcpHost)(dhcpHWAddress={normalized_mac}))",
-            attributes=self.COMMON_ATTRIBUTES + self.HOST_ATTRIBUTES,
+            attributes=COMMON_ATTRIBUTES + HOST_ATTRIBUTES,
             scope="subtree",
         )
         
@@ -2012,11 +1860,11 @@ class DhcpService(TabService):
         
         entry = entries[0]
         statements = entry.get("dhcpStatements", [])
-        fixed_addr = self._extract_fixed_address(statements)
+        fixed_addr = extract_fixed_address(statements)
         
         return HostRead(
             dn=entry.dn,
-            cn=self._get_first_value(entry, "cn", ""),
+            cn=get_first_value(entry, "cn", ""),
             dhcpHWAddress=entry.get("dhcpHWAddress", [None])[0],
             fixedAddress=fixed_addr,
             dhcpStatements=statements,
@@ -2030,18 +1878,18 @@ class DhcpService(TabService):
         entries = await self._ldap.search(
             search_base=self._dhcp_dn,
             search_filter=f"(&(objectClass=dhcpHost)(dhcpStatements=fixed-address {ip_address}*))",
-            attributes=self.COMMON_ATTRIBUTES + self.HOST_ATTRIBUTES,
+            attributes=COMMON_ATTRIBUTES + HOST_ATTRIBUTES,
             scope="subtree",
         )
         
         hosts = []
         for entry in entries:
             statements = entry.get("dhcpStatements", [])
-            fixed_addr = self._extract_fixed_address(statements)
+            fixed_addr = extract_fixed_address(statements)
             
             hosts.append(HostRead(
                 dn=entry.dn,
-                cn=self._get_first_value(entry, "cn", ""),
+                cn=get_first_value(entry, "cn", ""),
                 dhcpHWAddress=entry.get("dhcpHWAddress", [None])[0],
                 fixedAddress=fixed_addr,
                 dhcpStatements=statements,

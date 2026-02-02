@@ -37,7 +37,7 @@ from .schemas import (
     MixedGroupListItem,
     MixedGroupListResponse,
 )
-from .service import PosixService, PosixGroupService, MixedGroupService, PosixValidationError
+from .services import PosixService, PosixGroupService, MixedGroupService, PosixValidationError
 
 logger = structlog.get_logger(__name__)
 

@@ -18,7 +18,7 @@ from heracles_api.services.ldap_service import (
     LdapNotFoundError,
 )
 
-from .schemas import (
+from ..schemas import (
     SystemType,
     SystemCreate,
     SystemRead,
@@ -27,6 +27,23 @@ from .schemas import (
     SystemListResponse,
     LockMode,
     HostValidationResponse,
+)
+
+from .constants import (
+    TYPE_OBJECT_CLASSES,
+    COMMON_ATTRIBUTES,
+    PRINTER_ATTRIBUTES,
+    PHONE_ATTRIBUTES,
+    MOBILE_ATTRIBUTES,
+    COMPONENT_ATTRIBUTES,
+    get_all_attributes,
+)
+from .utils import (
+    get_first_value,
+    get_list_value,
+    detect_system_type,
+    parse_lock_mode,
+    get_entry_dn,
 )
 
 logger = structlog.get_logger(__name__)
@@ -40,7 +57,7 @@ class SystemValidationError(Exception):
 class SystemService(TabService):
     """
     Service for managing systems in LDAP.
-    
+
     Handles all system types:
     - Server (hrcServer)
     - Workstation (hrcWorkstation)
@@ -49,55 +66,10 @@ class SystemService(TabService):
     - Component (device)
     - Phone (hrcPhone)
     - Mobile Phone (hrcMobilePhone)
-    
+
     All types support ipHost and ieee802Device for IP/MAC addressing.
     """
-    
-    # Map system types to their primary objectClass
-    TYPE_OBJECT_CLASSES = {
-        SystemType.SERVER: ["hrcServer", "ipHost", "ieee802Device"],
-        SystemType.WORKSTATION: ["hrcWorkstation", "ipHost", "ieee802Device"],
-        SystemType.TERMINAL: ["hrcTerminal", "ipHost", "ieee802Device"],
-        SystemType.PRINTER: ["hrcPrinter", "ipHost", "ieee802Device"],
-        SystemType.COMPONENT: ["device", "ipHost", "ieee802Device"],
-        SystemType.PHONE: ["hrcPhone", "ipHost", "ieee802Device"],
-        SystemType.MOBILE: ["hrcMobilePhone"],
-    }
-    
-    # Common attributes for all system types
-    COMMON_ATTRIBUTES = [
-        "cn",
-        "description",
-        "ipHostNumber",
-        "macAddress",
-        "l",  # location
-        "hrcMode",
-    ]
-    
-    # Type-specific attributes
-    PRINTER_ATTRIBUTES = [
-        "labeledURI",
-        "hrcPrinterWindowsInfFile",
-        "hrcPrinterWindowsDriverDir",
-        "hrcPrinterWindowsDriverName",
-    ]
-    
-    PHONE_ATTRIBUTES = [
-        "telephoneNumber",
-        "serialNumber",
-    ]
-    
-    MOBILE_ATTRIBUTES = PHONE_ATTRIBUTES + [
-        "hrcMobileIMEI",
-        "hrcMobileOS",
-        "hrcMobilePUK",
-    ]
-    
-    COMPONENT_ATTRIBUTES = [
-        "serialNumber",
-        "owner",
-    ]
-    
+
     def __init__(self, ldap_service: LdapService, config: Dict[str, Any]):
         super().__init__(ldap_service, config)
         
@@ -321,16 +293,7 @@ class SystemService(TabService):
             errors.extend(mac_errors)
         
         return errors
-    
-    def _get_all_attributes(self) -> List[str]:
-        """Get all managed attributes."""
-        attrs = set(self.COMMON_ATTRIBUTES)
-        attrs.update(self.PRINTER_ATTRIBUTES)
-        attrs.update(self.MOBILE_ATTRIBUTES)  # Includes PHONE_ATTRIBUTES
-        attrs.update(self.COMPONENT_ATTRIBUTES)
-        attrs.add("objectClass")
-        return list(attrs)
-    
+
     def _get_systems_container(self, base_dn: Optional[str] = None) -> str:
         """Get the systems container DN for the given context.
         
@@ -448,7 +411,7 @@ class SystemService(TabService):
             entries = await self._ldap.search(
                 search_base=search_base,
                 search_filter=combined_filter,
-                attributes=self._get_all_attributes(),
+                attributes=get_all_attributes(),
             )
             
             # Convert to list items
@@ -492,7 +455,7 @@ class SystemService(TabService):
         try:
             entry = await self._ldap.get_by_dn(
                 dn, 
-                attributes=self._get_all_attributes()
+                attributes=get_all_attributes()
             )
             if entry is None:
                 return None
@@ -505,13 +468,13 @@ class SystemService(TabService):
         try:
             entry = await self._ldap.get_by_dn(
                 dn, 
-                attributes=self._get_all_attributes()
+                attributes=get_all_attributes()
             )
             if entry is None:
                 return None
             
             # Detect type from objectClass
-            system_type = self._detect_type(entry)
+            system_type = detect_system_type(entry)
             if system_type is None:
                 return None
             
@@ -551,7 +514,7 @@ class SystemService(TabService):
             await self._ensure_type_ou(data.system_type)
         
         # Get object classes for this type
-        object_classes = self.TYPE_OBJECT_CLASSES[data.system_type].copy()
+        object_classes = TYPE_OBJECT_CLASSES[data.system_type].copy()
         
         # Build attributes
         attributes = self._build_create_attributes(data)
@@ -786,23 +749,10 @@ class SystemService(TabService):
     # ========================================================================
     # Helper Methods
     # ========================================================================
-    
-    def _detect_type(self, entry: LdapEntry) -> Optional[SystemType]:
-        """Detect system type from entry's objectClasses."""
-        object_classes = entry.get("objectClass", [])
-        if isinstance(object_classes, str):
-            object_classes = [object_classes]
-        
-        for oc in object_classes:
-            system_type = SystemType.from_object_class(oc)
-            if system_type:
-                return system_type
-        
-        return None
-    
+
     def _entry_to_list_item(self, entry: LdapEntry) -> SystemListItem:
         """Convert LDAP entry to SystemListItem."""
-        system_type = self._detect_type(entry)
+        system_type = detect_system_type(entry)
         
         ip_addresses = entry.get("ipHostNumber", [])
         if isinstance(ip_addresses, str):

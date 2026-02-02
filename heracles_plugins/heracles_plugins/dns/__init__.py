@@ -43,7 +43,7 @@ from .schemas import (
     DnsRecordUpdate,
     DnsRecordListItem,
 )
-from .router import router
+from .routes import router
 
 __plugin__ = DnsPlugin
 
