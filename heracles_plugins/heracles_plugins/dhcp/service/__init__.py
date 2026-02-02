@@ -3,9 +3,15 @@ DHCP Service Package
 ====================
 
 DHCP service implementation with constants and utilities.
+
+The service has been refactored into multiple modules:
+- base.py: Base class with common functionality
+- operations/: Operation mixins for each DHCP object type
+- service.py: Main DhcpService class composing all mixins
 """
 
-from .service import DhcpService, DhcpValidationError
+from .service import DhcpService
+from .base import DhcpValidationError
 from .constants import (
     TYPE_OBJECT_CLASSES,
     COMMON_ATTRIBUTES,

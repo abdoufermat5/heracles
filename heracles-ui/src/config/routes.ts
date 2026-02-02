@@ -56,6 +56,8 @@ export const PLUGIN_ROUTES = {
   DHCP: {
     SERVICES: '/dhcp',
     SERVICE_DETAIL: '/dhcp/:serviceCn',
+    SUBNET_DETAIL: '/dhcp/:serviceCn/subnets/:subnetCn',
+    HOST_DETAIL: '/dhcp/:serviceCn/hosts/:hostCn',
   },
 } as const
 
@@ -136,6 +138,28 @@ export function dhcpServicePath(serviceCn: string): string {
     ':serviceCn',
     encodeURIComponent(serviceCn)
   )
+}
+
+/**
+ * Build the DHCP subnet detail route
+ * @param serviceCn - Service CN
+ * @param subnetCn - Subnet CN (network address)
+ */
+export function dhcpSubnetPath(serviceCn: string, subnetCn: string): string {
+  return PLUGIN_ROUTES.DHCP.SUBNET_DETAIL
+    .replace(':serviceCn', encodeURIComponent(serviceCn))
+    .replace(':subnetCn', encodeURIComponent(subnetCn))
+}
+
+/**
+ * Build the DHCP host detail route
+ * @param serviceCn - Service CN
+ * @param hostCn - Host CN (hostname)
+ */
+export function dhcpHostPath(serviceCn: string, hostCn: string): string {
+  return PLUGIN_ROUTES.DHCP.HOST_DETAIL
+    .replace(':serviceCn', encodeURIComponent(serviceCn))
+    .replace(':hostCn', encodeURIComponent(hostCn))
 }
 
 /**

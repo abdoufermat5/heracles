@@ -38,10 +38,13 @@ import {
   useDhcpServiceTree,
   useCreateDhcpSubnet,
   useCreateDhcpHost,
+  useDeleteDhcpSubnet,
+  useDeleteDhcpHost,
 } from '@/hooks/use-dhcp'
 import { AppError } from '@/lib/errors'
 import { PLUGIN_ROUTES } from '@/config/routes'
 import { useDepartmentStore } from '@/stores'
+import type { DhcpSubnetListItem, DhcpHostListItem } from '@/types/dhcp'
 
 export function DhcpServiceDetailPage() {
   const { serviceCn } = useParams<{ serviceCn: string }>()
@@ -59,6 +62,8 @@ export function DhcpServiceDetailPage() {
 
   const createSubnetMutation = useCreateDhcpSubnet(serviceCn || '')
   const createHostMutation = useCreateDhcpHost(serviceCn || '')
+  const deleteSubnetMutation = useDeleteDhcpSubnet(serviceCn || '')
+  const deleteHostMutation = useDeleteDhcpHost(serviceCn || '')
 
   const handleCreateSubnet = async (data: any) => {
     try {
@@ -97,6 +102,32 @@ export function DhcpServiceDetailPage() {
       setCreateHostOpen(false)
     } catch (error) {
       AppError.toastError(error, 'Failed to create host')
+    }
+  }
+
+  const handleDeleteSubnet = async (subnet: DhcpSubnetListItem) => {
+    if (!confirm(`Are you sure you want to delete subnet ${subnet.cn}?`)) return
+    try {
+      await deleteSubnetMutation.mutateAsync({
+        subnetCn: subnet.cn,
+        dn: subnet.dn,
+      })
+      toast.success(`Subnet ${subnet.cn} deleted successfully`)
+    } catch (error) {
+      AppError.toastError(error, 'Failed to delete subnet')
+    }
+  }
+
+  const handleDeleteHost = async (host: DhcpHostListItem) => {
+    if (!confirm(`Are you sure you want to delete host ${host.cn}?`)) return
+    try {
+      await deleteHostMutation.mutateAsync({
+        hostCn: host.cn,
+        dn: host.dn,
+      })
+      toast.success(`Host ${host.cn} deleted successfully`)
+    } catch (error) {
+      AppError.toastError(error, 'Failed to delete host')
     }
   }
 
@@ -240,6 +271,7 @@ export function DhcpServiceDetailPage() {
             serviceCn={serviceCn}
             subnets={subnets}
             isLoading={subnetsLoading}
+            onDelete={handleDeleteSubnet}
             emptyMessage="No subnets configured. Add a subnet to define IP ranges."
           />
         </TabsContent>
@@ -255,6 +287,7 @@ export function DhcpServiceDetailPage() {
             serviceCn={serviceCn}
             hosts={hosts}
             isLoading={hostsLoading}
+            onDelete={handleDeleteHost}
             emptyMessage="No host reservations. Add a host to assign a fixed IP to a MAC address."
           />
         </TabsContent>

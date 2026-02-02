@@ -70,7 +70,7 @@ export function DhcpSubnetsTable({
         cell: ({ row }) => (
           <div>
             <Link
-              to={`/dhcp/${serviceCn}/subnets/${row.original.cn}`}
+              to={`/dhcp/${serviceCn}/subnets/${row.original.cn}?dn=${encodeURIComponent(row.original.dn)}`}
               className="font-medium hover:underline text-primary font-mono"
             >
               {row.original.cn}/{row.original.dhcpNetMask}
@@ -103,7 +103,7 @@ export function DhcpSubnetsTable({
         cell: ({ row }) => (
           <div className="flex items-center justify-end gap-1">
             <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-              <Link to={`/dhcp/${serviceCn}/subnets/${row.original.cn}`}>
+              <Link to={`/dhcp/${serviceCn}/subnets/${row.original.cn}?dn=${encodeURIComponent(row.original.dn)}`}>
                 <Edit className="h-4 w-4" />
                 <span className="sr-only">Edit {row.original.cn}</span>
               </Link>
