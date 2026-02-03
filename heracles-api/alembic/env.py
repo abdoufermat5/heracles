@@ -39,6 +39,15 @@ target_metadata = None
 # Get database URL from environment variables
 def get_database_url() -> str:
     """Build database URL from environment variables."""
+    # First check for DATABASE_URL (used in containers)
+    database_url = os.getenv("DATABASE_URL")
+    if database_url:
+        # Convert postgresql:// to postgresql+asyncpg://
+        if database_url.startswith("postgresql://"):
+            return database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return database_url
+    
+    # Fall back to individual env vars
     host = os.getenv("POSTGRES_HOST", "localhost")
     port = os.getenv("POSTGRES_PORT", "5432")
     database = os.getenv("POSTGRES_DB", "heracles")

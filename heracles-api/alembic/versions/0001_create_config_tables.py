@@ -2,7 +2,7 @@
 
 Revision ID: 0001
 Revises: 
-Create Date: 2025-01-31
+Create Date: 2026-02-03
 
 """
 from typing import Sequence, Union
@@ -136,17 +136,20 @@ def upgrade() -> None:
     
     # Seed LDAP settings
     op.execute("""
-        INSERT INTO config_settings (category_id, key, value, default_value, label, description, data_type, display_order) 
-        SELECT c.id, s.key, s.value, s.default_value, s.label, s.description, s.data_type, s.display_order
+        INSERT INTO config_settings (category_id, key, value, default_value, label, description, data_type, display_order, section) 
+        SELECT c.id, s.key, s.value, s.default_value, s.label, s.description, s.data_type, s.display_order, s.section
         FROM config_categories c
         CROSS JOIN (
             VALUES 
-                ('users_rdn', '"ou=people"', '"ou=people"', 'Users RDN', 'Relative DN for user entries', 'string', 10),
-                ('groups_rdn', '"ou=groups"', '"ou=groups"', 'Groups RDN', 'Relative DN for group entries', 'string', 20),
-                ('default_user_objectclasses', '["inetOrgPerson", "organizationalPerson", "person"]', '["inetOrgPerson", "organizationalPerson", "person"]', 'Default User Object Classes', 'Object classes applied to new users', 'list', 30),
-                ('default_group_objectclasses', '["groupOfNames"]', '["groupOfNames"]', 'Default Group Object Classes', 'Object classes applied to new groups', 'list', 40),
-                ('page_size', '100', '100', 'LDAP Page Size', 'Number of entries per page for LDAP queries', 'integer', 50)
-        ) AS s(key, value, default_value, label, description, data_type, display_order)
+                ('users_rdn', '"ou=people"', '"ou=people"', 'Users RDN', 'Relative DN for user entries', 'string', 10, NULL),
+                ('groups_rdn', '"ou=groups"', '"ou=groups"', 'Groups RDN', 'Relative DN for group entries', 'string', 20, NULL),
+                ('default_user_objectclasses', '["inetOrgPerson", "organizationalPerson", "person"]', '["inetOrgPerson", "organizationalPerson", "person"]', 'Default User Object Classes', 'Object classes applied to new users', 'list', 30, NULL),
+                ('default_group_objectclasses', '["groupOfNames"]', '["groupOfNames"]', 'Default Group Object Classes', 'Object classes applied to new groups', 'list', 40, NULL),
+                ('page_size', '100', '100', 'LDAP Page Size', 'Number of entries per page for LDAP queries', 'integer', 50, NULL),
+                ('allow_modrdn', 'true', 'true', 'Allow ModRDN Operations', 'Allow LDAP ModRDN operations for moving entries', 'boolean', 100, 'Advanced'),
+                ('migrate_on_rdn_change', 'false', 'false', 'Auto-Migrate on RDN Change', 'Automatically migrate entries when an RDN setting changes', 'boolean', 110, 'Advanced'),
+                ('rdn_change_confirmation', 'true', 'true', 'Require RDN Change Confirmation', 'Require confirmation before changing RDN settings', 'boolean', 120, 'Advanced')
+        ) AS s(key, value, default_value, label, description, data_type, display_order, section)
         WHERE c.name = 'ldap'
     """)
     
