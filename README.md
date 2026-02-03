@@ -64,7 +64,7 @@
 | `sudo` | Sudo rules management | ✅ Implemented |
 | `ssh` | SSH public keys | ✅ Implemented |
 | `systems` | Servers, workstations, devices | ✅ Implemented |
-| `dns` | DNS zones and records (FusionDirectory compatible) | ✅ Implemented |
+| `dns` | DNS zones and records  | ✅ Implemented |
 | `dhcp` | DHCP services, subnets, hosts, pools | ✅ Implemented |
 
 ---

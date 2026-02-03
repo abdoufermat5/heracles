@@ -43,7 +43,6 @@ class DnsService(
     Service for managing DNS zones and records in LDAP.
 
     Uses the dNSZone objectClass with standard DNS attributes.
-    Compatible with FusionDirectory DNS plugin structure.
 
     Directory structure:
         ou=dns,dc=example,dc=org                    # DNS container
@@ -103,7 +102,7 @@ class DnsService(
     async def update(self, dn: str, data: DnsZoneUpdate) -> DnsZoneRead:
         """Update a zone by DN."""
         # Extract zone name from DN
-        # DN format: zoneName=example.org,ou=dns,dc=... (FusionDirectory compatible)
+        # DN format: zoneName=example.org,ou=dns,dc=... 
         zone_name = self._extract_zone_name_from_dn(dn)
         if not zone_name:
             raise DnsValidationError(f"Could not extract zone name from DN: {dn}")
@@ -121,7 +120,7 @@ class DnsService(
 
     def _extract_zone_name_from_dn(self, dn: str) -> Optional[str]:
         """Extract zone name from DN."""
-        # DN format: zoneName=example.org,ou=dns,dc=... (FusionDirectory compatible)
+        # DN format: zoneName=example.org,ou=dns,dc=... 
         parts = dn.split(",")
         for part in parts:
             if part.startswith("zoneName="):

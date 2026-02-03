@@ -116,7 +116,6 @@ class ZoneOperationsMixin:
         """
         Get a single zone by name.
         
-        FusionDirectory compatibility: Zone entry is at zoneName=X,ou=dns,...
         with relativeDomainName=@ as an attribute.
         """
         zone_name = zone_name.lower()

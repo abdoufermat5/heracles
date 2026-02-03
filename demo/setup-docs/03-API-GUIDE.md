@@ -115,7 +115,7 @@ curl -X POST "http://localhost:8000/api/v1/sudo/roles" \
 
 ### DNS
 
-Le plugin DNS est compatible avec FusionDirectory et stocke les zones dans LDAP avec l'objectClass `dNSZone`.
+Le plugin DNS stocke les zones dans LDAP avec l'objectClass `dNSZone`.
 
 | Méthode | Endpoint | Description |
 |---------|----------|-------------|

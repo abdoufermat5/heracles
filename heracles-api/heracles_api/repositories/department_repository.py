@@ -39,7 +39,7 @@ class DepartmentRepository:
     Repository for department LDAP operations.
 
     Departments are OUs with the heraclesDepartment auxiliary objectClass.
-    This approach mirrors FusionDirectory's gosaDepartment pattern.
+    This approach mirrors gosaDepartment pattern.
     """
 
     # Filter to identify departments (OUs marked with heraclesDepartment)

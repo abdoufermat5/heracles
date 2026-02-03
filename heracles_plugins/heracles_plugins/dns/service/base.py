@@ -34,7 +34,7 @@ class DnsServiceBase:
     - DN building utilities
     - OU management
     
-    Directory structure (FusionDirectory compatible):
+    Directory structure:
         ou=dns,dc=example,dc=org                    # DNS container
         └── zoneName=example.org,ou=dns,...         # Zone entry (@ records, SOA, NS)
             │                                       # Has relativeDomainName=@ as attribute
@@ -77,7 +77,7 @@ class DnsServiceBase:
         """
         Get the DN for a record entry.
         
-        For FusionDirectory compatibility:
+        For compatibility:
         - @ (apex) records are stored at the zone entry itself (zoneName=X,ou=dns,...)
         - Other records are children (relativeDomainName=www,zoneName=X,ou=dns,...)
         """
