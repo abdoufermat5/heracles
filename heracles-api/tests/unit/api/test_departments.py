@@ -24,7 +24,7 @@ def create_mock_department_entry(
         "ou": ou,
         "description": description,
         "hrcDepartmentCategory": category,
-        "objectClass": ["organizationalUnit", "heraclesDepartment"],
+        "objectClass": ["organizationalUnit", "hrcDepartment"],
     }
     entry.get = lambda k, default=None: entry.attributes.get(k, default)
     entry.get_first = lambda k, default=None: (

@@ -66,9 +66,7 @@ import {
 import {
   formatQuota,
   getQuotaPercentage,
-  formatDeliveryMode,
   formatDate,
-  toDateString,
 } from '@/types/mail'
 import type { DeliveryMode, MailAccountCreate } from '@/types/mail'
 

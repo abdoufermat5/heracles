@@ -15,7 +15,6 @@ import type {
   PluginConfigUpdateResponse,
   ConfigHistoryParams,
   ConfigUpdateResult,
-  PluginConfig,
   ConfigSetting,
 } from "@/types/config";
 import { toast } from "sonner";

@@ -45,18 +45,6 @@ function formatMacAddress(hwAddress?: string): string | null {
   return parts.length > 1 ? parts[1] : hwAddress
 }
 
-/**
- * Extract IP from fixed-address statement
- */
-function extractFixedAddress(statements?: string[]): string | null {
-  if (!statements) return null
-  for (const stmt of statements) {
-    const match = stmt.match(/fixed-address\s+([0-9.]+)/)
-    if (match) return match[1]
-  }
-  return null
-}
-
 export function DhcpHostsTable({
   serviceCn,
   hosts,

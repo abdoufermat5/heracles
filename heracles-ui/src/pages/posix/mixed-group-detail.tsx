@@ -477,6 +477,7 @@ export function MixedGroupDetailPage() {
       <DeleteDialog
         open={showDeleteDialog}
         onOpenChange={setShowDeleteDialog}
+        itemName={cn ?? ''}
         title="Delete Mixed Group"
         description={`Are you sure you want to delete the mixed group "${cn}"? This will remove the group from both LDAP and POSIX. This action cannot be undone.`}
         onConfirm={handleDelete}
@@ -572,22 +573,22 @@ export function MixedGroupDetailPage() {
       <DeleteDialog
         open={!!memberToRemove}
         onOpenChange={(open) => !open && setMemberToRemove(null)}
+        itemName={memberToRemove ? extractCnFromDn(memberToRemove) : ''}
         title="Remove LDAP Member"
         description={`Are you sure you want to remove "${memberToRemove ? extractCnFromDn(memberToRemove) : ''}" from this group?`}
         onConfirm={handleRemoveMember}
         isLoading={removeMemberMutation.isPending}
-        confirmText="Remove"
       />
 
       {/* Remove UNIX Member Dialog */}
       <DeleteDialog
         open={!!memberUidToRemove}
         onOpenChange={(open) => !open && setMemberUidToRemove(null)}
+        itemName={memberUidToRemove ?? ''}
         title="Remove UNIX Member"
         description={`Are you sure you want to remove "${memberUidToRemove}" from this group?`}
         onConfirm={handleRemoveMemberUid}
         isLoading={removeMemberUidMutation.isPending}
-        confirmText="Remove"
       />
     </div>
   )

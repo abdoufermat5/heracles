@@ -11,7 +11,6 @@ import {
   Network,
   ArrowLeft,
   Plus,
-  RefreshCw,
   Blocks,
   Monitor,
   TreePine,
@@ -55,7 +54,7 @@ export function DhcpServiceDetailPage() {
   const { currentBase } = useDepartmentStore()
 
   // Use actual hooks for API calls
-  const { data: service, isLoading: serviceLoading } = useDhcpService(serviceCn || '')
+  const { data: service } = useDhcpService(serviceCn || '')
   const { data: subnetsData, isLoading: subnetsLoading } = useDhcpSubnets(serviceCn || '')
   const { data: hostsData, isLoading: hostsLoading } = useDhcpHosts(serviceCn || '')
   const { data: treeData, isLoading: treeLoading } = useDhcpServiceTree(serviceCn || '')
@@ -150,7 +149,6 @@ export function DhcpServiceDetailPage() {
       <PageHeader
         title={serviceCn}
         description={service?.dhcpComments || 'DHCP Service Configuration'}
-        icon={<Network className="h-8 w-8" />}
         actions={
           <div className="flex gap-2">
             <Button

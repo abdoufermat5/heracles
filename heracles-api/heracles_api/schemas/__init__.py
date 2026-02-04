@@ -23,6 +23,15 @@ from heracles_api.schemas.group import (
     MemberOperation,
 )
 
+from heracles_api.schemas.role import (
+    RoleBase,
+    RoleCreate,
+    RoleUpdate,
+    RoleResponse,
+    RoleListResponse,
+    RoleMemberOperation,
+)
+
 from heracles_api.schemas.auth import (
     LoginRequest,
     TokenResponse,
@@ -57,6 +66,13 @@ __all__ = [
     "GroupResponse",
     "GroupListResponse",
     "MemberOperation",
+    # Role
+    "RoleBase",
+    "RoleCreate",
+    "RoleUpdate",
+    "RoleResponse",
+    "RoleListResponse",
+    "RoleMemberOperation",
     # Auth
     "LoginRequest",
     "TokenResponse",
@@ -73,3 +89,4 @@ __all__ = [
     "DepartmentListResponse",
     "DepartmentTreeResponse",
 ]
+

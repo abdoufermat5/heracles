@@ -33,7 +33,6 @@ import {
   Network,
   Building2,
   KeyRound,
-  Mail,
 } from 'lucide-react'
 import { useAuthStore, usePluginStore, PLUGIN_NAMES } from '@/stores'
 import { ROUTES, PLUGIN_ROUTES } from '@/config/constants'

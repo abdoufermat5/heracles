@@ -50,7 +50,7 @@ export function MixedGroupsPage() {
     if (!groupToDelete) return
 
     try {
-      await deleteMutation.mutateAsync(groupToDelete.cn)
+      await deleteMutation.mutateAsync({ cn: groupToDelete.cn })
       toast.success(`Mixed group "${groupToDelete.cn}" deleted successfully`)
       setGroupToDelete(null)
     } catch (error) {

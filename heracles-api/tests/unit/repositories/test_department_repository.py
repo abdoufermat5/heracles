@@ -31,7 +31,7 @@ def create_mock_department_entry(
         "ou": ou,
         "description": description,
         "hrcDepartmentCategory": "division",
-        "objectClass": ["organizationalUnit", "heraclesDepartment"],
+        "objectClass": ["organizationalUnit", "hrcDepartment"],
     }
     
     # Mock get and get_first methods safely
@@ -74,7 +74,7 @@ class TestDepartmentRepository:
     async def test_find_by_dn_not_a_department(self, department_repository, mock_ldap_service):
         """Test finding an entry that is not a department."""
         entry = create_mock_department_entry()
-        entry.attributes["objectClass"] = ["organizationalUnit"]  # Missing heraclesDepartment
+        entry.attributes["objectClass"] = ["organizationalUnit"]  # Missing hrcDepartment
         mock_ldap_service.get_by_dn.return_value = entry
 
         result = await department_repository.find_by_dn("ou=JustOU,dc=heracles,dc=local")

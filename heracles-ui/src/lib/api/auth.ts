@@ -1,5 +1,4 @@
 import { apiClient } from '../api-client'
-import { TOKEN_STORAGE_KEY, REFRESH_TOKEN_KEY } from '@/config/constants'
 import type { TokenResponse, UserInfo, LoginCredentials, PasswordChangeData } from '@/types'
 
 export const authApi = {

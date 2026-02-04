@@ -21,7 +21,7 @@ const DEFAULT_CONFIG = {
  */
 function DefaultTreeNode<T extends TreeNodeData>({
   node,
-  depth,
+  depth: _depth,
   isExpanded,
   isSelected,
   hasChildren,

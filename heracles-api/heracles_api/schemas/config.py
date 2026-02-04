@@ -213,6 +213,7 @@ class LdapSettings(BaseModel):
     # Configurable RDNs
     user_rdn: str = Field("ou=people", alias="userRdn")
     group_rdn: str = Field("ou=groups", alias="groupRdn")
+    role_rdn: str = Field("ou=roles", alias="roleRdn")
     system_rdn: str = Field("ou=systems", alias="systemRdn")
     dns_rdn: str = Field("ou=dns", alias="dnsRdn")
     dhcp_rdn: str = Field("ou=dhcp", alias="dhcpRdn")

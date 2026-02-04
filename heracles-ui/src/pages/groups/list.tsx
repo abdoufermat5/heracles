@@ -1,7 +1,7 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Plus, UsersRound, Terminal, Layers } from 'lucide-react'
+import { Plus, UsersRound, Terminal, Layers, Shield, MoreHorizontal, Trash2, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -12,25 +12,59 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { PageHeader, LoadingPage, ErrorDisplay, ConfirmDialog } from '@/components/common'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { PageHeader, LoadingPage, ErrorDisplay, ConfirmDialog, EmptyState } from '@/components/common'
 import { DepartmentBreadcrumbs } from '@/components/departments'
 import { LdapGroupsTable } from '@/components/groups'
 import { PosixGroupsTable, MixedGroupsTable } from '@/components/plugins/posix/groups'
 import { useGroups, useDeleteGroup } from '@/hooks'
 import { usePosixGroups, useDeletePosixGroup, useMixedGroups, useDeleteMixedGroup } from '@/hooks/use-posix'
+import { useRoles, useDeleteRole } from '@/hooks/use-roles'
 import { useDepartmentStore } from '@/stores'
 import { AppError } from '@/lib/errors'
 import { ROUTES } from '@/config/constants'
-import type { Group } from '@/types'
+import type { Group, Role } from '@/types'
 import type { PosixGroupListItem, MixedGroupListItem } from '@/types/posix'
 
-type GroupType = 'ldap' | 'posix' | 'mixed'
+type GroupType = 'ldap' | 'posix' | 'mixed' | 'roles'
 
 export function GroupsListPage() {
-  const [activeTab, setActiveTab] = useState<GroupType>('ldap')
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // Get active tab from URL or default to 'ldap'
+  const initialTab = (searchParams.get('tab') as GroupType) || 'ldap'
+  const [activeTab, setActiveTab] = useState<GroupType>(initialTab)
+
+  // Update URL when tab changes
+  const handleTabChange = (value: string) => {
+    const newTab = value as GroupType
+    setActiveTab(newTab)
+    setSearchParams(prev => {
+      prev.set('tab', newTab)
+      return prev
+    }, { replace: true })
+  }
+
+  // Sync state if URL changes externally
+  useEffect(() => {
+    const tabFromUrl = (searchParams.get('tab') as GroupType) || 'ldap'
+    if (tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl)
+    }
+  }, [searchParams])
+
   const [deleteGroup, setDeleteGroup] = useState<Group | null>(null)
   const [deletePosixGroup, setDeletePosixGroup] = useState<PosixGroupListItem | null>(null)
   const [deleteMixedGroup, setDeleteMixedGroup] = useState<MixedGroupListItem | null>(null)
+  const [deleteRole, setDeleteRoleItem] = useState<Role | null>(null)
   const { currentBase, currentPath } = useDepartmentStore()
 
   // LDAP Groups (groupOfNames) - filtered by department context
@@ -50,6 +84,12 @@ export function GroupsListPage() {
     currentBase ? { base: currentBase } : undefined
   )
   const deleteMixedMutation = useDeleteMixedGroup()
+
+  // Roles (organizationalRole)
+  const { data: rolesData, isLoading: rolesLoading, error: rolesError, refetch: refetchRoles } = useRoles(
+    currentBase ? { base: currentBase } : undefined
+  )
+  const deleteRoleMutation = useDeleteRole()
 
   const handleDeleteLdap = async () => {
     if (!deleteGroup) return
@@ -90,9 +130,32 @@ export function GroupsListPage() {
     }
   }
 
-  const isLoading = activeTab === 'ldap' ? ldapLoading : activeTab === 'posix' ? posixLoading : mixedLoading
-  const error = activeTab === 'ldap' ? ldapError : activeTab === 'posix' ? posixError : mixedError
-  const refetch = activeTab === 'ldap' ? refetchLdap : activeTab === 'posix' ? refetchPosix : refetchMixed
+  const handleDeleteRole = async () => {
+    if (!deleteRole) return
+    try {
+      await deleteRoleMutation.mutateAsync(deleteRole.cn)
+      toast.success(`Role "${deleteRole.cn}" deleted successfully`)
+      setDeleteRoleItem(null)
+    } catch (error) {
+      AppError.toastError(error, 'Failed to delete role')
+    }
+  }
+
+  const isLoading =
+    activeTab === 'ldap' ? ldapLoading :
+      activeTab === 'posix' ? posixLoading :
+        activeTab === 'mixed' ? mixedLoading :
+          rolesLoading
+  const error =
+    activeTab === 'ldap' ? ldapError :
+      activeTab === 'posix' ? posixError :
+        activeTab === 'mixed' ? mixedError :
+          rolesError
+  const refetch =
+    activeTab === 'ldap' ? refetchLdap :
+      activeTab === 'posix' ? refetchPosix :
+        activeTab === 'mixed' ? refetchMixed :
+          refetchRoles
 
   if (isLoading) {
     return <LoadingPage message="Loading groups..." />
@@ -105,18 +168,18 @@ export function GroupsListPage() {
   return (
     <div>
       <PageHeader
-        title="Groups"
+        title="Groups & Roles"
         description={
           currentBase
-            ? `Manage groups in ${currentPath}`
-            : 'Manage groups in the directory'
+            ? `Manage groups and roles in ${currentPath}`
+            : 'Manage groups and roles in the directory'
         }
         actions={
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
-                New Group
+                New
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -138,6 +201,12 @@ export function GroupsListPage() {
                   Mixed Group
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/roles/create">
+                  <Shield className="mr-2 h-4 w-4" />
+                  Role
+                </Link>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         }
@@ -149,7 +218,7 @@ export function GroupsListPage() {
         </div>
       )}
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as GroupType)} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
         <TabsList>
           <TabsTrigger value="ldap" className="gap-2">
             <UsersRound className="h-4 w-4" />
@@ -165,6 +234,11 @@ export function GroupsListPage() {
             <Layers className="h-4 w-4" />
             Mixed Groups
             <Badge variant="secondary" className="ml-1">{mixedData?.groups?.length || 0}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="roles" className="gap-2">
+            <Shield className="h-4 w-4" />
+            Roles
+            <Badge variant="secondary" className="ml-1">{rolesData?.total || 0}</Badge>
           </TabsTrigger>
         </TabsList>
 
@@ -224,6 +298,79 @@ export function GroupsListPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Roles Tab */}
+        <TabsContent value="roles">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Organizational Roles (organizationalRole)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {rolesData?.roles && rolesData.roles.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Members</TableHead>
+                      <TableHead className="w-[100px]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rolesData.roles.map((role) => (
+                      <TableRow key={role.dn}>
+                        <TableCell className="font-medium">{role.cn}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {role.description || '-'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{role.memberCount} members</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem asChild>
+                                <Link to={`/roles/${role.cn}`}>
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  View
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => setDeleteRoleItem(role)}
+                                className="text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <EmptyState
+                  icon={Shield}
+                  title="No roles found"
+                  description="Create a role to assign users to organizational responsibilities."
+                  action={{
+                    label: 'Create Role',
+                    onClick: () => navigate('/roles/create'),
+                  }}
+                />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* Delete dialogs */}
@@ -259,6 +406,18 @@ export function GroupsListPage() {
         onConfirm={handleDeleteMixed}
         isLoading={deleteMixedMutation.isPending}
       />
+
+      <ConfirmDialog
+        open={!!deleteRole}
+        onOpenChange={(open) => !open && setDeleteRoleItem(null)}
+        title="Delete Role"
+        description={`Are you sure you want to delete role "${deleteRole?.cn}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={handleDeleteRole}
+        isLoading={deleteRoleMutation.isPending}
+      />
     </div>
   )
 }
+

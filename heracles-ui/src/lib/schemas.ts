@@ -86,3 +86,17 @@ export const departmentUpdateSchema = departmentSchema.partial().omit({ ou: true
 export type DepartmentFormData = z.infer<typeof departmentSchema>
 export type DepartmentCreateFormData = z.infer<typeof departmentCreateSchema>
 export type DepartmentUpdateFormData = z.infer<typeof departmentUpdateSchema>
+
+// Role schemas
+export const roleSchema = z.object({
+  cn: z.string().min(1, 'Role name is required').regex(/^[a-zA-Z][a-zA-Z0-9._-]*$/, 'Invalid role name format'),
+  description: z.string().optional(),
+})
+
+export const roleCreateSchema = roleSchema
+export const roleUpdateSchema = roleSchema.partial().omit({ cn: true })
+
+export type RoleFormData = z.infer<typeof roleSchema>
+export type RoleCreateFormData = z.infer<typeof roleCreateSchema>
+export type RoleUpdateFormData = z.infer<typeof roleUpdateSchema>
+

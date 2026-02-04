@@ -91,7 +91,6 @@ export function DhcpServicesListPage() {
       <PageHeader
         title="DHCP Services"
         description="Manage DHCP server configurations, subnets, and host reservations"
-        icon={<Network className="h-8 w-8" />}
         actions={
           <div className="flex gap-2">
             <Button

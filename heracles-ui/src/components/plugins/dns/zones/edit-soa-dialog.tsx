@@ -179,9 +179,6 @@ export function EditSoaDialog({ open, onOpenChange, zone }: EditSoaDialogProps) 
     }
   }
 
-  // Watch values for live preview
-  const watchedValues = form.watch()
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">

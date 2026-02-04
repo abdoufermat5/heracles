@@ -21,6 +21,7 @@ export {
   PLUGIN_ROUTES,
   userDetailPath,
   groupDetailPath,
+  roleDetailPath,
   posixGroupPath,
   mixedGroupPath,
   sudoRolePath,

@@ -46,7 +46,7 @@ export function DepartmentCreatePage() {
 
   // Flatten tree for parent selection
   const flattenDepartments = (
-    nodes: typeof treeData.tree,
+    nodes: NonNullable<typeof treeData>['tree'],
     result: { dn: string; path: string }[] = []
   ) => {
     for (const node of nodes || []) {

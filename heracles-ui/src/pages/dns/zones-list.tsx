@@ -54,7 +54,6 @@ export function DnsZonesListPage() {
       <PageHeader
         title="DNS Zones"
         description="Manage DNS zones and records"
-        icon={<Globe className="h-8 w-8" />}
         actions={
           <div className="flex gap-2">
             <Button

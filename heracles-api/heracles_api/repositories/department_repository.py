@@ -38,13 +38,13 @@ class DepartmentRepository:
     """
     Repository for department LDAP operations.
 
-    Departments are OUs with the heraclesDepartment auxiliary objectClass.
+    Departments are OUs with the hrcDepartment auxiliary objectClass.
     This approach mirrors gosaDepartment pattern.
     """
 
-    # Filter to identify departments (OUs marked with heraclesDepartment)
-    DEPARTMENT_FILTER = "(&(objectClass=organizationalUnit)(objectClass=heraclesDepartment))"
-    OBJECT_CLASSES = ["organizationalUnit", "heraclesDepartment"]
+    # Filter to identify departments (OUs marked with hrcDepartment)
+    DEPARTMENT_FILTER = "(&(objectClass=organizationalUnit)(objectClass=hrcDepartment))"
+    OBJECT_CLASSES = ["organizationalUnit", "hrcDepartment"]
     DEPARTMENT_ATTRIBUTES = [
         "ou",
         "description",
@@ -120,13 +120,13 @@ class DepartmentRepository:
 
     async def get_root_containers(self) -> List[str]:
         """
-        Discover container OUs at root level (those without heraclesDepartment).
+        Discover container OUs at root level (those without hrcDepartment).
 
         These are the containers like ou=people, ou=groups, ou=sudoers, etc.
         that should be auto-created within new departments.
         """
         # Find OUs directly under base_dn that are NOT departments
-        filter_str = "(&(objectClass=organizationalUnit)(!(objectClass=heraclesDepartment)))"
+        filter_str = "(&(objectClass=organizationalUnit)(!(objectClass=hrcDepartment)))"
 
         try:
             entries = await self.ldap.search(
@@ -144,24 +144,19 @@ class DepartmentRepository:
         """
         Find department by DN.
 
-        Verifies the entry has the heraclesDepartment objectClass.
+        Verifies the entry has the hrcDepartment objectClass.
         """
         entry = await self.ldap.get_by_dn(dn, attributes=self.DEPARTMENT_ATTRIBUTES + ["objectClass"])
         if not entry:
             return None
 
-        # Verify it's a department (has heraclesDepartment objectClass)
+        # Verify it's a department (has hrcDepartment objectClass)
         object_classes = entry.get("objectClass", [])
         if isinstance(object_classes, str):
             object_classes = [object_classes]
 
-        if "heraclesDepartment" not in [oc.lower() for oc in (oc for oc in object_classes)]:
-            # Check case-insensitively
-            has_dept_class = any(
-                oc.lower() == "heraclesdepartment" for oc in object_classes
-            )
-            if not has_dept_class:
-                return None
+        if not any(oc.lower() == "hrcdepartment" for oc in object_classes):
+            return None
 
         return entry
 

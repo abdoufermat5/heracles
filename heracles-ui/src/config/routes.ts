@@ -16,6 +16,9 @@ export const ROUTES = {
   GROUPS: '/groups',
   GROUP_DETAIL: '/groups/:cn',
   GROUP_CREATE: '/groups/new',
+  ROLES: '/roles',
+  ROLE_DETAIL: '/roles/:cn',
+  ROLE_CREATE: '/roles/create',
   DEPARTMENTS: '/departments',
   DEPARTMENT_DETAIL: '/departments/:dn',
   DEPARTMENT_CREATE: '/departments/new',
@@ -78,6 +81,14 @@ export function userDetailPath(uid: string): string {
  */
 export function groupDetailPath(cn: string): string {
   return ROUTES.GROUP_DETAIL.replace(':cn', encodeURIComponent(cn))
+}
+
+/**
+ * Build the role detail route
+ * @param cn - Role CN
+ */
+export function roleDetailPath(cn: string): string {
+  return ROUTES.ROLE_DETAIL.replace(':cn', encodeURIComponent(cn))
 }
 
 /**

@@ -20,8 +20,10 @@ logger = structlog.get_logger(__name__)
 # Default values (fallback when config unavailable)
 DEFAULT_USERS_RDN = "ou=people"
 DEFAULT_GROUPS_RDN = "ou=groups"
+DEFAULT_ROLES_RDN = "ou=roles"
 DEFAULT_USER_OBJECTCLASSES = ["inetOrgPerson", "organizationalPerson", "person"]
 DEFAULT_GROUP_OBJECTCLASSES = ["groupOfNames"]
+DEFAULT_ROLE_OBJECTCLASSES = ["organizationalRole"]
 DEFAULT_PAGE_SIZE = 100
 
 
@@ -52,6 +54,23 @@ async def get_groups_rdn() -> str:
     from heracles_api.services.config import get_config_value
     
     value = await get_config_value("ldap", "groups_rdn", DEFAULT_GROUPS_RDN)
+    
+    # Remove quotes if stored as JSON string
+    if isinstance(value, str):
+        return value.strip('"')
+    return str(value)
+
+
+async def get_roles_rdn() -> str:
+    """
+    Get the RDN for role entries from config.
+    
+    Returns:
+        Roles RDN (e.g., 'ou=roles')
+    """
+    from heracles_api.services.config import get_config_value
+    
+    value = await get_config_value("ldap", "roles_rdn", DEFAULT_ROLES_RDN)
     
     # Remove quotes if stored as JSON string
     if isinstance(value, str):
@@ -109,6 +128,31 @@ async def get_default_group_objectclasses() -> List[str]:
     return DEFAULT_GROUP_OBJECTCLASSES
 
 
+async def get_default_role_objectclasses() -> List[str]:
+    """
+    Get the default object classes for new role entries.
+    
+    Returns:
+        List of objectClass values
+    """
+    from heracles_api.services.config import get_config_value
+    
+    value = await get_config_value("ldap", "default_role_objectclasses", DEFAULT_ROLE_OBJECTCLASSES)
+    
+    if isinstance(value, list):
+        return value
+    
+    # Handle JSON string
+    if isinstance(value, str):
+        import json
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            pass
+    
+    return DEFAULT_ROLE_OBJECTCLASSES
+
+
 async def get_ldap_page_size() -> int:
     """
     Get the LDAP page size for paginated queries.
@@ -150,3 +194,19 @@ def get_full_groups_dn(base_dn: Optional[str] = None, groups_rdn: str = DEFAULT_
     """
     base = base_dn or settings.LDAP_BASE_DN
     return f"{groups_rdn},{base}"
+
+
+def get_full_roles_dn(base_dn: Optional[str] = None, roles_rdn: str = DEFAULT_ROLES_RDN) -> str:
+    """
+    Build the full DN for the roles container.
+    
+    Args:
+        base_dn: Base DN (defaults to settings.LDAP_BASE_DN)
+        roles_rdn: Roles RDN from config
+        
+    Returns:
+        Full DN like 'ou=roles,dc=heracles,dc=local'
+    """
+    base = base_dn or settings.LDAP_BASE_DN
+    return f"{roles_rdn},{base}"
+

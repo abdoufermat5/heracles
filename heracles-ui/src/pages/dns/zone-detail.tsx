@@ -155,11 +155,6 @@ export function DnsZoneDetailPage() {
       <PageHeader
         title={zone.zoneName}
         description={`${ZONE_TYPE_LABELS[zone.zoneType]} DNS zone`}
-        icon={<Globe className="h-8 w-8" />}
-        breadcrumbs={[
-          { label: 'DNS', href: '/dns' },
-          { label: zone.zoneName },
-        ]}
         actions={
           <div className="flex gap-2">
             <Button variant="outline" size="icon" asChild>

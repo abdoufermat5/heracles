@@ -74,7 +74,7 @@ cmd_init() {
     fi
 
     echo "[*] Creating organizational units..."
-    for ou in people groups systems aclroles sudoers dns dhcp heracles; do
+    for ou in people groups roles systems aclroles sudoers dns dhcp; do
         ldapadd -x -H "ldap://${LDAP_HOST}:${LDAP_PORT}" -D "$LDAP_ADMIN_DN" -w "$LDAP_ADMIN_PASSWORD" <<EOF
 dn: ou=$ou,$LDAP_BASE_DN
 objectClass: organizationalUnit

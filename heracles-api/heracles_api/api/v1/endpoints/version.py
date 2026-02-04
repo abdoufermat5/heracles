@@ -7,12 +7,11 @@ Exposes version information for all Heracles components.
 
 from typing import Dict, List, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from heracles_api import __version__ as api_version
-from heracles_api.api.v1.endpoints.auth import get_current_user
-from heracles_api.schemas.user import UserRead
+
 
 router = APIRouter(prefix="/version", tags=["Version"])
 

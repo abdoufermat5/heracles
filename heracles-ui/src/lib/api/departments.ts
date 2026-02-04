@@ -20,7 +20,7 @@ export const departmentsApi = {
    * List departments with optional filtering
    */
   list: async (params?: DepartmentListParams): Promise<DepartmentListResponse> => {
-    return apiClient.get<DepartmentListResponse>('/departments', params)
+    return apiClient.get<DepartmentListResponse>('/departments', params as Record<string, string | number | undefined>)
   },
 
   /**

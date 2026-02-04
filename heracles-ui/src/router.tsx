@@ -20,6 +20,7 @@ import {
   DepartmentCreatePage,
   DepartmentDetailPage,
 } from '@/pages/departments'
+import { RoleCreatePage, RoleDetailPage } from '@/pages/roles'
 import { PosixGroupsPage, PosixGroupDetailPage, MixedGroupsPage, MixedGroupDetailPage } from '@/pages/posix'
 import { SudoRolesPage, SudoRoleDetailPage } from '@/pages/sudo'
 import { DnsZonesListPage, DnsZoneDetailPage } from '@/pages/dns'
@@ -43,16 +44,21 @@ export function AppRouter() {
         }
       >
         <Route path={ROUTES.DASHBOARD} element={<DashboardPage />} />
-        
+
         {/* Users */}
         <Route path={ROUTES.USERS} element={<UsersListPage />} />
         <Route path={ROUTES.USER_CREATE} element={<UserCreatePage />} />
         <Route path={ROUTES.USER_DETAIL} element={<UserDetailPage />} />
-        
-        {/* Groups (organizational - groupOfNames) */}
+
+        {/* Groups (organizational - groupOfNames) - also contains Roles tab */}
         <Route path={ROUTES.GROUPS} element={<GroupsListPage />} />
         <Route path={ROUTES.GROUP_CREATE} element={<GroupCreatePage />} />
         <Route path={ROUTES.GROUP_DETAIL} element={<GroupDetailPage />} />
+
+        {/* Roles (organizationalRole) */}
+        <Route path={ROUTES.ROLES} element={<Navigate to={`${ROUTES.GROUPS}?tab=roles`} replace />} />
+        <Route path={ROUTES.ROLE_CREATE} element={<RoleCreatePage />} />
+        <Route path={ROUTES.ROLE_DETAIL} element={<RoleDetailPage />} />
 
         {/* Departments */}
         <Route path={ROUTES.DEPARTMENTS} element={<DepartmentsListPage />} />
@@ -70,7 +76,7 @@ export function AppRouter() {
         {/* Sudo Roles */}
         <Route path={PLUGIN_ROUTES.SUDO.ROLES} element={<SudoRolesPage />} />
         <Route path={PLUGIN_ROUTES.SUDO.ROLE_DETAIL} element={<SudoRoleDetailPage />} />
-        
+
         {/* Systems */}
         <Route path={PLUGIN_ROUTES.SYSTEMS.LIST} element={<SystemsListPage />} />
         <Route path={PLUGIN_ROUTES.SYSTEMS.DETAIL} element={<SystemDetailPage />} />

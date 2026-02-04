@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Users, UsersRound, Server, Activity, TrendingUp, UserPlus, ChevronDown, Terminal, Layers } from 'lucide-react'
+import { Users, UsersRound, Server, Activity, TrendingUp, UserPlus, ChevronDown, Terminal, Layers, Shield } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -168,6 +168,17 @@ export function DashboardPage() {
                     <div>
                       <div className="font-medium">Mixed Group</div>
                       <div className="text-xs text-muted-foreground">LDAP + POSIX hybrid</div>
+                    </div>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Roles</DropdownMenuLabel>
+                <DropdownMenuItem asChild>
+                  <Link to={ROUTES.ROLE_CREATE} className="cursor-pointer">
+                    <Shield className="mr-2 h-4 w-4" />
+                    <div>
+                      <div className="font-medium">Organizational Role</div>
+                      <div className="text-xs text-muted-foreground">organizationalRole entry</div>
                     </div>
                   </Link>
                 </DropdownMenuItem>
