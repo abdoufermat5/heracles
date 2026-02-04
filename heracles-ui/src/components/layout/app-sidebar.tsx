@@ -51,7 +51,7 @@ const coreNavItems = [
     icon: Users,
   },
   {
-    title: 'Groups',
+    title: 'Groups & Roles',
     url: ROUTES.GROUPS,
     icon: UsersRound,
   },
@@ -115,7 +115,7 @@ export function AppSidebar() {
   const { user, logout } = useAuthStore()
   const plugins = usePluginStore((state) => state.plugins)
   const isInitialized = usePluginStore((state) => state.isInitialized)
-  
+
   // Helper to check if plugin is enabled
   const isPluginEnabled = (name: string) => {
     // If plugins haven't loaded yet, show all by default
@@ -225,15 +225,15 @@ export function AppSidebar() {
                           <item.icon />
                           <span>{item.title}</span>
                         </span>
-                    ) : (
-                      <Link to={item.url}>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </Link>
-                    )}
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+                      ) : (
+                        <Link to={item.url}>
+                          <item.icon />
+                          <span>{item.title}</span>
+                        </Link>
+                      )}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
