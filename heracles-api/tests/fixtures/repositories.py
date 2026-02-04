@@ -203,3 +203,34 @@ def mock_dhcp_service():
     service.delete_host = AsyncMock()
 
     return service
+
+
+@pytest.fixture
+def mock_role_repository():
+    """
+    Mock the Role repository.
+
+    Provides async mocks for all role operations.
+    """
+    repo = AsyncMock()
+
+    # Search/Find operations
+    repo.find_by_cn = AsyncMock(return_value=None)
+    repo.find_by_dn = AsyncMock(return_value=None)
+    repo.search = AsyncMock(return_value=MagicMock(roles=[], total=0))
+    repo.exists = AsyncMock(return_value=False)
+
+    # Member operations
+    repo.get_members = AsyncMock(return_value=[])
+    repo.add_member = AsyncMock(return_value=True)
+    repo.remove_member = AsyncMock(return_value=True)
+    repo.is_member = AsyncMock(return_value=False)
+    repo.get_user_roles = AsyncMock(return_value=[])
+    repo.remove_user_from_all_roles = AsyncMock(return_value=0)
+
+    # CRUD operations
+    repo.create = AsyncMock()
+    repo.update = AsyncMock()
+    repo.delete = AsyncMock(return_value=True)
+
+    return repo

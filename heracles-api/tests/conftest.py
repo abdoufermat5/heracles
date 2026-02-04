@@ -61,6 +61,7 @@ from tests.fixtures.repositories import (
     mock_ldap_service,
     mock_user_repository,
     mock_group_repository,
+    mock_role_repository,
     mock_department_repository,
     mock_posix_service,
     mock_sudo_service,
