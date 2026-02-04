@@ -21,6 +21,7 @@ from heracles_api.services.config import init_config_service
 from heracles_api.plugins.loader import load_enabled_plugins, unload_all_plugins
 from heracles_api.middleware.rate_limit import RateLimitMiddleware
 from heracles_api.middleware.plugin_access import PluginAccessMiddleware
+from heracles_api import __version__
 
 logger = structlog.get_logger(__name__)
 
@@ -30,7 +31,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan context manager."""
     # Startup
     setup_logging()
-    logger.info("starting_heracles_api", version="0.1.0")
+    logger.info("starting_heracles_api", version=__version__)
 
     # Skip initialization in test mode
     if settings.TESTING:
@@ -134,7 +135,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 app = FastAPI(
     title="Heracles API",
     description="Modern LDAP Identity Management API",
-    version="0.1.0",
+    version=__version__,
     docs_url="/api/docs" if settings.DEBUG else None,
     redoc_url="/api/redoc" if settings.DEBUG else None,
     openapi_url="/api/openapi.json" if settings.DEBUG else None,
@@ -168,7 +169,7 @@ async def health_check():
     """Health check endpoint."""
     return {
         "status": "healthy",
-        "version": "0.1.0",
+        "version": __version__,
     }
 
 
@@ -177,6 +178,6 @@ async def root():
     """Root endpoint with API information."""
     return {
         "name": "Heracles API",
-        "version": "0.1.0",
+        "version": __version__,
         "docs": "/api/docs" if settings.DEBUG else None,
     }

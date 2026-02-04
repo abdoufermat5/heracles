@@ -113,6 +113,7 @@ class DhcpPlugin(Plugin):
             optional_dependencies=["systems"],  # For host validation
             required_config=[],
             priority=20,  # After systems (priority 15)
+            minimum_api_version="0.8.0",
         )
     
     @staticmethod

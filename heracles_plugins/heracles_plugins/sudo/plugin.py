@@ -57,6 +57,7 @@ class SudoPlugin(Plugin):
             optional_dependencies=["posix", "systems"],  # For user/host validation
             required_config=[],
             priority=20,  # After POSIX
+            minimum_api_version="0.8.0",
         )
     
     @staticmethod

@@ -400,6 +400,9 @@ class PluginInfo:
     
     priority: int = 50
     """Display priority (lower = displayed first)."""
+    
+    minimum_api_version: Optional[str] = None
+    """Minimum heracles-api version required (semver). E.g., '0.8.0'."""
 
 
 @dataclass

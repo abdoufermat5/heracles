@@ -3,6 +3,7 @@
 > **Référence**: Ce document définit le planning de développement d'Heracles.
 > **Mise à jour**: 4 Février 2026
 > **Statut**: Phase 1 ✅ TERMINÉ | Phase 2 ✅ TERMINÉ | Phase 3 ✅ TERMINÉ | Phase 3.5 ✅ TERMINÉ
+> **Versioning**: Voir [09-VERSIONING.md](./09-VERSIONING.md) pour la stratégie complète
 
 ---
 
@@ -22,7 +23,13 @@
 │  │   MVP   │      │Identity │      │  Infra  │      │Features │             │
 │  └─────────┘      └─────────┘      └─────────┘      └─────────┘             │
 │                                                                               │
-│  v0.1.0           v0.5.0           v0.8.0           v1.0.0                   │
+│  v0.1.0-alpha     v0.5.0-beta      v0.8.0-beta      v1.0.0                   │
+│                                                                               │
+│  Versions actuelles (4 Février 2026):                                        │
+│  ├── heracles-core:    0.1.0                                                 │
+│  ├── heracles-api:     0.8.0-beta                                            │
+│  ├── heracles-ui:      0.8.0-beta                                            │
+│  └── heracles-plugins: 0.8.0-beta (plugins individuels: 1.0.0)               │
 │                                                                               │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -387,6 +394,36 @@ Version: v1.0.0
 - [ ] Pas de bugs critiques
 - [ ] Migration path documenté
 - [ ] Support établi
+
+### 6.5 Versioning par Composant
+
+Chaque composant suit son propre cycle de versioning SemVer:
+
+| Composant | Format Version | Fichier Source |
+|-----------|----------------|----------------|
+| heracles-core | `X.Y.Z` | `Cargo.toml` |
+| heracles-api | `X.Y.Z-suffix` | `__init__.py` |
+| heracles-ui | `X.Y.Z-suffix` | `package.json` |
+| heracles-plugins | `X.Y.Z-suffix` | `pyproject.toml` |
+| Plugins individuels | `X.Y.Z` | `PluginInfo.version` |
+
+**Commandes utiles**:
+```bash
+make version              # Affiche toutes les versions
+make bump-api-patch       # Incrémente patch (0.8.0 → 0.8.1)
+make bump-all-minor       # Incrémente minor sur tous
+make tag-release          # Crée tags Git par composant
+```
+
+**Tags Git**:
+```
+heracles-api/v0.8.0-beta
+heracles-ui/v0.8.0-beta
+heracles-core/v0.1.0
+heracles-plugins/v0.8.0-beta
+```
+
+Voir [09-VERSIONING.md](./09-VERSIONING.md) pour la documentation complète.
 
 ---
 

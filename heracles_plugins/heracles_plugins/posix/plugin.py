@@ -64,6 +64,7 @@ class PosixPlugin(Plugin):
             optional_dependencies=["systems"],
             required_config=[],  # Using config_schema instead
             priority=10,  # Show early in tabs
+            minimum_api_version="0.8.0",
         )
     
     @staticmethod

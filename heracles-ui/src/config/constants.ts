@@ -4,6 +4,7 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_PREFIX || '/api/v1'
 // App Configuration
 export const APP_NAME = 'Heracles'
 export const APP_DESCRIPTION = 'Identity Management System'
+export const APP_VERSION = '0.8.0-beta'
 
 // Pagination
 export const DEFAULT_PAGE_SIZE = 20

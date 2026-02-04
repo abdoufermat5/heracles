@@ -56,6 +56,7 @@ class SSHPlugin(Plugin):
             optional_dependencies=["posix"],  # Works better with POSIX users
             required_config=[],
             priority=25,  # After POSIX
+            minimum_api_version="0.8.0",
         )
     
     @staticmethod

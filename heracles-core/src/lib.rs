@@ -40,6 +40,9 @@ mod python;
 
 pub use errors::{HeraclesError, Result};
 
+/// Crate version from Cargo.toml
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 
@@ -47,6 +50,8 @@ use pyo3::prelude::*;
 #[cfg(feature = "python")]
 #[pymodule]
 fn heracles_core(py: Python<'_>, m: &PyModule) -> PyResult<()> {
+    // Expose version as __version__
+    m.add("__version__", VERSION)?;
     python::register_module(py, m)?;
     Ok(())
 }

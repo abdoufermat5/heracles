@@ -83,7 +83,4 @@ demo/keys/
 *.tmp
 *.temp
 /docs/
-CLAUDE.md
-AGENTS.md
-GEMINI.md   
 .claude

@@ -71,6 +71,7 @@ class DnsPlugin(Plugin):
             optional_dependencies=["systems"],  # For future dnsHost integration
             required_config=[],
             priority=30,  # Load after systems plugin
+            minimum_api_version="0.8.0",
         )
     
     @staticmethod

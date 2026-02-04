@@ -63,6 +63,7 @@ class MailPlugin(Plugin):
             optional_dependencies=["posix"],
             required_config=[],
             priority=35,  # After POSIX (10), SSH (25), Sudo (30)
+            minimum_api_version="0.8.0",
         )
 
     @staticmethod

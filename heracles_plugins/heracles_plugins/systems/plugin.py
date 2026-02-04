@@ -89,6 +89,7 @@ class SystemsPlugin(Plugin):
             optional_dependencies=[],
             required_config=[],
             priority=15,  # Before POSIX (which depends on it for host validation)
+            minimum_api_version="0.8.0",
         )
     
     @staticmethod
