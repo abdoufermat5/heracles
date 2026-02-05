@@ -45,8 +45,8 @@ def get_systems_service() -> SystemService:
     return service
 
 
-# Import CurrentUser from core dependencies
-from heracles_api.core.dependencies import CurrentUser
+# Import CurrentUser and AclGuardDep from core dependencies
+from heracles_api.core.dependencies import CurrentUser, AclGuardDep
 
 
 # =============================================================================
@@ -60,6 +60,7 @@ from heracles_api.core.dependencies import CurrentUser
 )
 async def list_systems(
     current_user: CurrentUser,
+    guard: AclGuardDep,
     system_type: Optional[SystemType] = Query(
         None, 
         alias="type",
@@ -80,6 +81,9 @@ async def list_systems(
     Results can be filtered by system type and searched by hostname,
     description, or IP address.
     """
+    # Use base_dn for scope-based ACL if provided, otherwise use default systems OU
+    scope_dn = base_dn if base_dn else service.get_systems_dn()
+    guard.require(scope_dn, "systems:read")
     try:
         return await service.list_systems(
             system_type=system_type,
@@ -101,8 +105,13 @@ async def list_systems(
     response_model=List[dict],
     summary="Get available system types",
 )
-async def get_system_types(current_user: CurrentUser):
+async def get_system_types(
+    current_user: CurrentUser,
+    guard: AclGuardDep,
+    service: SystemService = Depends(get_systems_service),
+):
     """Get the list of available system types."""
+    guard.require(service.get_systems_dn(), "systems:read")
     return [
         {
             "value": t.value,
@@ -120,6 +129,7 @@ async def get_system_types(current_user: CurrentUser):
 )
 async def get_all_hostnames(
     current_user: CurrentUser,
+    guard: AclGuardDep,
     service: SystemService = Depends(get_systems_service),
 ):
     """
@@ -127,6 +137,7 @@ async def get_all_hostnames(
     
     Useful for autocomplete in forms that reference hosts.
     """
+    guard.require(service.get_systems_dn(), "systems:read")
     try:
         return await service.get_all_hostnames()
     except Exception as e:
@@ -145,6 +156,7 @@ async def get_all_hostnames(
 async def validate_hosts(
     data: HostValidationRequest,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     service: SystemService = Depends(get_systems_service),
 ):
     """
@@ -153,6 +165,7 @@ async def validate_hosts(
     Used by other features (POSIX groups, sudo rules, etc.) to validate
     host references.
     """
+    guard.require(service.get_systems_dn(), "systems:read")
     try:
         return await service.validate_hosts(data.hostnames)
     except Exception as e:
@@ -172,10 +185,14 @@ async def get_system(
     system_type: SystemType,
     cn: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: SystemService = Depends(get_systems_service),
 ):
     """Get a specific system by type and CN."""
+    # Use base_dn for scope-based ACL if provided, otherwise use default systems OU
+    scope_dn = base_dn if base_dn else service.get_systems_dn()
+    guard.require(scope_dn, "systems:read")
     try:
         system = await service.get_system(cn, system_type, base_dn=base_dn)
         if system is None:
@@ -203,6 +220,7 @@ async def get_system(
 async def create_system(
     data: SystemCreate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: SystemService = Depends(get_systems_service),
 ):
@@ -213,6 +231,9 @@ async def create_system(
     will be created in and which objectClasses are used.
     If base_dn is provided, the system will be created under that context.
     """
+    # Use base_dn for scope-based ACL if provided, otherwise use default systems OU
+    scope_dn = base_dn if base_dn else service.get_systems_dn()
+    guard.require(scope_dn, "systems:create")
     try:
         return await service.create_system(data, base_dn=base_dn)
     except SystemValidationError as e:
@@ -243,10 +264,13 @@ async def update_system(
     cn: str,
     data: SystemUpdate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: SystemService = Depends(get_systems_service),
 ):
     """Update an existing system."""
+    scope_dn = base_dn if base_dn else service.get_systems_dn()
+    guard.require(scope_dn, "systems:write")
     try:
         return await service.update_system(cn, system_type, data, base_dn=base_dn)
     except SystemValidationError as e:
@@ -281,10 +305,13 @@ async def delete_system(
     system_type: SystemType,
     cn: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: SystemService = Depends(get_systems_service),
 ):
     """Delete a system."""
+    scope_dn = base_dn if base_dn else service.get_systems_dn()
+    guard.require(scope_dn, "systems:delete")
     try:
         await service.delete_system(cn, system_type, base_dn=base_dn)
     except SystemValidationError as e:
@@ -321,6 +348,7 @@ async def delete_system(
 )
 async def list_servers(
     current_user: CurrentUser,
+    guard: AclGuardDep,
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
@@ -328,6 +356,8 @@ async def list_servers(
     service: SystemService = Depends(get_systems_service),
 ):
     """List all servers."""
+    scope_dn = base_dn if base_dn else service.get_systems_dn()
+    guard.require(scope_dn, "systems:read")
     return await service.list_systems(
         system_type=SystemType.SERVER,
         search=search,
@@ -344,6 +374,7 @@ async def list_servers(
 )
 async def list_workstations(
     current_user: CurrentUser,
+    guard: AclGuardDep,
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
@@ -351,6 +382,8 @@ async def list_workstations(
     service: SystemService = Depends(get_systems_service),
 ):
     """List all workstations."""
+    scope_dn = base_dn if base_dn else service.get_systems_dn()
+    guard.require(scope_dn, "systems:read")
     return await service.list_systems(
         system_type=SystemType.WORKSTATION,
         search=search,
@@ -367,6 +400,7 @@ async def list_workstations(
 )
 async def list_terminals(
     current_user: CurrentUser,
+    guard: AclGuardDep,
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
@@ -374,6 +408,8 @@ async def list_terminals(
     service: SystemService = Depends(get_systems_service),
 ):
     """List all terminals."""
+    scope_dn = base_dn if base_dn else service.get_systems_dn()
+    guard.require(scope_dn, "systems:read")
     return await service.list_systems(
         system_type=SystemType.TERMINAL,
         search=search,
@@ -390,6 +426,7 @@ async def list_terminals(
 )
 async def list_printers(
     current_user: CurrentUser,
+    guard: AclGuardDep,
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
@@ -397,6 +434,8 @@ async def list_printers(
     service: SystemService = Depends(get_systems_service),
 ):
     """List all printers."""
+    scope_dn = base_dn if base_dn else service.get_systems_dn()
+    guard.require(scope_dn, "systems:read")
     return await service.list_systems(
         system_type=SystemType.PRINTER,
         search=search,
@@ -413,6 +452,7 @@ async def list_printers(
 )
 async def list_components(
     current_user: CurrentUser,
+    guard: AclGuardDep,
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
@@ -420,6 +460,8 @@ async def list_components(
     service: SystemService = Depends(get_systems_service),
 ):
     """List all components (network devices, etc.)."""
+    scope_dn = base_dn if base_dn else service.get_systems_dn()
+    guard.require(scope_dn, "systems:read")
     return await service.list_systems(
         system_type=SystemType.COMPONENT,
         search=search,
@@ -436,6 +478,7 @@ async def list_components(
 )
 async def list_phones(
     current_user: CurrentUser,
+    guard: AclGuardDep,
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
@@ -443,6 +486,8 @@ async def list_phones(
     service: SystemService = Depends(get_systems_service),
 ):
     """List all phones (IP phones)."""
+    scope_dn = base_dn if base_dn else service.get_systems_dn()
+    guard.require(scope_dn, "systems:read")
     return await service.list_systems(
         system_type=SystemType.PHONE,
         search=search,
@@ -459,6 +504,7 @@ async def list_phones(
 )
 async def list_mobile_phones(
     current_user: CurrentUser,
+    guard: AclGuardDep,
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
@@ -466,6 +512,8 @@ async def list_mobile_phones(
     service: SystemService = Depends(get_systems_service),
 ):
     """List all mobile phones."""
+    scope_dn = base_dn if base_dn else service.get_systems_dn()
+    guard.require(scope_dn, "systems:read")
     return await service.list_systems(
         system_type=SystemType.MOBILE,
         search=search,

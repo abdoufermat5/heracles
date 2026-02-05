@@ -210,7 +210,10 @@ class TestDeleteGroup:
         self, test_client, auth_headers, mock_group_repository
     ):
         """Test deleting a group."""
-        mock_group_repository.exists.return_value = True
+        # Now endpoint uses find_by_cn for ACL check
+        entry = MagicMock()
+        entry.dn = "cn=developers,ou=groups,dc=heracles,dc=local"
+        mock_group_repository.find_by_cn.return_value = entry
 
         response = test_client.delete("/api/v1/groups/developers", headers=auth_headers)
 
@@ -219,7 +222,7 @@ class TestDeleteGroup:
 
     def test_delete_group_not_found(self, test_client, auth_headers, mock_group_repository):
         """Test deleting a non-existent group returns 404."""
-        mock_group_repository.exists.return_value = False
+        mock_group_repository.find_by_cn.return_value = None
 
         response = test_client.delete("/api/v1/groups/nonexistent", headers=auth_headers)
 
@@ -239,7 +242,10 @@ class TestGroupMembers:
         self, test_client, auth_headers, mock_group_repository, mock_user_repository, mock_user_entry
     ):
         """Test adding a member to a group."""
-        mock_group_repository.exists.return_value = True
+        # Now endpoint uses find_by_cn for ACL check
+        entry = MagicMock()
+        entry.dn = "cn=developers,ou=groups,dc=heracles,dc=local"
+        mock_group_repository.find_by_cn.return_value = entry
         mock_user_repository.find_by_uid.return_value = mock_user_entry
         mock_group_repository.get_members.return_value = []
 
@@ -256,7 +262,7 @@ class TestGroupMembers:
         self, test_client, auth_headers, mock_group_repository
     ):
         """Test adding a member to non-existent group returns 404."""
-        mock_group_repository.exists.return_value = False
+        mock_group_repository.find_by_cn.return_value = None
 
         response = test_client.post(
             "/api/v1/groups/nonexistent/members",
@@ -270,7 +276,10 @@ class TestGroupMembers:
         self, test_client, auth_headers, mock_group_repository, mock_user_repository, mock_user_entry
     ):
         """Test removing a member from a group."""
-        mock_group_repository.exists.return_value = True
+        # Now endpoint uses find_by_cn for ACL check
+        entry = MagicMock()
+        entry.dn = "cn=developers,ou=groups,dc=heracles,dc=local"
+        mock_group_repository.find_by_cn.return_value = entry
         mock_user_repository.find_by_uid.return_value = mock_user_entry
 
         response = test_client.delete(

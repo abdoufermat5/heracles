@@ -1,0 +1,18 @@
+{
+  "$schema": "heracles://acl-definition/v1",
+  "permissions": [
+    {"scope": "dns", "action": "read",   "description": "View DNS zones and records"},
+    {"scope": "dns", "action": "write",  "description": "Modify existing DNS zones and records"},
+    {"scope": "dns", "action": "create", "description": "Create new DNS zones and records"},
+    {"scope": "dns", "action": "delete", "description": "Delete DNS zones and records"},
+    {"scope": "dns", "action": "manage", "description": "Manage DNS settings and advanced operations"}
+  ],
+  "attribute_groups": [
+    {
+      "object_type": "dns",
+      "group_name": "zone",
+      "label": "DNS Zone",
+      "attributes": ["zoneName", "dNSTTL", "dNSClass", "aRecord", "aAAARecord", "mXRecord", "cNAMERecord", "nSRecord", "tXTRecord", "sRVRecord"]
+    }
+  ]
+}

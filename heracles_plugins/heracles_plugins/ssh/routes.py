@@ -51,8 +51,8 @@ def get_ssh_service() -> SSHService:
     return service
 
 
-# Import CurrentUser from core dependencies
-from heracles_api.core.dependencies import CurrentUser
+# Import CurrentUser and AclGuardDep from core dependencies
+from heracles_api.core.dependencies import CurrentUser, AclGuardDep
 
 
 # ============================================================================
@@ -68,9 +68,11 @@ from heracles_api.core.dependencies import CurrentUser
 async def get_user_ssh_status(
     uid: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     service: SSHService = Depends(get_ssh_service),
 ) -> UserSSHStatus:
     """Get SSH status for a user."""
+    guard.require(service.get_base_dn(), "ssh:read")
     try:
         return await service.get_user_ssh_status(uid)
     except Exception as e:
@@ -96,10 +98,12 @@ async def get_user_ssh_status(
 async def activate_user_ssh(
     uid: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     data: Optional[UserSSHActivate] = None,
     service: SSHService = Depends(get_ssh_service),
 ) -> UserSSHStatus:
     """Activate SSH for a user account."""
+    guard.require(service.get_base_dn(), "ssh:create")
     try:
         return await service.activate_ssh(uid, data)
     except SSHKeyValidationError as e:
@@ -130,9 +134,11 @@ async def activate_user_ssh(
 async def deactivate_user_ssh(
     uid: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     service: SSHService = Depends(get_ssh_service),
 ) -> UserSSHStatus:
     """Deactivate SSH for a user account."""
+    guard.require(service.get_base_dn(), "ssh:delete")
     try:
         return await service.deactivate_ssh(uid)
     except Exception as e:
@@ -161,9 +167,11 @@ async def deactivate_user_ssh(
 async def list_user_ssh_keys(
     uid: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     service: SSHService = Depends(get_ssh_service),
 ) -> List[SSHKeyRead]:
     """List SSH keys for a user."""
+    guard.require(service.get_base_dn(), "ssh:read")
     try:
         ssh_status = await service.get_user_ssh_status(uid)
         return ssh_status.keys
@@ -190,9 +198,11 @@ async def add_user_ssh_key(
     uid: str,
     data: SSHKeyCreate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     service: SSHService = Depends(get_ssh_service),
 ) -> UserSSHStatus:
     """Add an SSH key to a user."""
+    guard.require(service.get_base_dn(), "ssh:create")
     try:
         return await service.add_key(uid, data)
     except SSHKeyValidationError as e:
@@ -234,9 +244,11 @@ async def update_user_ssh_keys(
     uid: str,
     data: UserSSHKeysUpdate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     service: SSHService = Depends(get_ssh_service),
 ) -> UserSSHStatus:
     """Replace all SSH keys for a user."""
+    guard.require(service.get_base_dn(), "ssh:write")
     try:
         return await service.update_keys(uid, data)
     except SSHKeyValidationError as e:
@@ -273,9 +285,11 @@ async def get_user_ssh_key(
     uid: str,
     fingerprint: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     service: SSHService = Depends(get_ssh_service),
 ) -> SSHKeyRead:
     """Get a specific SSH key."""
+    guard.require(service.get_base_dn(), "ssh:read")
     # Decode fingerprint (replace URL-safe chars)
     fingerprint = fingerprint.replace("_", "/").replace("-", "+")
     if not fingerprint.startswith("SHA256:"):
@@ -305,9 +319,11 @@ async def remove_user_ssh_key(
     uid: str,
     fingerprint: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     service: SSHService = Depends(get_ssh_service),
 ) -> None:
     """Remove an SSH key from a user."""
+    guard.require(service.get_base_dn(), "ssh:delete")
     # Decode fingerprint
     fingerprint = fingerprint.replace("_", "/").replace("-", "+")
     if not fingerprint.startswith("SHA256:"):
@@ -340,11 +356,13 @@ async def remove_user_ssh_key(
 )
 async def find_user_by_ssh_key(
     current_user: CurrentUser,
+    guard: AclGuardDep,
     key: Optional[str] = Query(None, description="Full SSH public key"),
     fingerprint: Optional[str] = Query(None, description="SHA256 fingerprint"),
     service: SSHService = Depends(get_ssh_service),
 ) -> Optional[str]:
     """Find a user by SSH key or fingerprint."""
+    guard.require(service.get_base_dn(), "ssh:read")
     if not key and not fingerprint:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

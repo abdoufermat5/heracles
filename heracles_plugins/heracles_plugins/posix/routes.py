@@ -134,8 +134,8 @@ def get_mixed_group_service() -> MixedGroupService:
     return service
 
 
-# Import CurrentUser from core dependencies
-from heracles_api.core.dependencies import CurrentUser
+# Import CurrentUser and AclGuardDep from core dependencies
+from heracles_api.core.dependencies import CurrentUser, AclGuardDep
 
 
 # =============================================================================
@@ -150,6 +150,7 @@ from heracles_api.core.dependencies import CurrentUser
 async def get_user_posix(
     uid: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: PosixService = Depends(get_posix_service),
     ldap_service: LdapService = Depends(get_ldap_service),
@@ -159,6 +160,7 @@ async def get_user_posix(
     
     Returns whether POSIX is active and the account data if it is.
     """
+    guard.require(service.get_base_dn(), "posix:read")
     try:
         dn = await find_user_dn(uid, ldap_service)
         is_active = await service.is_active(dn)
@@ -186,6 +188,7 @@ async def activate_user_posix(
     uid: str,
     data: PosixAccountCreate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: PosixService = Depends(get_posix_service),
     group_service: PosixGroupService = Depends(get_posix_group_service),
@@ -203,6 +206,7 @@ async def activate_user_posix(
     When primaryGroupMode is "create_personal", a personal group with the same
     name as the user will be automatically created.
     """
+    guard.require(service.get_base_dn(), "posix:create")
     try:
         dn = await find_user_dn(uid, ldap_service)
         
@@ -246,6 +250,7 @@ async def update_user_posix(
     uid: str,
     data: PosixAccountUpdate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: PosixService = Depends(get_posix_service),
     ldap_service: LdapService = Depends(get_ldap_service),
@@ -255,6 +260,7 @@ async def update_user_posix(
     
     Only provided fields will be updated.
     """
+    guard.require(service.get_base_dn(), "posix:write")
     try:
         dn = await find_user_dn(uid, ldap_service)
         result = await service.update(dn, data)
@@ -284,6 +290,7 @@ async def update_user_posix(
 async def deactivate_user_posix(
     uid: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     delete_personal_group: bool = Query(
         default=True,
         description="Delete the personal group if it exists and is empty",
@@ -302,6 +309,7 @@ async def deactivate_user_posix(
     If delete_personal_group is True and the user has a personal group
     (same name as uid) that is empty, it will be automatically deleted.
     """
+    guard.require(service.get_base_dn(), "posix:delete")
     try:
         dn = await find_user_dn(uid, ldap_service)
         await service.deactivate(
@@ -337,6 +345,7 @@ async def deactivate_user_posix(
 )
 async def list_posix_groups(
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: PosixGroupService = Depends(get_posix_group_service),
 ):
@@ -346,6 +355,7 @@ async def list_posix_groups(
     POSXI groups (posixGroup) are standalone entries separate from 
     organizational groups (groupOfNames).
     """
+    guard.require(service.get_base_dn(), "posix:read")
     try:
         groups = await service.list_all(base_dn=base_dn)
         return PosixGroupListResponse(groups=groups, total=len(groups))
@@ -367,6 +377,7 @@ async def list_posix_groups(
 async def create_posix_group(
     data: PosixGroupFullCreate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: PosixGroupService = Depends(get_posix_group_service),
 ):
@@ -375,6 +386,7 @@ async def create_posix_group(
     
     This creates a new entry with posixGroup as the structural objectClass.
     """
+    guard.require(service.get_base_dn(), "posix:create")
     try:
         result = await service.create(data, base_dn=base_dn)
         logger.info("posix_group_created_via_api", cn=data.cn, by=current_user.uid)
@@ -401,12 +413,14 @@ async def create_posix_group(
 async def get_posix_group(
     cn: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: PosixGroupService = Depends(get_posix_group_service),
 ):
     """
     Get details of a specific POSIX group.
     """
+    guard.require(service.get_base_dn(), "posix:read")
     try:
         result = await service.get(cn, base_dn=base_dn)
         if result is None:
@@ -435,12 +449,14 @@ async def update_posix_group(
     cn: str,
     data: PosixGroupUpdate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: PosixGroupService = Depends(get_posix_group_service),
 ):
     """
     Update a POSIX group's attributes.
     """
+    guard.require(service.get_base_dn(), "posix:write")
     try:
         result = await service.update_group(cn, data, base_dn=base_dn)
         logger.info("posix_group_updated_via_api", cn=cn, by=current_user.uid)
@@ -467,6 +483,7 @@ async def update_posix_group(
 async def delete_posix_group(
     cn: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: PosixGroupService = Depends(get_posix_group_service),
 ):
@@ -475,6 +492,7 @@ async def delete_posix_group(
     
     Warning: This will remove the group entry entirely.
     """
+    guard.require(service.get_base_dn(), "posix:delete")
     try:
         await service.delete(cn, base_dn=base_dn)
         logger.info("posix_group_deleted_via_api", cn=cn, by=current_user.uid)
@@ -505,12 +523,14 @@ async def add_posix_group_member(
     cn: str,
     uid: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: PosixGroupService = Depends(get_posix_group_service),
 ):
     """
     Add a member (by uid) to a POSIX group.
     """
+    guard.require(service.get_base_dn(), "posix:write")
     try:
         result = await service.add_member_by_cn(cn, uid, base_dn=base_dn)
         logger.info("posix_group_member_added", cn=cn, uid=uid, by=current_user.uid)
@@ -538,12 +558,14 @@ async def remove_posix_group_member(
     cn: str,
     uid: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: PosixGroupService = Depends(get_posix_group_service),
 ):
     """
     Remove a member (by uid) from a POSIX group.
     """
+    guard.require(service.get_base_dn(), "posix:write")
     try:
         result = await service.remove_member_by_cn(cn, uid, base_dn=base_dn)
         logger.info("posix_group_member_removed", cn=cn, uid=uid, by=current_user.uid)
@@ -573,11 +595,13 @@ async def remove_posix_group_member(
 )
 async def get_available_shells(
     current_user: CurrentUser,
+    guard: AclGuardDep,
     service: PosixService = Depends(get_posix_service),
 ):
     """
     Get the list of available login shells.
     """
+    guard.require(service.get_base_dn(), "posix:read")
     return AvailableShellsResponse(
         shells=service.get_shells(),
         default=service.get_default_shell(),
@@ -591,6 +615,7 @@ async def get_available_shells(
 )
 async def get_next_ids(
     current_user: CurrentUser,
+    guard: AclGuardDep,
     service: PosixService = Depends(get_posix_service),
     group_service: PosixGroupService = Depends(get_posix_group_service),
 ):
@@ -599,6 +624,7 @@ async def get_next_ids(
     
     Useful for displaying in the UI before creating an account.
     """
+    guard.require(service.get_base_dn(), "posix:read")
     try:
         next_uid = await service.get_next_uid()
         next_gid = await group_service.get_next_gid()
@@ -630,6 +656,7 @@ async def get_next_ids(
 async def get_user_group_memberships(
     uid: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     service: PosixService = Depends(get_posix_service),
 ):
     """
@@ -637,6 +664,7 @@ async def get_user_group_memberships(
     
     This returns the list of group CNs where the user is a member.
     """
+    guard.require(service.get_base_dn(), "posix:read")
     groups = await service._get_user_group_memberships(uid)
     return groups
 
@@ -650,6 +678,7 @@ async def add_user_to_group(
     uid: str,
     cn: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     group_service: PosixGroupService = Depends(get_posix_group_service),
 ):
     """
@@ -657,6 +686,7 @@ async def add_user_to_group(
     
     This is the user-centric way to manage group memberships.
     """
+    guard.require(group_service.get_base_dn(), "posix:write")
     try:
         result = await group_service.add_member_by_cn(cn, uid, base_dn=base_dn)
         logger.info("user_added_to_group", uid=uid, cn=cn, by=current_user.uid)
@@ -684,6 +714,7 @@ async def remove_user_from_group(
     uid: str,
     cn: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     group_service: PosixGroupService = Depends(get_posix_group_service),
 ):
     """
@@ -691,6 +722,7 @@ async def remove_user_from_group(
     
     This is the user-centric way to manage group memberships.
     """
+    guard.require(group_service.get_base_dn(), "posix:write")
     try:
         await group_service.remove_member_by_cn(cn, uid, base_dn=base_dn)
         logger.info("user_removed_from_group", uid=uid, cn=cn, by=current_user.uid)
@@ -719,6 +751,7 @@ async def remove_user_from_group(
 )
 async def list_mixed_groups(
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: MixedGroupService = Depends(get_mixed_group_service),
 ):
@@ -728,6 +761,7 @@ async def list_mixed_groups(
     MixedGroups combine groupOfNames (LDAP) and posixGroup (UNIX)
     for hybrid access control.
     """
+    guard.require(service.get_base_dn(), "posix:read")
     try:
         groups = await service.list_all(base_dn=base_dn)
         return MixedGroupListResponse(groups=groups, total=len(groups))
@@ -747,10 +781,12 @@ async def list_mixed_groups(
 async def get_mixed_group(
     cn: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: MixedGroupService = Depends(get_mixed_group_service),
 ):
     """Get details of a specific MixedGroup."""
+    guard.require(service.get_base_dn(), "posix:read")
     group = await service.get(cn, base_dn=base_dn)
     if group is None:
         raise HTTPException(
@@ -769,6 +805,7 @@ async def get_mixed_group(
 async def create_mixed_group(
     data: MixedGroupCreate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: MixedGroupService = Depends(get_mixed_group_service),
 ):
@@ -779,6 +816,7 @@ async def create_mixed_group(
     allowing it to be used for LDAP-based access control (member DNs)
     and UNIX group permissions (memberUid).
     """
+    guard.require(service.get_base_dn(), "posix:create")
     try:
         result = await service.create(data, base_dn=base_dn)
         logger.info("mixed_group_created", cn=data.cn, by=current_user.uid)
@@ -806,10 +844,12 @@ async def update_mixed_group(
     cn: str,
     data: MixedGroupUpdate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: MixedGroupService = Depends(get_mixed_group_service),
 ):
     """Update a MixedGroup's attributes."""
+    guard.require(service.get_base_dn(), "posix:write")
     try:
         result = await service.update_group(cn, data, base_dn=base_dn)
         logger.info("mixed_group_updated", cn=cn, by=current_user.uid)
@@ -836,10 +876,12 @@ async def update_mixed_group(
 async def delete_mixed_group(
     cn: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: MixedGroupService = Depends(get_mixed_group_service),
 ):
     """Delete a MixedGroup."""
+    guard.require(service.get_base_dn(), "posix:delete")
     try:
         await service.delete(cn, base_dn=base_dn)
         logger.info("mixed_group_deleted", cn=cn, by=current_user.uid)
@@ -869,6 +911,7 @@ async def delete_mixed_group(
 async def add_mixed_group_member(
     cn: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     member_dn: str = Query(..., description="The DN of the member to add"),
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: MixedGroupService = Depends(get_mixed_group_service),
@@ -878,6 +921,7 @@ async def add_mixed_group_member(
     
     This adds the member to the `member` attribute (groupOfNames).
     """
+    guard.require(service.get_base_dn(), "posix:write")
     try:
         result = await service.add_member(cn, member_dn, base_dn=base_dn)
         logger.info("mixed_group_member_added", cn=cn, member_dn=member_dn, by=current_user.uid)
@@ -898,6 +942,7 @@ async def add_mixed_group_member(
 async def remove_mixed_group_member(
     cn: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     member_dn: str = Query(..., description="The DN of the member to remove"),
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: MixedGroupService = Depends(get_mixed_group_service),
@@ -907,6 +952,7 @@ async def remove_mixed_group_member(
     
     This removes the member from the `member` attribute (groupOfNames).
     """
+    guard.require(service.get_base_dn(), "posix:write")
     try:
         result = await service.remove_member(cn, member_dn, base_dn=base_dn)
         logger.info("mixed_group_member_removed", cn=cn, member_dn=member_dn, by=current_user.uid)
@@ -928,6 +974,7 @@ async def add_mixed_group_member_uid(
     cn: str,
     uid: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: MixedGroupService = Depends(get_mixed_group_service),
 ):
@@ -936,6 +983,7 @@ async def add_mixed_group_member_uid(
     
     This adds the UID to the `memberUid` attribute (posixGroup).
     """
+    guard.require(service.get_base_dn(), "posix:write")
     try:
         result = await service.add_member_uid(cn, uid, base_dn=base_dn)
         logger.info("mixed_group_member_uid_added", cn=cn, uid=uid, by=current_user.uid)
@@ -957,6 +1005,7 @@ async def remove_mixed_group_member_uid(
     cn: str,
     uid: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: MixedGroupService = Depends(get_mixed_group_service),
 ):
@@ -965,6 +1014,7 @@ async def remove_mixed_group_member_uid(
     
     This removes the UID from the `memberUid` attribute (posixGroup).
     """
+    guard.require(service.get_base_dn(), "posix:write")
     try:
         result = await service.remove_member_uid(cn, uid, base_dn=base_dn)
         logger.info("mixed_group_member_uid_removed", cn=cn, uid=uid, by=current_user.uid)
@@ -984,9 +1034,11 @@ async def remove_mixed_group_member_uid(
 )
 async def get_mixed_group_next_gid(
     current_user: CurrentUser,
+    guard: AclGuardDep,
     service: MixedGroupService = Depends(get_mixed_group_service),
 ):
     """Get the next available GID number for creating a MixedGroup."""
+    guard.require(service.get_base_dn(), "posix:read")
     try:
         next_gid = await service.get_next_gid()
         return IdAllocationResponse(value=next_gid)

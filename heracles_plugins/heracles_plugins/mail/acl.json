@@ -1,0 +1,13 @@
+{
+  "$schema": "heracles://acl-definition/v1",
+  "permissions": [
+    {"scope": "mail", "action": "read",   "description": "View mail attributes and aliases"},
+    {"scope": "mail", "action": "write",  "description": "Modify mail attributes"},
+    {"scope": "mail", "action": "create", "description": "Add mail routing and aliases"},
+    {"scope": "mail", "action": "delete", "description": "Remove mail attributes"},
+    {"scope": "mail", "action": "manage", "description": "Manage mail domains and quotas"}
+  ],
+  "attribute_groups": [
+    {"object_type": "user", "group_name": "mail_user", "label": "Mail User", "attributes": ["mail", "mailAlternateAddress", "mailForwardingAddress", "mailQuota", "mailHost"]}
+  ]
+}

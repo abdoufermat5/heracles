@@ -12,7 +12,8 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, status, Query
 
-from heracles_api.core.dependencies import CurrentUser, UserRepoDep, RoleRepoDep
+from heracles_api.config import settings
+from heracles_api.core.dependencies import CurrentUser, UserRepoDep, RoleRepoDep, AclGuardDep
 from heracles_api.schemas import (
     RoleCreate,
     RoleUpdate,
@@ -43,6 +44,7 @@ def _entry_to_response(entry, members: list[str] = None) -> RoleResponse:
 @router.get("", response_model=RoleListResponse)
 async def list_roles(
     current_user: CurrentUser,
+    guard: AclGuardDep,
     role_repo: RoleRepoDep,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
@@ -51,7 +53,13 @@ async def list_roles(
 ):
     """
     List all roles with pagination.
+    
+    Requires: role:read
     """
+    # ACL check - role:read on ou=roles
+    target_dn = f"ou=roles,{settings.LDAP_BASE_DN}"
+    guard.require(target_dn, "role:read")
+    
     try:
         result = await role_repo.search(search_term=search, base_dn=base)
         
@@ -87,10 +95,13 @@ async def list_roles(
 async def get_role(
     cn: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     role_repo: RoleRepoDep,
 ):
     """
     Get role by CN.
+    
+    Requires: role:read
     """
     try:
         entry = await role_repo.find_by_cn(cn)
@@ -100,6 +111,9 @@ async def get_role(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Role '{cn}' not found",
             )
+        
+        # ACL check - role:read on the specific role
+        guard.require(entry.dn, "role:read")
         
         members = await role_repo.get_members(cn)
         return _entry_to_response(entry, members)
@@ -116,12 +130,19 @@ async def get_role(
 async def create_role(
     role: RoleCreate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     user_repo: UserRepoDep,
     role_repo: RoleRepoDep,
 ):
     """
     Create a new role.
+    
+    Requires: role:create
     """
+    # ACL check - role:create on target OU
+    target_dn = role.department_dn if role.department_dn else f"ou=roles,{settings.LDAP_BASE_DN}"
+    guard.require(target_dn, "role:create")
+    
     # Check if role already exists
     if await role_repo.exists(role.cn):
         raise HTTPException(
@@ -166,19 +187,26 @@ async def update_role(
     cn: str,
     updates: RoleUpdate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     role_repo: RoleRepoDep,
 ):
     """
     Update role attributes.
+    
+    Requires: role:write
     """
+    entry = await role_repo.find_by_cn(cn)
+    if not entry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Role '{cn}' not found",
+        )
+    
+    # ACL check - role:write on the specific role
+    guard.require(entry.dn, "role:write")
+    
     try:
         entry = await role_repo.update(cn, updates)
-        
-        if not entry:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Role '{cn}' not found",
-            )
         
         logger.info("role_updated", cn=cn, by=current_user.uid)
         
@@ -197,16 +225,23 @@ async def update_role(
 async def delete_role(
     cn: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     role_repo: RoleRepoDep,
 ):
     """
     Delete a role.
+    
+    Requires: role:delete
     """
-    if not await role_repo.exists(cn):
+    entry = await role_repo.find_by_cn(cn)
+    if not entry:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Role '{cn}' not found",
         )
+    
+    # ACL check - role:delete on the specific role
+    guard.require(entry.dn, "role:delete")
     
     try:
         await role_repo.delete(cn)
@@ -226,17 +261,24 @@ async def add_role_member(
     cn: str,
     member: RoleMemberOperation,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     user_repo: UserRepoDep,
     role_repo: RoleRepoDep,
 ):
     """
     Add a member to a role.
+    
+    Requires: role:manage
     """
-    if not await role_repo.exists(cn):
+    entry = await role_repo.find_by_cn(cn)
+    if not entry:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Role '{cn}' not found",
         )
+    
+    # ACL check - role:manage on the specific role
+    guard.require(entry.dn, "role:manage")
     
     # Get user DN
     user = await user_repo.find_by_uid(member.uid)
@@ -269,17 +311,24 @@ async def remove_role_member(
     cn: str,
     uid: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     user_repo: UserRepoDep,
     role_repo: RoleRepoDep,
 ):
     """
     Remove a member from a role.
+    
+    Requires: role:manage
     """
-    if not await role_repo.exists(cn):
+    entry = await role_repo.find_by_cn(cn)
+    if not entry:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Role '{cn}' not found",
         )
+    
+    # ACL check - role:manage on the specific role
+    guard.require(entry.dn, "role:manage")
     
     # Get user DN
     user = await user_repo.find_by_uid(uid)

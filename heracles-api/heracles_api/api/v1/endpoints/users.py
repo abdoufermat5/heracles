@@ -9,7 +9,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, status, Query
 
-from heracles_api.core.dependencies import CurrentUser, UserRepoDep, GroupRepoDep
+from heracles_api.core.dependencies import CurrentUser, UserRepoDep, GroupRepoDep, AclGuardDep
 from heracles_api.core.password_policy import validate_password_policy
 from heracles_api.schemas import (
     UserCreate,
@@ -19,6 +19,7 @@ from heracles_api.schemas import (
     SetPasswordRequest,
 )
 from heracles_api.services import LdapOperationError
+from heracles_api.config import settings
 
 import structlog
 
@@ -45,6 +46,7 @@ def _entry_to_response(entry, groups: list[str] = None) -> UserResponse:
 @router.get("", response_model=UserListResponse)
 async def list_users(
     current_user: CurrentUser,
+    guard: AclGuardDep,
     user_repo: UserRepoDep,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
@@ -54,7 +56,13 @@ async def list_users(
 ):
     """
     List all users with pagination.
+    
+    Requires: user:read
     """
+    # ACL check - user:read on the base DN or global
+    target_dn = base or f"ou=people,{settings.LDAP_BASE_DN}"
+    guard.require(target_dn, "user:read")
+    
     try:
         result = await user_repo.search(search_term=search, ou=ou, base_dn=base)
         
@@ -91,13 +99,25 @@ async def list_users(
 async def get_user(
     uid: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     user_repo: UserRepoDep,
 ):
     """
     Get user by UID.
+    
+    Requires: user:read
     """
     try:
         entry = await user_repo.find_by_uid(uid)
+        
+        if not entry:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User '{uid}' not found",
+            )
+        
+        # ACL check - user:read on the specific user
+        guard.require(entry.dn, "user:read")
         
         if not entry:
             raise HTTPException(
@@ -120,11 +140,18 @@ async def get_user(
 async def create_user(
     user: UserCreate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     user_repo: UserRepoDep,
 ):
     """
     Create a new user.
+    
+    Requires: user:create
     """
+    # ACL check - user:create on the target container
+    target_dn = user.department_dn or f"ou=people,{settings.LDAP_BASE_DN}"
+    guard.require(target_dn, "user:create")
+    
     # Check if user already exists
     if await user_repo.exists(user.uid):
         raise HTTPException(
@@ -163,11 +190,25 @@ async def update_user(
     uid: str,
     updates: UserUpdate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     user_repo: UserRepoDep,
 ):
     """
     Update user attributes.
+    
+    Requires: user:write
     """
+    # Find user first to get DN
+    entry = await user_repo.find_by_uid(uid)
+    if not entry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User '{uid}' not found",
+        )
+    
+    # ACL check - user:write on the specific user
+    guard.require(entry.dn, "user:write")
+    
     try:
         entry = await user_repo.update(uid, updates)
         
@@ -194,11 +235,14 @@ async def update_user(
 async def delete_user(
     uid: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     user_repo: UserRepoDep,
     group_repo: GroupRepoDep,
 ):
     """
     Delete a user.
+    
+    Requires: user:delete
     """
     # Prevent self-deletion
     if uid == current_user.uid:
@@ -214,6 +258,9 @@ async def delete_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User '{uid}' not found",
         )
+    
+    # ACL check - user:delete on the specific user
+    guard.require(entry.dn, "user:delete")
     
     try:
         # Remove user from all groups first
@@ -237,16 +284,23 @@ async def set_user_password(
     uid: str,
     request: SetPasswordRequest,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     user_repo: UserRepoDep,
 ):
     """
     Set user password (admin operation).
+    
+    Requires: user:manage
     """
-    if not await user_repo.exists(uid):
+    entry = await user_repo.find_by_uid(uid)
+    if not entry:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User '{uid}' not found",
         )
+    
+    # ACL check - user:manage on the specific user
+    guard.require(entry.dn, "user:manage")
     
     # Validate password against policy
     is_valid, errors = await validate_password_policy(request.password)
@@ -276,10 +330,13 @@ async def set_user_password(
 async def lock_user(
     uid: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     user_repo: UserRepoDep,
 ):
     """
     Lock a user account (prevent login).
+    
+    Requires: user:manage
     """
     # Prevent self-locking
     if uid == current_user.uid:
@@ -288,11 +345,15 @@ async def lock_user(
             detail="Cannot lock your own account",
         )
     
-    if not await user_repo.exists(uid):
+    entry = await user_repo.find_by_uid(uid)
+    if not entry:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User '{uid}' not found",
         )
+    
+    # ACL check - user:manage on the specific user
+    guard.require(entry.dn, "user:manage")
     
     try:
         await user_repo.lock(uid)
@@ -310,16 +371,23 @@ async def lock_user(
 async def unlock_user(
     uid: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     user_repo: UserRepoDep,
 ):
     """
     Unlock a user account.
+    
+    Requires: user:manage
     """
-    if not await user_repo.exists(uid):
+    entry = await user_repo.find_by_uid(uid)
+    if not entry:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User '{uid}' not found",
         )
+    
+    # ACL check - user:manage on the specific user
+    guard.require(entry.dn, "user:manage")
     
     try:
         await user_repo.unlock(uid)
@@ -337,17 +405,24 @@ async def unlock_user(
 async def get_user_lock_status(
     uid: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     user_repo: UserRepoDep,
 ):
     """
     Get user lock status.
-    """
-    is_locked = await user_repo.is_locked(uid)
     
-    if is_locked is None:
+    Requires: user:read
+    """
+    entry = await user_repo.find_by_uid(uid)
+    if not entry:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User '{uid}' not found",
         )
+    
+    # ACL check - user:read on the specific user
+    guard.require(entry.dn, "user:read")
+    
+    is_locked = await user_repo.is_locked(uid)
     
     return {"uid": uid, "locked": is_locked}

@@ -319,6 +319,7 @@ class TestUpdateDepartment:
     ):
         """Test updating a department."""
         entry = create_mock_department_entry()
+        mock_department_repository.find_by_dn.return_value = entry
         mock_department_repository.update.return_value = entry
         mock_department_repository.get_children_count.return_value = 0
         mock_department_repository._entry_to_response.return_value = {
@@ -373,6 +374,8 @@ class TestDeleteDepartment:
         self, test_client, auth_headers, mock_department_repository
     ):
         """Test deleting a department."""
+        entry = create_mock_department_entry()
+        mock_department_repository.find_by_dn.return_value = entry
         mock_department_repository.delete.return_value = True
 
         dn = "ou=Engineering,dc=heracles,dc=local"
@@ -388,6 +391,7 @@ class TestDeleteDepartment:
         self, test_client, auth_headers, mock_department_repository
     ):
         """Test deleting a non-existent department returns 404."""
+        mock_department_repository.find_by_dn.return_value = None
         mock_department_repository.delete.return_value = False
 
         dn = "ou=Nonexistent,dc=heracles,dc=local"
@@ -402,6 +406,8 @@ class TestDeleteDepartment:
         self, test_client, auth_headers, mock_department_repository
     ):
         """Test deleting a department recursively."""
+        entry = create_mock_department_entry()
+        mock_department_repository.find_by_dn.return_value = entry
         mock_department_repository.delete.return_value = True
 
         dn = "ou=Engineering,dc=heracles,dc=local"

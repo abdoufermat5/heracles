@@ -56,6 +56,7 @@ def mock_auth_service():
         display_name="Admin User",
         mail="admin@example.com",
         groups=["cn=admins,ou=groups,dc=heracles,dc=local"],
+        roles=[],
         created_at=datetime.now(),
         last_activity=datetime.now(),
         token_jti="mock-jti"
@@ -95,6 +96,7 @@ def admin_session():
         display_name="Admin User",
         mail="admin@example.com",
         groups=["cn=admins,ou=groups,dc=heracles,dc=local"],
+        roles=[],
         created_at=datetime.now(),
         last_activity=datetime.now(),
         token_jti="admin-jti"
@@ -110,6 +112,7 @@ def user_session():
         display_name="Test User",
         mail="testuser@example.com",
         groups=["cn=users,ou=groups,dc=heracles,dc=local"],
+        roles=[],
         created_at=datetime.now(),
         last_activity=datetime.now(),
         token_jti="user-jti"

@@ -1,0 +1,14 @@
+{
+  "$schema": "heracles://acl-definition/v1",
+  "permissions": [
+    {"scope": "dhcp", "action": "read",   "description": "View DHCP servers, subnets, and leases"},
+    {"scope": "dhcp", "action": "write",  "description": "Modify existing DHCP configurations"},
+    {"scope": "dhcp", "action": "create", "description": "Create new DHCP servers, subnets, pools, hosts"},
+    {"scope": "dhcp", "action": "delete", "description": "Delete DHCP configurations"},
+    {"scope": "dhcp", "action": "manage", "description": "Manage advanced DHCP operations"}
+  ],
+  "attribute_groups": [
+    {"object_type": "dhcp", "group_name": "server", "label": "DHCP Server", "attributes": ["dhcpServiceDN", "dhcpPrimaryDN", "dhcpSecondaryDN", "dhcpStatements", "dhcpOption"]},
+    {"object_type": "dhcp", "group_name": "subnet", "label": "DHCP Subnet", "attributes": ["dhcpNetMask", "dhcpRange", "dhcpOptions"]}
+  ]
+}

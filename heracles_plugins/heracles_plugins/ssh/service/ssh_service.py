@@ -60,6 +60,10 @@ class SSHService(
         self._config = config or {}
         self._log = logger.bind(service="ssh")
 
+    def get_base_dn(self) -> str:
+        """Get the LDAP base DN for scope-based ACL checks."""
+        return self._ldap.base_dn
+
     # ========================================================================
     # TabService Interface (required abstract methods)
     # ========================================================================

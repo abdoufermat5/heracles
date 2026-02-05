@@ -54,6 +54,10 @@ class DnsServiceBase:
         self._dns_base_dn = f"{self._dns_rdn},{self._base_dn}"
         self._default_ttl = config.get("default_ttl", 3600)
 
+    def get_dns_dn(self) -> str:
+        """Get the DNS container DN (e.g. ou=dns,dc=heracles,dc=local)."""
+        return self._dns_base_dn
+
     # ========================================================================
     # DN Building Utilities
     # ========================================================================

@@ -1,0 +1,270 @@
+{
+  "$schema": "heracles://acl-definition/v1",
+  "$comment": "Core ACL permissions, attribute groups, and built-in policies for Heracles",
+
+  "permissions": [
+    {"scope": "user",       "action": "read",     "description": "View user entries"},
+    {"scope": "user",       "action": "write",    "description": "Modify user entries"},
+    {"scope": "user",       "action": "create",   "description": "Create new user entries"},
+    {"scope": "user",       "action": "delete",   "description": "Delete user entries"},
+    {"scope": "user",       "action": "manage",   "description": "Full user management including password reset"},
+
+    {"scope": "group",      "action": "read",     "description": "View group entries"},
+    {"scope": "group",      "action": "write",    "description": "Modify group entries"},
+    {"scope": "group",      "action": "create",   "description": "Create new group entries"},
+    {"scope": "group",      "action": "delete",   "description": "Delete group entries"},
+    {"scope": "group",      "action": "manage",   "description": "Full group management including membership"},
+
+    {"scope": "role",       "action": "read",     "description": "View organizational roles"},
+    {"scope": "role",       "action": "write",    "description": "Modify organizational roles"},
+    {"scope": "role",       "action": "create",   "description": "Create organizational roles"},
+    {"scope": "role",       "action": "delete",   "description": "Delete organizational roles"},
+    {"scope": "role",       "action": "manage",   "description": "Full role management"},
+
+    {"scope": "department", "action": "read",     "description": "View departments (organizational units)"},
+    {"scope": "department", "action": "write",    "description": "Modify departments"},
+    {"scope": "department", "action": "create",   "description": "Create departments"},
+    {"scope": "department", "action": "delete",   "description": "Delete departments"},
+    {"scope": "department", "action": "manage",   "description": "Full department management"},
+
+    {"scope": "config",     "action": "read",     "description": "View system configuration"},
+    {"scope": "config",     "action": "write",    "description": "Modify system configuration"},
+
+    {"scope": "acl",        "action": "read",     "description": "View ACL policies and assignments"},
+    {"scope": "acl",        "action": "manage",   "description": "Create/modify/delete ACL policies and assignments"},
+
+    {"scope": "audit",      "action": "read",     "description": "View audit logs"}
+  ],
+
+  "attribute_groups": [
+    {
+      "object_type": "user",
+      "group_name": "identity",
+      "label": "Identity",
+      "attributes": ["uid", "cn", "sn", "givenName", "displayName", "employeeNumber", "employeeType"]
+    },
+    {
+      "object_type": "user",
+      "group_name": "contact",
+      "label": "Contact Information",
+      "attributes": ["mail", "telephoneNumber", "mobile", "facsimileTelephoneNumber", "pager", "homePhone"]
+    },
+    {
+      "object_type": "user",
+      "group_name": "location",
+      "label": "Location",
+      "attributes": ["street", "l", "st", "postalCode", "postalAddress", "physicalDeliveryOfficeName", "roomNumber", "destinationIndicator"]
+    },
+    {
+      "object_type": "user",
+      "group_name": "organization",
+      "label": "Organization",
+      "attributes": ["o", "ou", "title", "departmentNumber", "manager", "secretary"]
+    },
+    {
+      "object_type": "user",
+      "group_name": "security",
+      "label": "Security",
+      "attributes": ["userPassword", "pwdChangedTime", "pwdAccountLockedTime", "pwdFailureTime", "pwdHistory", "pwdReset"]
+    },
+    {
+      "object_type": "user",
+      "group_name": "account",
+      "label": "Account Status",
+      "attributes": ["accountStatus", "shadowExpire", "shadowLastChange", "shadowMax", "shadowMin", "shadowWarning", "shadowInactive", "shadowFlag"]
+    },
+    {
+      "object_type": "user",
+      "group_name": "personal",
+      "label": "Personal",
+      "attributes": ["jpegPhoto", "labeledURI", "description", "preferredLanguage", "userCertificate"]
+    },
+
+    {
+      "object_type": "group",
+      "group_name": "identity",
+      "label": "Identity",
+      "attributes": ["cn", "description", "businessCategory"]
+    },
+    {
+      "object_type": "group",
+      "group_name": "membership",
+      "label": "Membership",
+      "attributes": ["member", "uniqueMember", "memberUid", "owner"]
+    },
+
+    {
+      "object_type": "role",
+      "group_name": "identity",
+      "label": "Identity",
+      "attributes": ["cn", "description"]
+    },
+    {
+      "object_type": "role",
+      "group_name": "membership",
+      "label": "Membership",
+      "attributes": ["roleOccupant"]
+    },
+
+    {
+      "object_type": "department",
+      "group_name": "identity",
+      "label": "Identity",
+      "attributes": ["ou", "description", "l", "street", "postalCode"]
+    }
+  ],
+
+  "policies": [
+    {
+      "name": "Superadmin",
+      "description": "Full access to all objects and operations",
+      "builtin": true,
+      "permissions": "*"
+    },
+    {
+      "name": "User Manager",
+      "description": "Full user and group management",
+      "builtin": true,
+      "permissions": [
+        "user:read", "user:write", "user:create", "user:delete", "user:manage",
+        "group:read", "group:write", "group:create", "group:delete", "group:manage",
+        "role:read",
+        "department:read"
+      ]
+    },
+    {
+      "name": "Helpdesk",
+      "description": "User support - view and reset passwords",
+      "builtin": true,
+      "permissions": [
+        "user:read", "user:write",
+        "group:read",
+        "role:read",
+        "department:read"
+      ],
+      "attr_rules": [
+        {
+          "object_type": "user",
+          "action": "read",
+          "rule_type": "allow",
+          "attr_groups": ["identity", "contact", "location", "organization", "account"]
+        },
+        {
+          "object_type": "user",
+          "action": "write",
+          "rule_type": "allow",
+          "attr_groups": ["security", "account"]
+        }
+      ]
+    },
+    {
+      "name": "Viewer",
+      "description": "Read-only access to directory",
+      "builtin": true,
+      "permissions": [
+        "user:read",
+        "group:read",
+        "role:read",
+        "department:read"
+      ],
+      "attr_rules": [
+        {
+          "object_type": "user",
+          "action": "read",
+          "rule_type": "deny",
+          "attr_groups": ["security"]
+        }
+      ]
+    },
+    {
+      "name": "Self Service",
+      "description": "Users can edit their own profile",
+      "builtin": true,
+      "permissions": [
+        "user:read", "user:write"
+      ],
+      "attr_rules": [
+        {
+          "object_type": "user",
+          "action": "read",
+          "rule_type": "allow",
+          "attr_groups": ["identity", "contact", "location", "organization", "personal", "account"]
+        },
+        {
+          "object_type": "user",
+          "action": "write",
+          "rule_type": "allow",
+          "attr_groups": ["contact", "personal"]
+        },
+        {
+          "object_type": "user",
+          "action": "write",
+          "rule_type": "deny",
+          "attr_groups": ["security"]
+        }
+      ]
+    },
+    {
+      "name": "Config Manager",
+      "description": "System configuration management",
+      "builtin": true,
+      "permissions": [
+        "config:read", "config:write"
+      ]
+    },
+    {
+      "name": "ACL Manager",
+      "description": "ACL policy and assignment management",
+      "builtin": true,
+      "permissions": [
+        "acl:read", "acl:manage",
+        "user:read",
+        "group:read",
+        "role:read"
+      ]
+    },
+    {
+      "name": "Auditor",
+      "description": "Read-only access to audit logs",
+      "builtin": true,
+      "permissions": [
+        "audit:read",
+        "user:read",
+        "group:read"
+      ],
+      "attr_rules": [
+        {
+          "object_type": "user",
+          "action": "read",
+          "rule_type": "deny",
+          "attr_groups": ["security"]
+        }
+      ]
+    }
+  ],
+
+  "initial_assignments": [
+    {
+      "$comment": "Bootstrap: Assign Superadmin policy to the initial admin user (UI login)",
+      "policy": "Superadmin",
+      "subject_type": "user",
+      "subject_dn_setting": "SUPERADMIN_DN",
+      "scope_dn": "",
+      "scope_type": "subtree",
+      "self_only": false,
+      "deny": false,
+      "priority": 100
+    },
+    {
+      "$comment": "Bootstrap: Assign Superadmin policy to the LDAP bind DN (backend operations)",
+      "policy": "Superadmin",
+      "subject_type": "user",
+      "subject_dn_setting": "LDAP_BIND_DN",
+      "scope_dn": "",
+      "scope_type": "subtree",
+      "self_only": false,
+      "deny": false,
+      "priority": 100
+    }
+  ]
+}

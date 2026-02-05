@@ -95,8 +95,8 @@ def get_dhcp_service() -> DhcpService:
     return service
 
 
-# Import CurrentUser from core dependencies
-from heracles_api.core.dependencies import CurrentUser
+# Import CurrentUser and AclGuardDep from core dependencies
+from heracles_api.core.dependencies import CurrentUser, AclGuardDep
 
 
 # =============================================================================
@@ -110,6 +110,7 @@ from heracles_api.core.dependencies import CurrentUser
 )
 async def list_services(
     current_user: CurrentUser,
+    guard: AclGuardDep,
     search: Optional[str] = Query(None, description="Search in name and comments"),
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     page: int = Query(1, ge=1, description="Page number"),
@@ -117,6 +118,7 @@ async def list_services(
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """List all DHCP service configurations."""
+    guard.require(service.get_dhcp_dn(), "dhcp:read")
     try:
         return await service.list_services(
             search=search,
@@ -141,10 +143,12 @@ async def list_services(
 async def create_service(
     data: DhcpServiceCreate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Create a new DHCP service configuration."""
+    guard.require(service.get_dhcp_dn(), "dhcp:create")
     try:
         return await service.create_service(data, base_dn=base_dn)
     except DhcpValidationError as e:
@@ -168,10 +172,12 @@ async def create_service(
 async def get_service(
     service_cn: str = Path(..., description="Service name"),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Get a DHCP service by name."""
+    guard.require(service.get_dhcp_dn(), "dhcp:read")
     try:
         return await service.get_service(service_cn, base_dn=base_dn)
     except Exception as e:
@@ -196,10 +202,12 @@ async def update_service(
     data: DhcpServiceUpdate,
     service_cn: str = Path(..., description="Service name"),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Update a DHCP service configuration."""
+    guard.require(service.get_dhcp_dn(), "dhcp:write")
     try:
         return await service.update_service(service_cn, data, base_dn=base_dn)
     except DhcpValidationError as e:
@@ -229,10 +237,12 @@ async def delete_service(
     service_cn: str = Path(..., description="Service name"),
     recursive: bool = Query(False, description="Delete all children"),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Delete a DHCP service and optionally all its children."""
+    guard.require(service.get_dhcp_dn(), "dhcp:delete")
     try:
         await service.delete_service(service_cn, recursive=recursive, base_dn=base_dn)
     except Exception as e:
@@ -256,9 +266,11 @@ async def delete_service(
 async def get_service_tree(
     service_cn: str = Path(..., description="Service name"),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Get the full DHCP configuration tree for a service."""
+    guard.require(service.get_dhcp_dn(), "dhcp:read")
     try:
         return await service.get_service_tree(service_cn)
     except Exception as e:
@@ -290,10 +302,12 @@ async def list_subnets(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """List subnets under a service or parent."""
+    guard.require(service.get_dhcp_dn(), "dhcp:read")
     try:
         return await service.list_subnets(
             service_cn=service_cn,
@@ -322,10 +336,12 @@ async def create_subnet(
     service_cn: str = Path(..., description="Service name"),
     parent_dn: Optional[str] = Query(None, description="Parent DN (defaults to service)"),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Create a new subnet under a service or shared network."""
+    guard.require(service.get_dhcp_dn(), "dhcp:create")
     try:
         # Get parent DN
         if parent_dn is None:
@@ -355,10 +371,12 @@ async def get_subnet(
     subnet_cn: str = Path(..., description="Subnet network address"),
     dn: Optional[str] = Query(None, description="Full DN (if known)"),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Get a subnet by name."""
+    guard.require(service.get_dhcp_dn(), "dhcp:read")
     try:
         if dn:
             return await service.get_subnet(dn)
@@ -391,10 +409,12 @@ async def update_subnet(
     subnet_cn: str = Path(...),
     dn: Optional[str] = Query(None, description="Full DN"),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Update a subnet."""
+    guard.require(service.get_dhcp_dn(), "dhcp:write")
     try:
         if dn is None:
             parent_dn = service._get_service_dn(service_cn, base_dn=base_dn)
@@ -420,9 +440,11 @@ async def delete_subnet(
     dn: Optional[str] = Query(None),
     recursive: bool = Query(False),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Delete a subnet and optionally its children."""
+    guard.require(service.get_dhcp_dn(), "dhcp:delete")
     try:
         if dn is None:
             parent_dn = service._get_service_dn(service_cn)
@@ -451,9 +473,11 @@ async def list_pools(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """List pools under a parent."""
+    guard.require(service.get_dhcp_dn(), "dhcp:read")
     try:
         return await service.list_pools(parent_dn, search=search, page=page, page_size=page_size)
     except Exception as e:
@@ -472,9 +496,11 @@ async def create_pool(
     service_cn: str = Path(...),
     parent_dn: str = Query(..., description="Parent DN (subnet or shared network)"),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Create a new pool under a subnet or shared network."""
+    guard.require(service.get_dhcp_dn(), "dhcp:create")
     try:
         return await service.create_pool(parent_dn, data)
     except DhcpValidationError as e:
@@ -494,9 +520,11 @@ async def get_pool(
     pool_cn: str = Path(...),
     dn: str = Query(..., description="Full DN"),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Get a pool by DN."""
+    guard.require(service.get_dhcp_dn(), "dhcp:read")
     try:
         return await service.get_pool(dn)
     except Exception as e:
@@ -517,9 +545,11 @@ async def update_pool(
     pool_cn: str = Path(...),
     dn: str = Query(...),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Update a pool."""
+    guard.require(service.get_dhcp_dn(), "dhcp:write")
     try:
         return await service.update_pool(dn, data)
     except DhcpValidationError as e:
@@ -541,9 +571,11 @@ async def delete_pool(
     pool_cn: str = Path(...),
     dn: str = Query(...),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Delete a pool."""
+    guard.require(service.get_dhcp_dn(), "dhcp:delete")
     try:
         await service.delete_pool(dn)
     except Exception as e:
@@ -569,9 +601,11 @@ async def list_hosts(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """List DHCP hosts."""
+    guard.require(service.get_dhcp_dn(), "dhcp:read")
     try:
         if parent_dn is None:
             parent_dn = service._get_service_dn(service_cn)
@@ -592,9 +626,11 @@ async def create_host(
     service_cn: str = Path(...),
     parent_dn: Optional[str] = Query(None),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Create a new DHCP host reservation."""
+    guard.require(service.get_dhcp_dn(), "dhcp:create")
     try:
         if parent_dn is None:
             parent_dn = service._get_service_dn(service_cn)
@@ -616,9 +652,11 @@ async def get_host(
     host_cn: str = Path(...),
     dn: str = Query(...),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Get a DHCP host by DN."""
+    guard.require(service.get_dhcp_dn(), "dhcp:read")
     try:
         return await service.get_host(dn)
     except Exception as e:
@@ -639,9 +677,11 @@ async def update_host(
     host_cn: str = Path(...),
     dn: str = Query(...),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Update a DHCP host."""
+    guard.require(service.get_dhcp_dn(), "dhcp:write")
     try:
         return await service.update_host(dn, data)
     except DhcpValidationError as e:
@@ -663,9 +703,11 @@ async def delete_host(
     host_cn: str = Path(...),
     dn: str = Query(...),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Delete a DHCP host."""
+    guard.require(service.get_dhcp_dn(), "dhcp:delete")
     try:
         await service.delete_host(dn)
     except Exception as e:
@@ -684,9 +726,11 @@ async def get_host_by_mac(
     service_cn: str = Path(...),
     mac_address: str = Path(..., description="MAC address"),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Find a DHCP host by MAC address."""
+    guard.require(service.get_dhcp_dn(), "dhcp:read")
     try:
         host = await service.get_host_by_mac(mac_address)
         if host is None:
@@ -714,9 +758,11 @@ async def list_shared_networks(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """List shared networks under a service."""
+    guard.require(service.get_dhcp_dn(), "dhcp:read")
     try:
         return await service.list_shared_networks(service_cn, search=search, page=page, page_size=page_size)
     except Exception as e:
@@ -734,9 +780,11 @@ async def create_shared_network(
     data: SharedNetworkCreate,
     service_cn: str = Path(...),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Create a new shared network."""
+    guard.require(service.get_dhcp_dn(), "dhcp:create")
     try:
         return await service.create_shared_network(service_cn, data)
     except DhcpValidationError as e:
@@ -756,9 +804,11 @@ async def get_shared_network(
     network_cn: str = Path(...),
     dn: Optional[str] = Query(None),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Get a shared network."""
+    guard.require(service.get_dhcp_dn(), "dhcp:read")
     try:
         if dn is None:
             parent_dn = service._get_service_dn(service_cn)
@@ -782,9 +832,11 @@ async def update_shared_network(
     network_cn: str = Path(...),
     dn: Optional[str] = Query(None),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Update a shared network."""
+    guard.require(service.get_dhcp_dn(), "dhcp:write")
     try:
         if dn is None:
             parent_dn = service._get_service_dn(service_cn)
@@ -810,9 +862,11 @@ async def delete_shared_network(
     dn: Optional[str] = Query(None),
     recursive: bool = Query(False),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Delete a shared network."""
+    guard.require(service.get_dhcp_dn(), "dhcp:delete")
     try:
         if dn is None:
             parent_dn = service._get_service_dn(service_cn)
@@ -841,9 +895,11 @@ async def list_groups(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """List groups."""
+    guard.require(service.get_dhcp_dn(), "dhcp:read")
     try:
         if parent_dn is None:
             parent_dn = service._get_service_dn(service_cn)
@@ -864,9 +920,11 @@ async def create_group(
     service_cn: str = Path(...),
     parent_dn: Optional[str] = Query(None),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Create a new group."""
+    guard.require(service.get_dhcp_dn(), "dhcp:create")
     try:
         if parent_dn is None:
             parent_dn = service._get_service_dn(service_cn)
@@ -888,9 +946,11 @@ async def get_group(
     group_cn: str = Path(...),
     dn: str = Query(...),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Get a group by DN."""
+    guard.require(service.get_dhcp_dn(), "dhcp:read")
     try:
         return await service.get_group(dn)
     except Exception as e:
@@ -911,9 +971,11 @@ async def update_group(
     group_cn: str = Path(...),
     dn: str = Query(...),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Update a group."""
+    guard.require(service.get_dhcp_dn(), "dhcp:write")
     try:
         return await service.update_group(dn, data)
     except DhcpValidationError as e:
@@ -936,9 +998,11 @@ async def delete_group(
     dn: str = Query(...),
     recursive: bool = Query(False),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Delete a group."""
+    guard.require(service.get_dhcp_dn(), "dhcp:delete")
     try:
         await service.delete_group(dn, recursive=recursive)
     except Exception as e:
@@ -964,9 +1028,11 @@ async def list_classes(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """List DHCP classes."""
+    guard.require(service.get_dhcp_dn(), "dhcp:read")
     try:
         if parent_dn is None:
             parent_dn = service._get_service_dn(service_cn)
@@ -987,9 +1053,11 @@ async def create_class(
     service_cn: str = Path(...),
     parent_dn: Optional[str] = Query(None),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Create a new DHCP class."""
+    guard.require(service.get_dhcp_dn(), "dhcp:create")
     try:
         if parent_dn is None:
             parent_dn = service._get_service_dn(service_cn)
@@ -1011,9 +1079,11 @@ async def get_class(
     class_cn: str = Path(...),
     dn: str = Query(...),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Get a DHCP class by DN."""
+    guard.require(service.get_dhcp_dn(), "dhcp:read")
     try:
         return await service.get_class(dn)
     except Exception as e:
@@ -1034,9 +1104,11 @@ async def update_class(
     class_cn: str = Path(...),
     dn: str = Query(...),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Update a DHCP class."""
+    guard.require(service.get_dhcp_dn(), "dhcp:write")
     try:
         return await service.update_class(dn, data)
     except DhcpValidationError as e:
@@ -1059,9 +1131,11 @@ async def delete_class(
     dn: str = Query(...),
     recursive: bool = Query(False),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Delete a DHCP class."""
+    guard.require(service.get_dhcp_dn(), "dhcp:delete")
     try:
         await service.delete_class(dn, recursive=recursive)
     except Exception as e:
@@ -1087,9 +1161,11 @@ async def list_tsig_keys(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """List TSIG keys."""
+    guard.require(service.get_dhcp_dn(), "dhcp:read")
     try:
         if parent_dn is None:
             parent_dn = service._get_service_dn(service_cn)
@@ -1110,9 +1186,11 @@ async def create_tsig_key(
     service_cn: str = Path(...),
     parent_dn: Optional[str] = Query(None),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Create a new TSIG key."""
+    guard.require(service.get_dhcp_dn(), "dhcp:create")
     try:
         if parent_dn is None:
             parent_dn = service._get_service_dn(service_cn)
@@ -1134,9 +1212,11 @@ async def delete_tsig_key(
     key_cn: str = Path(...),
     dn: str = Query(...),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Delete a TSIG key."""
+    guard.require(service.get_dhcp_dn(), "dhcp:delete")
     try:
         await service.delete_tsig_key(dn)
     except Exception as e:
@@ -1162,9 +1242,11 @@ async def list_dns_zones(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """List DNS zones for dynamic updates."""
+    guard.require(service.get_dhcp_dn(), "dhcp:read")
     try:
         if parent_dn is None:
             parent_dn = service._get_service_dn(service_cn)
@@ -1185,9 +1267,11 @@ async def create_dns_zone(
     service_cn: str = Path(...),
     parent_dn: Optional[str] = Query(None),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Create a new DNS zone for dynamic updates."""
+    guard.require(service.get_dhcp_dn(), "dhcp:create")
     try:
         if parent_dn is None:
             parent_dn = service._get_service_dn(service_cn)
@@ -1209,9 +1293,11 @@ async def delete_dns_zone(
     zone_cn: str = Path(...),
     dn: str = Query(...),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Delete a DNS zone."""
+    guard.require(service.get_dhcp_dn(), "dhcp:delete")
     try:
         await service.delete_dns_zone(dn)
     except Exception as e:
@@ -1237,9 +1323,11 @@ async def list_failover_peers(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """List failover peer configurations."""
+    guard.require(service.get_dhcp_dn(), "dhcp:read")
     try:
         if parent_dn is None:
             parent_dn = service._get_service_dn(service_cn)
@@ -1260,9 +1348,11 @@ async def create_failover_peer(
     service_cn: str = Path(...),
     parent_dn: Optional[str] = Query(None),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Create a new failover peer configuration."""
+    guard.require(service.get_dhcp_dn(), "dhcp:create")
     try:
         if parent_dn is None:
             parent_dn = service._get_service_dn(service_cn)
@@ -1284,9 +1374,11 @@ async def get_failover_peer(
     peer_cn: str = Path(...),
     dn: str = Query(...),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Get a failover peer configuration."""
+    guard.require(service.get_dhcp_dn(), "dhcp:read")
     try:
         return await service.get_failover_peer(dn)
     except Exception as e:
@@ -1307,9 +1399,11 @@ async def update_failover_peer(
     peer_cn: str = Path(...),
     dn: str = Query(...),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Update a failover peer configuration."""
+    guard.require(service.get_dhcp_dn(), "dhcp:write")
     try:
         return await service.update_failover_peer(dn, data)
     except DhcpValidationError as e:
@@ -1331,9 +1425,11 @@ async def delete_failover_peer(
     peer_cn: str = Path(...),
     dn: str = Query(...),
     current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
     service: DhcpService = Depends(get_dhcp_service),
 ):
     """Delete a failover peer configuration."""
+    guard.require(service.get_dhcp_dn(), "dhcp:delete")
     try:
         await service.delete_failover_peer(dn)
     except Exception as e:
@@ -1352,8 +1448,13 @@ async def delete_failover_peer(
     response_model=List[dict],
     summary="Get available DHCP object types",
 )
-async def get_dhcp_object_types(current_user: CurrentUser = None):
+async def get_dhcp_object_types(
+    current_user: CurrentUser = None,
+    guard: AclGuardDep = None,
+    service: DhcpService = Depends(get_dhcp_service),
+):
     """Get the list of available DHCP object types."""
+    guard.require(service.get_dhcp_dn(), "dhcp:read")
     return [
         {
             "value": t.value,

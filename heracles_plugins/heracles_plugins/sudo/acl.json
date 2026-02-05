@@ -1,0 +1,13 @@
+{
+  "$schema": "heracles://acl-definition/v1",
+  "permissions": [
+    {"scope": "sudo", "action": "read",   "description": "View sudo rules"},
+    {"scope": "sudo", "action": "write",  "description": "Modify existing sudo rules"},
+    {"scope": "sudo", "action": "create", "description": "Create new sudo rules"},
+    {"scope": "sudo", "action": "delete", "description": "Delete sudo rules"},
+    {"scope": "sudo", "action": "manage", "description": "Manage sudo rule assignments"}
+  ],
+  "attribute_groups": [
+    {"object_type": "sudo", "group_name": "rule", "label": "Sudo Rule", "attributes": ["sudoUser", "sudoHost", "sudoCommand", "sudoRunAsUser", "sudoRunAsGroup", "sudoOption", "sudoOrder"]}
+  ]
+}

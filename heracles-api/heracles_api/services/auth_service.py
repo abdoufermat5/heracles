@@ -54,6 +54,7 @@ class UserSession:
     display_name: str
     mail: Optional[str]
     groups: list[str]
+    roles: list[str]
     created_at: datetime
     last_activity: datetime
     token_jti: str
@@ -261,6 +262,7 @@ class AuthService:
         display_name: str,
         mail: Optional[str],
         groups: list[str],
+        roles: list[str],
         token_jti: str,
     ) -> UserSession:
         """
@@ -272,6 +274,7 @@ class AuthService:
             display_name: User's display name
             mail: User's email
             groups: List of group DNs
+            roles: List of role DNs
             token_jti: JWT token ID
             
         Returns:
@@ -284,6 +287,7 @@ class AuthService:
             display_name=display_name,
             mail=mail,
             groups=groups,
+            roles=roles,
             created_at=now,
             last_activity=now,
             token_jti=token_jti,
@@ -296,7 +300,9 @@ class AuthService:
                 "uid": session.uid,
                 "display_name": session.display_name,
                 "mail": session.mail or "",
-                "groups": ",".join(session.groups),
+                # Use pipe separator since DNs contain commas
+                "groups": "|".join(session.groups),
+                "roles": "|".join(session.roles),
                 "created_at": session.created_at.isoformat(),
                 "last_activity": session.last_activity.isoformat(),
             }
@@ -341,7 +347,9 @@ class AuthService:
             uid=data["uid"],
             display_name=data["display_name"],
             mail=data["mail"] or None,
-            groups=data["groups"].split(",") if data["groups"] else [],
+            # Use pipe separator since DNs contain commas
+            groups=data["groups"].split("|") if data.get("groups") else [],
+            roles=data["roles"].split("|") if data.get("roles") else [],
             created_at=datetime.fromisoformat(data["created_at"]),
             last_activity=datetime.fromisoformat(data["last_activity"]),
             token_jti=token_jti,

@@ -40,7 +40,11 @@ class DhcpServiceBase:
         
         # Systems plugin integration (optional)
         self._systems_service = None
-    
+
+    def get_dhcp_dn(self) -> str:
+        """Get the DHCP container DN (e.g. ou=dhcp,dc=heracles,dc=local)."""
+        return self._dhcp_dn
+
     def reload_config(self, config: Dict[str, Any]) -> None:
         """
         Reload configuration values.

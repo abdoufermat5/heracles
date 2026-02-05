@@ -1,0 +1,13 @@
+{
+  "$schema": "heracles://acl-definition/v1",
+  "permissions": [
+    {"scope": "systems", "action": "read",   "description": "View hosts and system entries"},
+    {"scope": "systems", "action": "write",  "description": "Modify system attributes"},
+    {"scope": "systems", "action": "create", "description": "Register new systems"},
+    {"scope": "systems", "action": "delete", "description": "Deregister systems"},
+    {"scope": "systems", "action": "manage", "description": "Manage system policies and enrollment"}
+  ],
+  "attribute_groups": [
+    {"object_type": "host", "group_name": "host", "label": "Host", "attributes": ["cn", "ipHostNumber", "macAddress", "description", "location", "owner"]}
+  ]
+}

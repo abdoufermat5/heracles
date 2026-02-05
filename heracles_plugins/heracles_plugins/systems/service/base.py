@@ -35,3 +35,7 @@ class SystemServiceBase(TabService):
         self._systems_rdn = config.get("systems_rdn", "ou=systems")
         self._base_dn = config.get("base_dn", ldap_service.base_dn)
         self._systems_dn = f"{self._systems_rdn},{self._base_dn}"
+    
+    def get_systems_dn(self) -> str:
+        """Get the base DN for systems container."""
+        return self._systems_dn

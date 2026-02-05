@@ -10,6 +10,9 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 import structlog
 
+from heracles_api.acl import AclGuard
+from heracles_api.config import settings
+from heracles_api.core.dependencies import get_acl_guard
 from heracles_api.schemas.config import (
     ConfigBulkUpdateRequest,
     ConfigCategoryResponse,
@@ -63,9 +66,15 @@ async def get_config_svc() -> ConfigService:
 )
 async def get_all_config(
     current_user=Depends(get_current_user),
+    guard: AclGuard = Depends(get_acl_guard),
     config_service: ConfigService = Depends(get_config_svc),
 ):
-    """Get all configuration (categories + plugins)."""
+    """
+    Get all configuration (categories + plugins).
+    
+    Requires: config:read
+    """
+    guard.require(settings.LDAP_BASE_DN, "config:read")
     return await config_service.get_all_config()
 
 
@@ -77,9 +86,15 @@ async def get_all_config(
 )
 async def get_categories(
     current_user=Depends(get_current_user),
+    guard: AclGuard = Depends(get_acl_guard),
     config_service: ConfigService = Depends(get_config_svc),
 ):
-    """Get all configuration categories."""
+    """
+    Get all configuration categories.
+    
+    Requires: config:read
+    """
+    guard.require(settings.LDAP_BASE_DN, "config:read")
     return await config_service.get_categories()
 
 
@@ -92,9 +107,15 @@ async def get_categories(
 async def get_category(
     category_name: str,
     current_user=Depends(get_current_user),
+    guard: AclGuard = Depends(get_acl_guard),
     config_service: ConfigService = Depends(get_config_svc),
 ):
-    """Get a specific configuration category."""
+    """
+    Get a specific configuration category.
+    
+    Requires: config:read
+    """
+    guard.require(settings.LDAP_BASE_DN, "config:read")
     categories = await config_service.get_categories()
     for cat in categories:
         if cat.name == category_name:
@@ -116,9 +137,15 @@ async def update_setting(
     key: str,
     request: ConfigUpdateRequest,
     current_user=Depends(get_current_user),
+    guard: AclGuard = Depends(get_acl_guard),
     config_service: ConfigService = Depends(get_config_svc),
 ):
-    """Update a single configuration setting."""
+    """
+    Update a single configuration setting.
+    
+    Requires: config:write
+    """
+    guard.require(settings.LDAP_BASE_DN, "config:write")
     success, errors = await config_service.update_setting(
         category=category,
         key=key,
@@ -144,9 +171,15 @@ async def update_setting(
 async def bulk_update_settings(
     request: ConfigBulkUpdateRequest,
     current_user=Depends(get_current_user),
+    guard: AclGuard = Depends(get_acl_guard),
     config_service: ConfigService = Depends(get_config_svc),
 ):
-    """Bulk update configuration settings."""
+    """
+    Bulk update configuration settings.
+    
+    Requires: config:write
+    """
+    guard.require(settings.LDAP_BASE_DN, "config:write")
     updated, errors = await config_service.bulk_update_settings(
         settings=request.settings,
         changed_by=current_user.user_dn,
@@ -172,9 +205,15 @@ async def bulk_update_settings(
 )
 async def get_all_plugin_configs(
     current_user=Depends(get_current_user),
+    guard: AclGuard = Depends(get_acl_guard),
     config_service: ConfigService = Depends(get_config_svc),
 ):
-    """Get all plugin configurations."""
+    """
+    Get all plugin configurations.
+    
+    Requires: config:read
+    """
+    guard.require(settings.LDAP_BASE_DN, "config:read")
     return await config_service.get_all_plugin_configs()
 
 
@@ -187,9 +226,15 @@ async def get_all_plugin_configs(
 async def get_plugin_config(
     plugin_name: str,
     current_user=Depends(get_current_user),
+    guard: AclGuard = Depends(get_acl_guard),
     config_service: ConfigService = Depends(get_config_svc),
 ):
-    """Get a specific plugin's configuration."""
+    """
+    Get a specific plugin's configuration.
+    
+    Requires: config:read
+    """
+    guard.require(settings.LDAP_BASE_DN, "config:read")
     config = await config_service.get_plugin_config(plugin_name)
     if not config:
         raise HTTPException(
@@ -209,6 +254,7 @@ async def update_plugin_config(
     plugin_name: str,
     request: PluginConfigUpdateRequest,
     current_user=Depends(get_current_user),
+    guard: AclGuard = Depends(get_acl_guard),
     config_service: ConfigService = Depends(get_config_svc),
 ):
     """
@@ -216,7 +262,10 @@ async def update_plugin_config(
     
     For RDN settings (like sudoers_rdn, dns_rdn, systems_rdn), this endpoint
     will check if existing entries would be affected and require confirmation.
+    
+    Requires: config:write
     """
+    guard.require(settings.LDAP_BASE_DN, "config:write")
     result = await config_service.update_plugin_config_with_migration(
         plugin_name=plugin_name,
         config=request.config,
@@ -248,9 +297,15 @@ async def enable_plugin(
     plugin_name: str,
     request: Optional[PluginToggleRequest] = None,
     current_user=Depends(get_current_user),
+    guard: AclGuard = Depends(get_acl_guard),
     config_service: ConfigService = Depends(get_config_svc),
 ):
-    """Enable a plugin."""
+    """
+    Enable a plugin.
+    
+    Requires: config:write
+    """
+    guard.require(settings.LDAP_BASE_DN, "config:write")
     reason = request.reason if request else None
     success, errors = await config_service.toggle_plugin(
         plugin_name=plugin_name,
@@ -277,9 +332,15 @@ async def disable_plugin(
     plugin_name: str,
     request: Optional[PluginToggleRequest] = None,
     current_user=Depends(get_current_user),
+    guard: AclGuard = Depends(get_acl_guard),
     config_service: ConfigService = Depends(get_config_svc),
 ):
-    """Disable a plugin."""
+    """
+    Disable a plugin.
+    
+    Requires: config:write
+    """
+    guard.require(settings.LDAP_BASE_DN, "config:write")
     reason = request.reason if request else None
     success, errors = await config_service.toggle_plugin(
         plugin_name=plugin_name,
@@ -313,9 +374,15 @@ async def get_config_history(
     category: Optional[str] = Query(None, description="Filter by category"),
     plugin_name: Optional[str] = Query(None, description="Filter by plugin"),
     current_user=Depends(get_current_user),
+    guard: AclGuard = Depends(get_acl_guard),
     config_service: ConfigService = Depends(get_config_svc),
 ):
-    """Get configuration change history."""
+    """
+    Get configuration change history.
+    
+    Requires: config:read
+    """
+    guard.require(settings.LDAP_BASE_DN, "config:read")
     return await config_service.get_history(
         page=page,
         page_size=page_size,

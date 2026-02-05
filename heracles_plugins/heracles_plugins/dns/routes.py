@@ -46,8 +46,8 @@ def get_dns_service() -> DnsService:
     return service
 
 
-# Import CurrentUser from core dependencies
-from heracles_api.core.dependencies import CurrentUser
+# Import CurrentUser and AclGuardDep from core dependencies
+from heracles_api.core.dependencies import CurrentUser, AclGuardDep
 
 
 # =============================================================================
@@ -61,6 +61,7 @@ from heracles_api.core.dependencies import CurrentUser
 )
 async def list_zones(
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: str = Query(None, description="Base DN context"),
     service: DnsService = Depends(get_dns_service),
 ):
@@ -68,7 +69,10 @@ async def list_zones(
     List all DNS zones.
 
     Returns all zones with their names, types, and record counts.
+    
+    Requires: dns:read
     """
+    guard.require(service.get_dns_dn(), "dns:read")
     try:
         return await service.list_zones(base_dn=base_dn)
     except Exception as e:
@@ -88,6 +92,7 @@ async def list_zones(
 async def create_zone(
     data: DnsZoneCreate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: str = Query(None, description="Base DN context"),
     service: DnsService = Depends(get_dns_service),
 ):
@@ -96,7 +101,10 @@ async def create_zone(
 
     Creates a zone with the specified SOA parameters. The zone apex (@)
     entry is created automatically with the SOA record.
+    
+    Requires: dns:create
     """
+    guard.require(service.get_dns_dn(), "dns:create")
     try:
         return await service.create_zone(data, base_dn=base_dn)
     except DnsValidationError as e:
@@ -124,10 +132,15 @@ async def create_zone(
 async def get_zone(
     zone_name: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: str = Query(None, description="Base DN context"),
     service: DnsService = Depends(get_dns_service),
 ):
-    """Get a specific DNS zone by name."""
+    """Get a specific DNS zone by name.
+    
+    Requires: dns:read
+    """
+    guard.require(service.get_dns_dn(), "dns:read")
     try:
         zone = await service.get_zone(zone_name, base_dn=base_dn)
         if zone is None:
@@ -155,6 +168,7 @@ async def update_zone(
     zone_name: str,
     data: DnsZoneUpdate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: str = Query(None, description="Base DN context"),
     service: DnsService = Depends(get_dns_service),
 ):
@@ -163,7 +177,10 @@ async def update_zone(
 
     Updates the zone's SOA parameters. The serial number is automatically
     incremented on each update.
+    
+    Requires: dns:write
     """
+    guard.require(service.get_dns_dn(), "dns:write")
     try:
         return await service.update_zone(zone_name, data, base_dn=base_dn)
     except DnsValidationError as e:
@@ -192,6 +209,7 @@ async def update_zone(
 async def delete_zone(
     zone_name: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: str = Query(None, description="Base DN context"),
     service: DnsService = Depends(get_dns_service),
 ):
@@ -199,7 +217,10 @@ async def delete_zone(
     Delete a DNS zone and all its records.
 
     This is a destructive operation that removes all records within the zone.
+    
+    Requires: dns:delete
     """
+    guard.require(service.get_dns_dn(), "dns:delete")
     try:
         await service.delete_zone(zone_name, base_dn=base_dn)
     except DnsValidationError as e:
@@ -232,6 +253,7 @@ async def delete_zone(
 async def list_records(
     zone_name: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: str = Query(None, description="Base DN context"),
     service: DnsService = Depends(get_dns_service),
 ):
@@ -239,7 +261,10 @@ async def list_records(
     List all records in a DNS zone.
 
     Returns records from all relativeDomainName entries within the zone.
+    
+    Requires: dns:read
     """
+    guard.require(service.get_dns_dn(), "dns:read")
     try:
         return await service.list_records(zone_name, base_dn=base_dn)
     except Exception as e:
@@ -265,6 +290,7 @@ async def create_record(
     zone_name: str,
     data: DnsRecordCreate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: str = Query(None, description="Base DN context"),
     service: DnsService = Depends(get_dns_service),
 ):
@@ -273,7 +299,10 @@ async def create_record(
 
     Use '@' as the name for zone apex records.
     MX and SRV records require a priority value.
+    
+    Requires: dns:create
     """
+    guard.require(service.get_dns_dn(), "dns:create")
     try:
         return await service.create_record(zone_name, data, base_dn=base_dn)
     except DnsValidationError as e:
@@ -310,6 +339,7 @@ async def update_record(
     record_type: str,
     data: DnsRecordUpdate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     old_value: str = Query(..., description="Current record value to update"),
     base_dn: str = Query(None, description="Base DN context"),
     service: DnsService = Depends(get_dns_service),
@@ -319,7 +349,10 @@ async def update_record(
 
     The old_value parameter is required to identify which specific record
     to update when multiple records of the same type exist.
+    
+    Requires: dns:write
     """
+    guard.require(service.get_dns_dn(), "dns:write")
     try:
         return await service.update_record(zone_name, name, record_type, old_value, data, base_dn=base_dn)
     except DnsValidationError as e:
@@ -356,6 +389,7 @@ async def delete_record(
     name: str,
     record_type: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     value: str = Query(..., description="Record value to delete"),
     base_dn: str = Query(None, description="Base DN context"),
     service: DnsService = Depends(get_dns_service),
@@ -365,7 +399,10 @@ async def delete_record(
 
     The value parameter is required to identify which specific record
     to delete when multiple records of the same type exist.
+    
+    Requires: dns:delete
     """
+    guard.require(service.get_dns_dn(), "dns:delete")
     try:
         await service.delete_record(zone_name, name, record_type, value, base_dn=base_dn)
     except DnsValidationError as e:

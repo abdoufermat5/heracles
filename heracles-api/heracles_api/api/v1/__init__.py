@@ -7,7 +7,7 @@ Main router for API v1 endpoints.
 
 from fastapi import APIRouter
 
-from heracles_api.api.v1.endpoints import auth, users, groups, roles, departments, plugins, config, version
+from heracles_api.api.v1.endpoints import auth, users, groups, roles, departments, plugins, config, version, acl
 
 router = APIRouter()
 
@@ -17,6 +17,7 @@ router.include_router(users.router, prefix="/users", tags=["Users"])
 router.include_router(groups.router, prefix="/groups", tags=["Groups"])
 router.include_router(roles.router, prefix="/roles", tags=["Roles"])
 router.include_router(departments.router, prefix="/departments", tags=["Departments"])
+router.include_router(acl.router, prefix="/acl", tags=["ACL"])
 router.include_router(plugins.router, tags=["Plugins"])
 router.include_router(config.router, tags=["Configuration"])
 router.include_router(version.router, tags=["Version"])

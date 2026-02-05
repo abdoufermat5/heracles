@@ -9,7 +9,8 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, status, Query
 
-from heracles_api.core.dependencies import CurrentUser, UserRepoDep, GroupRepoDep
+from heracles_api.config import settings
+from heracles_api.core.dependencies import CurrentUser, UserRepoDep, GroupRepoDep, AclGuardDep
 from heracles_api.schemas import (
     GroupCreate,
     GroupUpdate,
@@ -38,6 +39,7 @@ def _entry_to_response(entry, members: list[str] = None) -> GroupResponse:
 @router.get("", response_model=GroupListResponse)
 async def list_groups(
     current_user: CurrentUser,
+    guard: AclGuardDep,
     group_repo: GroupRepoDep,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
@@ -47,7 +49,13 @@ async def list_groups(
 ):
     """
     List all groups with pagination.
+    
+    Requires: group:read
     """
+    # ACL check - group:read on ou=groups
+    target_dn = f"ou=groups,{settings.LDAP_BASE_DN}"
+    guard.require(target_dn, "group:read")
+    
     try:
         result = await group_repo.search(search_term=search, ou=ou, base_dn=base)
         
@@ -83,10 +91,13 @@ async def list_groups(
 async def get_group(
     cn: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     group_repo: GroupRepoDep,
 ):
     """
     Get group by CN.
+    
+    Requires: group:read
     """
     try:
         entry = await group_repo.find_by_cn(cn)
@@ -96,6 +107,9 @@ async def get_group(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Group '{cn}' not found",
             )
+        
+        # ACL check - group:read on the specific group
+        guard.require(entry.dn, "group:read")
         
         members = await group_repo.get_members(cn)
         return _entry_to_response(entry, members)
@@ -112,12 +126,19 @@ async def get_group(
 async def create_group(
     group: GroupCreate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     user_repo: UserRepoDep,
     group_repo: GroupRepoDep,
 ):
     """
     Create a new group.
+    
+    Requires: group:create
     """
+    # ACL check - group:create on target OU
+    target_dn = group.department_dn if group.department_dn else f"ou=groups,{settings.LDAP_BASE_DN}"
+    guard.require(target_dn, "group:create")
+    
     # Check if group already exists
     if await group_repo.exists(group.cn):
         raise HTTPException(
@@ -163,19 +184,26 @@ async def update_group(
     cn: str,
     updates: GroupUpdate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     group_repo: GroupRepoDep,
 ):
     """
     Update group attributes.
+    
+    Requires: group:write
     """
+    entry = await group_repo.find_by_cn(cn)
+    if not entry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Group '{cn}' not found",
+        )
+    
+    # ACL check - group:write on the specific group
+    guard.require(entry.dn, "group:write")
+    
     try:
         entry = await group_repo.update(cn, updates)
-        
-        if not entry:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Group '{cn}' not found",
-            )
         
         logger.info("group_updated", cn=cn, by=current_user.uid)
         
@@ -194,16 +222,23 @@ async def update_group(
 async def delete_group(
     cn: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     group_repo: GroupRepoDep,
 ):
     """
     Delete a group.
+    
+    Requires: group:delete
     """
-    if not await group_repo.exists(cn):
+    entry = await group_repo.find_by_cn(cn)
+    if not entry:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Group '{cn}' not found",
         )
+    
+    # ACL check - group:delete on the specific group
+    guard.require(entry.dn, "group:delete")
     
     try:
         await group_repo.delete(cn)
@@ -223,17 +258,24 @@ async def add_group_member(
     cn: str,
     member: MemberOperation,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     user_repo: UserRepoDep,
     group_repo: GroupRepoDep,
 ):
     """
     Add a member to a group.
+    
+    Requires: group:manage
     """
-    if not await group_repo.exists(cn):
+    entry = await group_repo.find_by_cn(cn)
+    if not entry:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Group '{cn}' not found",
         )
+    
+    # ACL check - group:manage on the specific group
+    guard.require(entry.dn, "group:manage")
     
     # Get user DN
     user = await user_repo.find_by_uid(member.uid)
@@ -266,17 +308,24 @@ async def remove_group_member(
     cn: str,
     uid: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     user_repo: UserRepoDep,
     group_repo: GroupRepoDep,
 ):
     """
     Remove a member from a group.
+    
+    Requires: group:manage
     """
-    if not await group_repo.exists(cn):
+    entry = await group_repo.find_by_cn(cn)
+    if not entry:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Group '{cn}' not found",
         )
+    
+    # ACL check - group:manage on the specific group
+    guard.require(entry.dn, "group:manage")
     
     # Get user DN
     user = await user_repo.find_by_uid(uid)

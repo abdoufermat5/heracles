@@ -67,6 +67,10 @@ class MailUserService(TabService):
         # Configuration
         self._default_server = self._config.get("default_mail_server")
         self._default_quota = self._config.get("default_quota_mb", 1024)
+
+    def get_base_dn(self) -> str:
+        """Get the LDAP base DN for scope-based ACL checks."""
+        return self._ldap.base_dn
         self._mail_domain = self._config.get("mail_domain")
 
     # ========================================================================

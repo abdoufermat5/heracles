@@ -1,7 +1,7 @@
 //! Python bindings for Heracles Core.
 //!
 //! This module exposes heracles-core functionality to Python via PyO3.
-//! Includes LDAP operations, password hashing, and DN utilities.
+//! Includes LDAP operations, password hashing, DN utilities, and ACL engine.
 
 use pyo3::prelude::*;
 use pyo3::exceptions::{PyConnectionError, PyRuntimeError, PyValueError};
@@ -10,6 +10,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+use crate::acl::{
+    compile as rust_compile_acl, AclRow, AttrRuleRow, PermissionBitmap, UserAcl,
+};
 use crate::crypto::password::{
     hash_password as rust_hash_password, verify_password as rust_verify_password,
     HashMethod, PasswordHash,
@@ -35,10 +38,19 @@ pub fn register_module(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(parse_dn, m)?)?;
     m.add_function(wrap_pyfunction!(build_dn, m)?)?;
 
+    // ACL functions
+    m.add_function(wrap_pyfunction!(compile_user_acl, m)?)?;
+
     // LDAP classes
     m.add_class::<PyLdapConnection>()?;
     m.add_class::<PyLdapEntry>()?;
     m.add_class::<PyHashMethod>()?;
+
+    // ACL classes
+    m.add_class::<PyUserAcl>()?;
+    m.add_class::<PyAclRow>()?;
+    m.add_class::<PyAttrRuleRow>()?;
+    m.add_class::<PyPermissionBitmap>()?;
 
     Ok(())
 }
@@ -653,6 +665,475 @@ fn build_dn(components: Vec<(String, String)>) -> String {
     dn.to_string()
 }
 
+// ============================================================================
+// ACL Permission Bitmap
+// ============================================================================
+
+/// Permission bitmap for fast permission checks.
+///
+/// Stores up to 128 permissions as a bitmap. Each permission is assigned
+/// a stable bit position by the database.
+///
+/// Example:
+///     >>> import heracles_core
+///     >>> bitmap = heracles_core.PermissionBitmap.from_bit(0)
+///     >>> bitmap.has_bit(0)
+///     True
+#[pyclass(name = "PermissionBitmap")]
+#[derive(Clone)]
+pub struct PyPermissionBitmap {
+    inner: PermissionBitmap,
+}
+
+#[pymethods]
+impl PyPermissionBitmap {
+    /// Create an empty bitmap (no permissions).
+    #[staticmethod]
+    fn empty() -> Self {
+        Self {
+            inner: PermissionBitmap::EMPTY,
+        }
+    }
+
+    /// Create a bitmap with all permissions set.
+    #[staticmethod]
+    fn all() -> Self {
+        Self {
+            inner: PermissionBitmap::ALL,
+        }
+    }
+
+    /// Create a bitmap with a single bit set.
+    #[staticmethod]
+    fn from_bit(pos: u8) -> PyResult<Self> {
+        if pos >= 128 {
+            return Err(PyValueError::new_err("bit position must be 0-127"));
+        }
+        Ok(Self {
+            inner: PermissionBitmap::from_bit(pos),
+        })
+    }
+
+    /// Create a bitmap from multiple bit positions.
+    #[staticmethod]
+    fn from_bits(positions: Vec<u8>) -> Self {
+        Self {
+            inner: PermissionBitmap::from_bits(&positions),
+        }
+    }
+
+    /// Create a bitmap from two i64 halves (from PostgreSQL BIGINT columns).
+    #[staticmethod]
+    fn from_halves(low: i64, high: i64) -> Self {
+        Self {
+            inner: PermissionBitmap::from_halves(low, high),
+        }
+    }
+
+    /// Split into two i64 halves for PostgreSQL storage.
+    fn to_halves(&self) -> (i64, i64) {
+        self.inner.to_halves()
+    }
+
+    /// Check if this bitmap has all bits in the required bitmap.
+    fn has(&self, required: &PyPermissionBitmap) -> bool {
+        self.inner.has(required.inner)
+    }
+
+    /// Check if this bitmap has any bit in the required bitmap.
+    fn has_any(&self, required: &PyPermissionBitmap) -> bool {
+        self.inner.has_any(required.inner)
+    }
+
+    /// Check if a specific bit is set.
+    fn has_bit(&self, pos: u8) -> bool {
+        self.inner.has_bit(pos)
+    }
+
+    /// Union (OR) two bitmaps.
+    fn union(&self, other: &PyPermissionBitmap) -> Self {
+        Self {
+            inner: self.inner.union(other.inner),
+        }
+    }
+
+    /// Subtract (remove) bits present in other.
+    fn subtract(&self, other: &PyPermissionBitmap) -> Self {
+        Self {
+            inner: self.inner.subtract(other.inner),
+        }
+    }
+
+    /// Check if the bitmap is empty.
+    fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
+    /// Count the number of set bits.
+    fn count(&self) -> u32 {
+        self.inner.count()
+    }
+
+    /// Get all set bit positions.
+    fn to_bits(&self) -> Vec<u8> {
+        self.inner.to_bits()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{:?}", self.inner)
+    }
+}
+
+// ============================================================================
+// ACL Attribute Rule Row (for compilation)
+// ============================================================================
+
+/// A single attribute-level rule for ACL compilation.
+///
+/// Represents one row from acl_policy_attr_rules with expanded attributes.
+#[pyclass(name = "AttrRuleRow")]
+#[derive(Clone)]
+pub struct PyAttrRuleRow {
+    /// Object type (e.g., "user", "group").
+    #[pyo3(get, set)]
+    pub object_type: String,
+
+    /// Action: "read" or "write".
+    #[pyo3(get, set)]
+    pub action: String,
+
+    /// Rule type: "allow" or "deny".
+    #[pyo3(get, set)]
+    pub rule_type: String,
+
+    /// Expanded attribute names.
+    #[pyo3(get, set)]
+    pub attributes: Vec<String>,
+}
+
+#[pymethods]
+impl PyAttrRuleRow {
+    #[new]
+    fn new(
+        object_type: String,
+        action: String,
+        rule_type: String,
+        attributes: Vec<String>,
+    ) -> Self {
+        Self {
+            object_type,
+            action,
+            rule_type,
+            attributes,
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "AttrRuleRow(object_type='{}', action='{}', rule_type='{}', attributes={:?})",
+            self.object_type, self.action, self.rule_type, self.attributes
+        )
+    }
+}
+
+impl From<PyAttrRuleRow> for AttrRuleRow {
+    fn from(row: PyAttrRuleRow) -> Self {
+        Self {
+            object_type: row.object_type,
+            action: row.action,
+            rule_type: row.rule_type,
+            attributes: row.attributes,
+        }
+    }
+}
+
+// ============================================================================
+// ACL Row (for compilation)
+// ============================================================================
+
+/// Raw ACL row from database for compilation.
+///
+/// Represents joined data from acl_assignments + acl_policies.
+#[pyclass(name = "AclRow")]
+#[derive(Clone)]
+pub struct PyAclRow {
+    /// Policy name (for debugging).
+    #[pyo3(get, set)]
+    pub policy_name: String,
+
+    /// Lower 64 bits of permission bitmap.
+    #[pyo3(get, set)]
+    pub perm_low: i64,
+
+    /// Upper 64 bits of permission bitmap.
+    #[pyo3(get, set)]
+    pub perm_high: i64,
+
+    /// Scope DN (empty = global).
+    #[pyo3(get, set)]
+    pub scope_dn: String,
+
+    /// Scope type: "base" or "subtree".
+    #[pyo3(get, set)]
+    pub scope_type: String,
+
+    /// Only applies to own entry.
+    #[pyo3(get, set)]
+    pub self_only: bool,
+
+    /// Is this a deny entry?
+    #[pyo3(get, set)]
+    pub deny: bool,
+
+    /// Priority (higher = later).
+    #[pyo3(get, set)]
+    pub priority: i16,
+
+    /// Attribute rules for this policy.
+    attr_rules: Vec<PyAttrRuleRow>,
+}
+
+#[pymethods]
+impl PyAclRow {
+    #[new]
+    #[pyo3(signature = (policy_name, perm_low, perm_high, scope_dn, scope_type, self_only, deny, priority, attr_rules=None))]
+    fn new(
+        policy_name: String,
+        perm_low: i64,
+        perm_high: i64,
+        scope_dn: String,
+        scope_type: String,
+        self_only: bool,
+        deny: bool,
+        priority: i16,
+        attr_rules: Option<Vec<PyAttrRuleRow>>,
+    ) -> Self {
+        Self {
+            policy_name,
+            perm_low,
+            perm_high,
+            scope_dn,
+            scope_type,
+            self_only,
+            deny,
+            priority,
+            attr_rules: attr_rules.unwrap_or_default(),
+        }
+    }
+
+    /// Get the attribute rules.
+    #[getter]
+    fn attr_rules(&self) -> Vec<PyAttrRuleRow> {
+        self.attr_rules.clone()
+    }
+
+    /// Set the attribute rules.
+    #[setter]
+    fn set_attr_rules(&mut self, rules: Vec<PyAttrRuleRow>) {
+        self.attr_rules = rules;
+    }
+
+    /// Add an attribute rule.
+    fn add_attr_rule(&mut self, rule: PyAttrRuleRow) {
+        self.attr_rules.push(rule);
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "AclRow(policy='{}', scope='{}', deny={}, priority={})",
+            self.policy_name, self.scope_dn, self.deny, self.priority
+        )
+    }
+}
+
+impl From<PyAclRow> for AclRow {
+    fn from(row: PyAclRow) -> Self {
+        Self {
+            policy_name: row.policy_name,
+            perm_low: row.perm_low,
+            perm_high: row.perm_high,
+            scope_dn: row.scope_dn,
+            scope_type: row.scope_type,
+            self_only: row.self_only,
+            deny: row.deny,
+            priority: row.priority,
+            attr_rules: row.attr_rules.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+// ============================================================================
+// User ACL (compiled, for runtime checks)
+// ============================================================================
+
+/// Precompiled ACL for a user session.
+///
+/// Built once at login from database rows. Provides O(1) permission checks
+/// for global rules and O(n) for scoped rules (n typically < 20).
+///
+/// Example:
+///     >>> import heracles_core
+///     >>> rows = [...]  # AclRow objects from database
+///     >>> acl = heracles_core.compile_user_acl("uid=john,ou=users,dc=example,dc=com", rows)
+///     >>> acl.check("uid=other,ou=users,dc=example,dc=com", 0b11, 0)
+///     True
+#[pyclass(name = "UserAcl")]
+#[derive(Clone)]
+pub struct PyUserAcl {
+    inner: UserAcl,
+}
+
+#[pymethods]
+impl PyUserAcl {
+    /// Get the user's DN.
+    #[getter]
+    fn user_dn(&self) -> String {
+        self.inner.user_dn().to_string()
+    }
+
+    /// Check object-level permission. Returns bool.
+    ///
+    /// Args:
+    ///     target_dn: The DN of the object being accessed.
+    ///     perm_low: Lower 64 bits of required permissions.
+    ///     perm_high: Upper 64 bits of required permissions.
+    ///
+    /// Returns:
+    ///     True if user has all required permissions for the target.
+    fn check(&self, target_dn: &str, perm_low: i64, perm_high: i64) -> bool {
+        let required = PermissionBitmap::from_halves(perm_low, perm_high);
+        self.inner.check(target_dn, required)
+    }
+
+    /// Check object-level permission with a PermissionBitmap object.
+    fn check_bitmap(&self, target_dn: &str, required: &PyPermissionBitmap) -> bool {
+        self.inner.check(target_dn, required.inner)
+    }
+
+    /// Check object-level + attribute-level permission.
+    ///
+    /// Args:
+    ///     target_dn: The DN of the object.
+    ///     perm_low: Lower 64 bits of required permissions.
+    ///     perm_high: Upper 64 bits of required permissions.
+    ///     object_type: The type of object (e.g., "user", "group").
+    ///     action: The action ("read" or "write").
+    ///     attribute: The specific attribute to check.
+    ///
+    /// Returns:
+    ///     True if user has permission for the attribute on the target.
+    fn check_attribute(
+        &self,
+        target_dn: &str,
+        perm_low: i64,
+        perm_high: i64,
+        object_type: &str,
+        action: &str,
+        attribute: &str,
+    ) -> bool {
+        let required = PermissionBitmap::from_halves(perm_low, perm_high);
+        self.inner
+            .check_attribute(target_dn, required, object_type, action, attribute)
+    }
+
+    /// Filter a list of attributes, returning only permitted ones.
+    ///
+    /// Args:
+    ///     target_dn: The DN of the object.
+    ///     perm_low: Lower 64 bits of required permissions.
+    ///     perm_high: Upper 64 bits of required permissions.
+    ///     object_type: The type of object.
+    ///     action: The action ("read" or "write").
+    ///     attributes: List of attributes to filter.
+    ///
+    /// Returns:
+    ///     List of attributes the user can access.
+    fn filter_attributes(
+        &self,
+        target_dn: &str,
+        perm_low: i64,
+        perm_high: i64,
+        object_type: &str,
+        action: &str,
+        attributes: Vec<String>,
+    ) -> Vec<String> {
+        let required = PermissionBitmap::from_halves(perm_low, perm_high);
+        let attrs_ref: Vec<&str> = attributes.iter().map(|s| s.as_str()).collect();
+        self.inner
+            .filter_attributes(target_dn, required, object_type, action, &attrs_ref)
+    }
+
+    /// Get effective permissions for a target DN.
+    ///
+    /// Returns a PermissionBitmap with all applicable permissions.
+    fn effective_permissions(&self, target_dn: &str) -> PyPermissionBitmap {
+        PyPermissionBitmap {
+            inner: self.inner.effective_permissions(target_dn),
+        }
+    }
+
+    /// Check if target_dn is the user's own entry.
+    fn is_self(&self, target_dn: &str) -> bool {
+        self.inner.is_self(target_dn)
+    }
+
+    /// Serialize to JSON for Redis caching.
+    fn to_json(&self) -> PyResult<String> {
+        serde_json::to_string(&self.inner)
+            .map_err(|e| PyRuntimeError::new_err(format!("Serialization failed: {}", e)))
+    }
+
+    /// Deserialize from JSON (for loading from Redis cache).
+    #[staticmethod]
+    fn from_json(json: &str) -> PyResult<Self> {
+        let inner: UserAcl = serde_json::from_str(json)
+            .map_err(|e| PyValueError::new_err(format!("Deserialization failed: {}", e)))?;
+        Ok(Self { inner })
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "UserAcl(user_dn='{}', global_allow={}, global_deny={}, scoped_entries={})",
+            self.inner.user_dn(),
+            self.inner.global_allow().count(),
+            self.inner.global_deny().count(),
+            self.inner.scoped_entries().len()
+        )
+    }
+}
+
+/// Compile a UserAcl from raw database rows.
+///
+/// Called once at login by the Python ACL service.
+/// The resulting UserAcl is cached in Redis.
+///
+/// Args:
+///     user_dn: The DN of the user being authenticated.
+///     rows: List of AclRow objects from the database query.
+///
+/// Returns:
+///     A compiled UserAcl for runtime permission checks.
+///
+/// Example:
+///     >>> import heracles_core
+///     >>> row = heracles_core.AclRow(
+///     ...     policy_name="Admin",
+///     ...     perm_low=0xFFFFFFFF,
+///     ...     perm_high=0,
+///     ...     scope_dn="",
+///     ...     scope_type="subtree",
+///     ...     self_only=False,
+///     ...     deny=False,
+///     ...     priority=0
+///     ... )
+///     >>> acl = heracles_core.compile_user_acl("uid=admin,ou=users,dc=example,dc=com", [row])
+#[pyfunction]
+fn compile_user_acl(user_dn: &str, rows: Vec<PyAclRow>) -> PyUserAcl {
+    let acl_rows: Vec<AclRow> = rows.into_iter().map(Into::into).collect();
+    let inner = rust_compile_acl(user_dn, acl_rows);
+    PyUserAcl { inner }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -667,5 +1148,34 @@ mod tests {
     fn test_hash_method_from_string() {
         let method = PyHashMethod::from_string("argon2").unwrap();
         assert!(method.is_secure());
+    }
+
+    #[test]
+    fn test_py_permission_bitmap() {
+        let bitmap = PyPermissionBitmap::from_bits(vec![0, 1, 2]);
+        assert!(bitmap.has_bit(0));
+        assert!(bitmap.has_bit(1));
+        assert!(bitmap.has_bit(2));
+        assert!(!bitmap.has_bit(3));
+    }
+
+    #[test]
+    fn test_py_acl_row_conversion() {
+        let py_row = PyAclRow::new(
+            "TestPolicy".to_string(),
+            0b111,
+            0,
+            "ou=test,dc=example,dc=com".to_string(),
+            "subtree".to_string(),
+            false,
+            false,
+            5,
+            None,
+        );
+
+        let rust_row: AclRow = py_row.into();
+        assert_eq!(rust_row.policy_name, "TestPolicy");
+        assert_eq!(rust_row.perm_low, 0b111);
+        assert_eq!(rust_row.priority, 5);
     }
 }

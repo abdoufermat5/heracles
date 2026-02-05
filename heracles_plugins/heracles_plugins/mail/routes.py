@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, status, Depends
 
 import structlog
 
-from heracles_api.core.dependencies import CurrentUser
+from heracles_api.core.dependencies import CurrentUser, AclGuardDep
 
 from .schemas import (
     MailAccountCreate,
@@ -86,9 +86,11 @@ def get_mail_group_service() -> MailGroupService:
 async def get_user_mail_status(
     uid: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     service: MailUserService = Depends(get_mail_user_service),
 ) -> UserMailStatus:
     """Get mail status for a user."""
+    guard.require(service.get_base_dn(), "mail:read")
     try:
         return await service.get_user_mail_status(uid)
     except Exception as e:
@@ -115,9 +117,11 @@ async def activate_user_mail(
     uid: str,
     data: MailAccountCreate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     service: MailUserService = Depends(get_mail_user_service),
 ) -> UserMailStatus:
     """Activate mail account for a user."""
+    guard.require(service.get_base_dn(), "mail:create")
     try:
         return await service.activate_mail(uid, data)
     except MailAlreadyExistsError as e:
@@ -153,9 +157,11 @@ async def update_user_mail(
     uid: str,
     data: MailAccountUpdate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     service: MailUserService = Depends(get_mail_user_service),
 ) -> UserMailStatus:
     """Update mail account for a user."""
+    guard.require(service.get_base_dn(), "mail:write")
     try:
         return await service.update_mail(uid, data)
     except MailAlreadyExistsError as e:
@@ -190,9 +196,11 @@ async def update_user_mail(
 async def deactivate_user_mail(
     uid: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     service: MailUserService = Depends(get_mail_user_service),
 ) -> UserMailStatus:
     """Deactivate mail account for a user."""
+    guard.require(service.get_base_dn(), "mail:delete")
     try:
         return await service.deactivate_mail(uid)
     except Exception as e:
@@ -222,9 +230,11 @@ async def deactivate_user_mail(
 async def get_group_mail_status(
     cn: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     service: MailGroupService = Depends(get_mail_group_service),
 ) -> GroupMailStatus:
     """Get mail status for a group."""
+    guard.require(service.get_base_dn(), "mail:read")
     try:
         return await service.get_group_mail_status(cn)
     except Exception as e:
@@ -251,9 +261,11 @@ async def activate_group_mail(
     cn: str,
     data: MailGroupCreate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     service: MailGroupService = Depends(get_mail_group_service),
 ) -> GroupMailStatus:
     """Activate mailing list for a group."""
+    guard.require(service.get_base_dn(), "mail:create")
     try:
         return await service.activate_mail(cn, data)
     except MailAlreadyExistsError as e:
@@ -289,9 +301,11 @@ async def update_group_mail(
     cn: str,
     data: MailGroupUpdate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     service: MailGroupService = Depends(get_mail_group_service),
 ) -> GroupMailStatus:
     """Update mailing list for a group."""
+    guard.require(service.get_base_dn(), "mail:write")
     try:
         return await service.update_mail(cn, data)
     except MailAlreadyExistsError as e:
@@ -326,9 +340,11 @@ async def update_group_mail(
 async def deactivate_group_mail(
     cn: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     service: MailGroupService = Depends(get_mail_group_service),
 ) -> GroupMailStatus:
     """Deactivate mailing list for a group."""
+    guard.require(service.get_base_dn(), "mail:delete")
     try:
         return await service.deactivate_mail(cn)
     except Exception as e:

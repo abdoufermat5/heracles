@@ -238,6 +238,7 @@ class TestDeleteUser:
     ):
         """Test deleting a user."""
         mock_user_repository.find_by_uid.return_value = mock_user_entry
+        mock_user_repository.delete.return_value = True
 
         response = test_client.delete("/api/v1/users/testuser", headers=auth_headers)
 

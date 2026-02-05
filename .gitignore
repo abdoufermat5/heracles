@@ -84,3 +84,4 @@ demo/keys/
 *.temp
 /docs/
 .claude
+acl-system-design.md

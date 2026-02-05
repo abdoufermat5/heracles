@@ -31,6 +31,7 @@
 //! }
 //! ```
 
+pub mod acl;
 pub mod crypto;
 pub mod errors;
 pub mod ldap;

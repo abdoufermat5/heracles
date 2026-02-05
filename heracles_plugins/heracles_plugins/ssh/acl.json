@@ -1,0 +1,13 @@
+{
+  "$schema": "heracles://acl-definition/v1",
+  "permissions": [
+    {"scope": "ssh", "action": "read",   "description": "View SSH public keys"},
+    {"scope": "ssh", "action": "write",  "description": "Modify existing SSH keys"},
+    {"scope": "ssh", "action": "create", "description": "Add new SSH public keys"},
+    {"scope": "ssh", "action": "delete", "description": "Remove SSH public keys"},
+    {"scope": "ssh", "action": "manage", "description": "Manage SSH key policies"}
+  ],
+  "attribute_groups": [
+    {"object_type": "user", "group_name": "ssh", "label": "SSH Keys", "attributes": ["sshPublicKey"]}
+  ]
+}

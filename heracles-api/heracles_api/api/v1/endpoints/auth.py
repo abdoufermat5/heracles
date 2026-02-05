@@ -14,6 +14,7 @@ from heracles_api.core.dependencies import (
     LdapDep,
     AuthDep,
     UserRepoDep,
+    RoleRepoDep,
 )
 from heracles_api.core.password_policy import validate_password_policy
 from heracles_api.schemas import (
@@ -43,6 +44,7 @@ async def login(
     ldap: LdapDep,
     auth: AuthDep,
     user_repo: UserRepoDep,
+    role_repo: RoleRepoDep,
     response: Response,
 ):
     """
@@ -70,6 +72,10 @@ async def login(
         groups = await user_repo.get_groups(user.dn)
         group_dns = [f"cn={g},ou=groups,{settings.LDAP_BASE_DN}" for g in groups]
         
+        # Get user's roles
+        role_entries = await role_repo.get_user_roles(user.dn)
+        role_dns = [r.dn for r in role_entries]
+        
         # Create tokens
         access_token, access_jti = await auth.create_access_token(
             user_dn=user.dn,
@@ -89,6 +95,7 @@ async def login(
             display_name=display_name,
             mail=mail,
             groups=group_dns,
+            roles=role_dns,
             token_jti=access_jti,
         )
         

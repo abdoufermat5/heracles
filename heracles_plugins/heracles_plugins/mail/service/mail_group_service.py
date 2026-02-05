@@ -62,6 +62,10 @@ class MailGroupService(TabService):
 
         self._default_server = self._config.get("default_mail_server")
 
+    def get_base_dn(self) -> str:
+        """Get the LDAP base DN for scope-based ACL checks."""
+        return self._ldap.base_dn
+
     # ========================================================================
     # Group Mail Status
     # ========================================================================

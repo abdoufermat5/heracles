@@ -21,6 +21,7 @@ from heracles_api.services import (
 )
 from heracles_api.repositories import UserRepository, GroupRepository, RoleRepository, DepartmentRepository
 from heracles_api.config import settings
+from heracles_api.acl.guard import AclGuard
 
 # HTTP Bearer token scheme
 security = HTTPBearer(auto_error=False)
@@ -172,3 +173,70 @@ UserRepoDep = Annotated[UserRepository, Depends(get_user_repository)]
 GroupRepoDep = Annotated[GroupRepository, Depends(get_group_repository)]
 RoleRepoDep = Annotated[RoleRepository, Depends(get_role_repository)]
 DeptRepoDep = Annotated[DepartmentRepository, Depends(get_department_repository)]
+
+
+async def get_acl_guard(
+    request: Request,
+    current_user: CurrentUser,
+    redis: RedisDep,
+) -> AclGuard:
+    """
+    Build AclGuard for the current user.
+    
+    Loads or compiles the user's ACL and returns a guard
+    for permission checks in endpoints.
+    
+    Args:
+        request: The current request (for app state access).
+        current_user: The authenticated user.
+        redis: Redis connection for ACL cache.
+        
+    Returns:
+        AclGuard for permission checking.
+        
+    Raises:
+        HTTPException: 500 if ACL system not initialized.
+    """
+    # Get registry from app state
+    registry = getattr(request.app.state, "acl_registry", None)
+    if registry is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="ACL system not initialized",
+        )
+    
+    # Get database pool from app state
+    db_pool = getattr(request.app.state, "db_pool", None)
+    if db_pool is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database not initialized",
+        )
+    
+    # Try to load from request state (set by middleware) or cache
+    user_acl = getattr(request.state, "user_acl", None)
+    
+    if user_acl is None:
+        # Compile or fetch from cache via AclService
+        from heracles_api.acl.service import AclService
+        
+        acl_service = AclService(db_pool, redis, registry)
+        
+        # Get user's group and role memberships for ACL compilation
+        # UserSession stores groups and roles as list of DNs
+        group_dns = getattr(current_user, "groups", [])
+        role_dns = getattr(current_user, "roles", [])
+        
+        user_acl = await acl_service.get_or_compile(
+            current_user.user_dn,
+            group_dns,
+            role_dns,
+        )
+        
+        # Cache on request state for subsequent calls
+        request.state.user_acl = user_acl
+    
+    return AclGuard(user_acl, registry, current_user.user_dn)
+
+
+AclGuardDep = Annotated[AclGuard, Depends(get_acl_guard)]

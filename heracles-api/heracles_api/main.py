@@ -21,6 +21,7 @@ from heracles_api.services.config import init_config_service
 from heracles_api.plugins.loader import load_enabled_plugins, unload_all_plugins
 from heracles_api.middleware.rate_limit import RateLimitMiddleware
 from heracles_api.middleware.plugin_access import PluginAccessMiddleware
+from heracles_api.middleware.acl import AclMiddleware
 from heracles_api import __version__
 
 logger = structlog.get_logger(__name__)
@@ -123,6 +124,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.warning("plugins_load_failed", error=str(e))
 
+    # Initialize ACL system (requires database and plugins)
+    if db_pool is not None:
+        try:
+            from heracles_api.acl.registry import PermissionRegistry
+            
+            acl_registry = PermissionRegistry()
+            await acl_registry.load(db_pool, loaded_plugins if 'loaded_plugins' in dir() else [])
+            app.state.acl_registry = acl_registry
+            logger.info("acl_system_initialized", permissions=len(acl_registry._by_name))
+        except Exception as e:
+            logger.warning("acl_system_init_failed", error=str(e))
+    else:
+        logger.warning("acl_system_skipped", reason="database not available")
+
     yield
 
     # Shutdown
@@ -159,6 +174,9 @@ app.add_middleware(RateLimitMiddleware)
 # Note: Database pool is injected in lifespan after init
 _plugin_access_middleware = PluginAccessMiddleware(app)
 app.add_middleware(PluginAccessMiddleware)
+
+# ACL middleware (loads user ACL into request.state)
+app.add_middleware(AclMiddleware)
 
 # Include API routers
 app.include_router(api_v1_router, prefix="/api/v1")

@@ -84,7 +84,11 @@ class PosixService(TabService):
         
         # Shells list (can be configured)
         self._shells = config.get("shells", self.DEFAULT_SHELLS)
-    
+
+    def get_base_dn(self) -> str:
+        """Get the LDAP base DN for scope-based ACL checks."""
+        return self._ldap.base_dn
+
     async def is_active(self, dn: str) -> bool:
         """Check if POSIX is active on the user."""
         try:

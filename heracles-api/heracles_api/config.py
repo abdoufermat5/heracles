@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     LDAP_POOL_SIZE: int = 10
     LDAP_TIMEOUT: int = 30
     
+    # ACL - Initial superadmin user (assigned Superadmin policy at startup)
+    SUPERADMIN_DN: str = "uid=hrc-admin,ou=people,dc=heracles,dc=local"
+    
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://heracles:heracles_secret@localhost:5432/heracles"
     

@@ -8,7 +8,9 @@ Defines the base classes and interfaces for Heracles plugins.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Type, Union
+import inspect
 import logging
 
 from pydantic import BaseModel, Field
@@ -612,6 +614,30 @@ class Plugin(PluginConfigContract, ABC):
             List of FastAPI APIRouter objects.
         """
         return []
+    
+    @classmethod
+    def acl_file(cls) -> Optional[Path]:
+        """
+        Return the path to this plugin's acl.json file.
+        
+        By default, looks for acl.json in the same directory as
+        the plugin's module file. Override if needed.
+        
+        Returns:
+            Path to acl.json if it exists, None otherwise.
+        """
+        # Get the directory where the plugin class is defined
+        try:
+            module = inspect.getmodule(cls)
+            if module is None or not hasattr(module, '__file__') or module.__file__ is None:
+                return None
+            
+            plugin_dir = Path(module.__file__).parent
+            acl_path = plugin_dir / "acl.json"
+            
+            return acl_path if acl_path.exists() else None
+        except Exception:
+            return None
     
     def on_activate(self) -> None:
         """

@@ -62,7 +62,11 @@ class PosixGroupService:
         # Note: posix_groups_ou in plugin config takes precedence over global groups_rdn
         # If not set, we'll use the global groups_rdn at runtime
         self._groups_ou_override = config.get("posix_groups_ou")
-    
+
+    def get_base_dn(self) -> str:
+        """Get the LDAP base DN for scope-based ACL checks."""
+        return self._ldap.base_dn
+
     async def _get_groups_ou(self) -> str:
         """Get the groups OU, using global config if not overridden."""
         if self._groups_ou_override:

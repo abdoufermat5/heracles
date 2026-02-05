@@ -42,8 +42,8 @@ def get_sudo_service() -> SudoService:
     return service
 
 
-# Import CurrentUser from core dependencies
-from heracles_api.core.dependencies import CurrentUser
+# Import CurrentUser and AclGuardDep from core dependencies
+from heracles_api.core.dependencies import CurrentUser, AclGuardDep
 
 
 # =============================================================================
@@ -57,6 +57,7 @@ from heracles_api.core.dependencies import CurrentUser
 )
 async def list_sudo_roles(
     current_user: CurrentUser,
+    guard: AclGuardDep,
     search: Optional[str] = Query(None, description="Search in cn, description, sudoUser"),
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     page: int = Query(1, ge=1, description="Page number"),
@@ -68,6 +69,7 @@ async def list_sudo_roles(
     
     Results are sorted by sudoOrder (priority), then by cn.
     """
+    guard.require(service.get_sudoers_dn(), "sudo:read")
     try:
         return await service.list_roles(search=search, base_dn=base_dn, page=page, page_size=page_size)
     except Exception as e:
@@ -86,10 +88,12 @@ async def list_sudo_roles(
 async def get_sudo_role(
     cn: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: SudoService = Depends(get_sudo_service),
 ):
     """Get a specific sudo role by CN."""
+    guard.require(service.get_sudoers_dn(), "sudo:read")
     try:
         role = await service.get_role(cn, base_dn=base_dn)
         if role is None:
@@ -117,6 +121,7 @@ async def get_sudo_role(
 async def create_sudo_role(
     data: SudoRoleCreate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: SudoService = Depends(get_sudo_service),
 ):
@@ -126,6 +131,7 @@ async def create_sudo_role(
     A sudo role defines who (sudoUser) can run what commands (sudoCommand)
     on which hosts (sudoHost) as which user/group (sudoRunAsUser/sudoRunAsGroup).
     """
+    guard.require(service.get_sudoers_dn(), "sudo:create")
     try:
         return await service.create_role(data, base_dn=base_dn)
     except SudoValidationError as e:
@@ -150,6 +156,7 @@ async def update_sudo_role(
     cn: str,
     data: SudoRoleUpdate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: SudoService = Depends(get_sudo_service),
 ):
@@ -158,6 +165,7 @@ async def update_sudo_role(
     
     Only provided fields will be updated.
     """
+    guard.require(service.get_sudoers_dn(), "sudo:write")
     try:
         return await service.update_role(cn, data, base_dn=base_dn)
     except SudoValidationError as e:
@@ -186,6 +194,7 @@ async def update_sudo_role(
 async def delete_sudo_role(
     cn: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     base_dn: Optional[str] = Query(None, description="Base DN context"),
     service: SudoService = Depends(get_sudo_service),
 ):
@@ -194,6 +203,7 @@ async def delete_sudo_role(
     
     Note: The 'defaults' role cannot be deleted.
     """
+    guard.require(service.get_sudoers_dn(), "sudo:delete")
     try:
         await service.delete_role(cn, base_dn=base_dn)
     except SudoValidationError as e:
@@ -225,6 +235,7 @@ async def delete_sudo_role(
 )
 async def get_sudo_defaults(
     current_user: CurrentUser,
+    guard: AclGuardDep,
     service: SudoService = Depends(get_sudo_service),
 ):
     """
@@ -232,6 +243,7 @@ async def get_sudo_defaults(
     
     The defaults entry contains global sudo options that apply to all rules.
     """
+    guard.require(service.get_sudoers_dn(), "sudo:read")
     try:
         defaults = await service.get_defaults()
         if defaults is None:
@@ -257,8 +269,9 @@ async def get_sudo_defaults(
     summary="Create sudo defaults",
 )
 async def create_sudo_defaults(
+    current_user: CurrentUser,
+    guard: AclGuardDep,
     options: List[str] = Query(default=[], description="Default sudo options"),
-    current_user: CurrentUser = None,
     service: SudoService = Depends(get_sudo_service),
 ):
     """
@@ -269,6 +282,7 @@ async def create_sudo_defaults(
     - mail_badpass: Send mail on bad password
     - secure_path: Secure PATH for sudo commands
     """
+    guard.require(service.get_sudoers_dn(), "sudo:create")
     try:
         return await service.create_defaults(options)
     except SudoValidationError as e:
@@ -296,6 +310,7 @@ async def create_sudo_defaults(
 async def get_user_sudo_roles(
     uid: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     service: SudoService = Depends(get_sudo_service),
 ):
     """
@@ -308,6 +323,7 @@ async def get_user_sudo_roles(
     
     Only currently valid rules (based on time constraints) are returned.
     """
+    guard.require(service.get_sudoers_dn(), "sudo:read")
     try:
         # Get user's groups
         from heracles_api.services.ldap_service import get_ldap_service
@@ -358,6 +374,7 @@ async def get_user_sudo_roles(
 async def get_host_sudo_roles(
     hostname: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     service: SudoService = Depends(get_sudo_service),
 ):
     """
@@ -365,6 +382,7 @@ async def get_host_sudo_roles(
     
     This includes roles that explicitly name the host or use ALL.
     """
+    guard.require(service.get_sudoers_dn(), "sudo:read")
     try:
         return await service.get_roles_for_host(hostname)
     except Exception as e:

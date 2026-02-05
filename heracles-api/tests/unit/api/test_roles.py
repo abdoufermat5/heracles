@@ -324,6 +324,7 @@ class TestUpdateRole:
     def test_update_role_success(self, test_client, auth_headers, mock_role_repository):
         """Test updating a role."""
         entry = create_mock_role_entry(description="Updated description")
+        mock_role_repository.find_by_cn.return_value = entry
         mock_role_repository.update.return_value = entry
         mock_role_repository.get_members.return_value = []
 
@@ -361,7 +362,8 @@ class TestDeleteRole:
 
     def test_delete_role_success(self, test_client, auth_headers, mock_role_repository):
         """Test deleting a role."""
-        mock_role_repository.exists.return_value = True
+        entry = create_mock_role_entry(cn="sysadmin")
+        mock_role_repository.find_by_cn.return_value = entry
 
         response = test_client.delete("/api/v1/roles/sysadmin", headers=auth_headers)
 
@@ -370,7 +372,7 @@ class TestDeleteRole:
 
     def test_delete_role_not_found(self, test_client, auth_headers, mock_role_repository):
         """Test deleting a non-existent role returns 404."""
-        mock_role_repository.exists.return_value = False
+        mock_role_repository.find_by_cn.return_value = None
 
         response = test_client.delete("/api/v1/roles/nonexistent", headers=auth_headers)
 
@@ -392,7 +394,8 @@ class TestAddRoleMember:
         self, test_client, auth_headers, mock_role_repository, mock_user_repository
     ):
         """Test adding a member to a role."""
-        mock_role_repository.exists.return_value = True
+        role_entry = create_mock_role_entry(cn="sysadmin")
+        mock_role_repository.find_by_cn.return_value = role_entry
         user_entry = MagicMock(spec=LdapEntry)
         user_entry.dn = "uid=jdoe,ou=people,dc=heracles,dc=local"
         mock_user_repository.find_by_uid.return_value = user_entry
@@ -412,7 +415,7 @@ class TestAddRoleMember:
         self, test_client, auth_headers, mock_role_repository
     ):
         """Test adding member to non-existent role returns 404."""
-        mock_role_repository.exists.return_value = False
+        mock_role_repository.find_by_cn.return_value = None
 
         response = test_client.post(
             "/api/v1/roles/nonexistent/members",
@@ -426,7 +429,8 @@ class TestAddRoleMember:
         self, test_client, auth_headers, mock_role_repository, mock_user_repository
     ):
         """Test adding non-existent user to role returns 404."""
-        mock_role_repository.exists.return_value = True
+        role_entry = create_mock_role_entry(cn="sysadmin")
+        mock_role_repository.find_by_cn.return_value = role_entry
         mock_user_repository.find_by_uid.return_value = None
 
         response = test_client.post(
@@ -441,7 +445,8 @@ class TestAddRoleMember:
         self, test_client, auth_headers, mock_role_repository, mock_user_repository
     ):
         """Test adding a member that already exists returns 409."""
-        mock_role_repository.exists.return_value = True
+        role_entry = create_mock_role_entry(cn="sysadmin")
+        mock_role_repository.find_by_cn.return_value = role_entry
         user_entry = MagicMock(spec=LdapEntry)
         user_entry.dn = "uid=jdoe,ou=people,dc=heracles,dc=local"
         mock_user_repository.find_by_uid.return_value = user_entry
@@ -470,7 +475,8 @@ class TestRemoveRoleMember:
         self, test_client, auth_headers, mock_role_repository, mock_user_repository
     ):
         """Test removing a member from a role."""
-        mock_role_repository.exists.return_value = True
+        role_entry = create_mock_role_entry(cn="sysadmin")
+        mock_role_repository.find_by_cn.return_value = role_entry
         user_entry = MagicMock(spec=LdapEntry)
         user_entry.dn = "uid=jdoe,ou=people,dc=heracles,dc=local"
         mock_user_repository.find_by_uid.return_value = user_entry
@@ -489,7 +495,7 @@ class TestRemoveRoleMember:
         self, test_client, auth_headers, mock_role_repository
     ):
         """Test removing member from non-existent role returns 404."""
-        mock_role_repository.exists.return_value = False
+        mock_role_repository.find_by_cn.return_value = None
 
         response = test_client.delete(
             "/api/v1/roles/nonexistent/members/jdoe",
@@ -502,7 +508,8 @@ class TestRemoveRoleMember:
         self, test_client, auth_headers, mock_role_repository, mock_user_repository
     ):
         """Test removing non-existent user from role returns 404."""
-        mock_role_repository.exists.return_value = True
+        role_entry = create_mock_role_entry(cn="sysadmin")
+        mock_role_repository.find_by_cn.return_value = role_entry
         mock_user_repository.find_by_uid.return_value = None
 
         response = test_client.delete(
@@ -516,7 +523,8 @@ class TestRemoveRoleMember:
         self, test_client, auth_headers, mock_role_repository, mock_user_repository
     ):
         """Test removing a member that is not in the role returns 404."""
-        mock_role_repository.exists.return_value = True
+        role_entry = create_mock_role_entry(cn="sysadmin")
+        mock_role_repository.find_by_cn.return_value = role_entry
         user_entry = MagicMock(spec=LdapEntry)
         user_entry.dn = "uid=jdoe,ou=people,dc=heracles,dc=local"
         mock_user_repository.find_by_uid.return_value = user_entry

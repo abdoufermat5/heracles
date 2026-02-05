@@ -51,6 +51,10 @@ class SudoService(
         self._base_dn = config.get("base_dn", ldap_service.base_dn)
         self._sudoers_dn = f"{self._sudoers_rdn},{self._base_dn}"
 
+    def get_sudoers_dn(self) -> str:
+        """Get the sudoers container DN (e.g. ou=sudoers,dc=heracles,dc=local)."""
+        return self._sudoers_dn
+
     # ========================================================================
     # TabService Interface (for user tab, if needed)
     # ========================================================================

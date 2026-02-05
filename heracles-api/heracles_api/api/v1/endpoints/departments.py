@@ -10,7 +10,8 @@ from urllib.parse import unquote
 
 from fastapi import APIRouter, HTTPException, status, Query
 
-from heracles_api.core.dependencies import CurrentUser, DeptRepoDep
+from heracles_api.config import settings
+from heracles_api.core.dependencies import CurrentUser, DeptRepoDep, AclGuardDep
 from heracles_api.schemas import (
     DepartmentCreate,
     DepartmentUpdate,
@@ -47,11 +48,17 @@ def _entry_to_response(entry, children_count: int = 0) -> DepartmentResponse:
 @router.get("/tree", response_model=DepartmentTreeResponse)
 async def get_department_tree(
     current_user: CurrentUser,
+    guard: AclGuardDep,
     dept_repo: DeptRepoDep,
 ):
     """
     Get full department hierarchy as a tree.
+    
+    Requires: department:read
     """
+    # ACL check - department:read on base DN
+    guard.require(settings.LDAP_BASE_DN, "department:read")
+    
     try:
         tree = await dept_repo.get_tree()
         return DepartmentTreeResponse(
@@ -69,13 +76,19 @@ async def get_department_tree(
 @router.get("", response_model=DepartmentListResponse)
 async def list_departments(
     current_user: CurrentUser,
+    guard: AclGuardDep,
     dept_repo: DeptRepoDep,
     parent: Optional[str] = Query(None, description="Parent DN (URL-encoded) to filter direct children"),
     search: Optional[str] = Query(None, description="Search in ou, description"),
 ):
     """
     List departments with optional filtering.
+    
+    Requires: department:read
     """
+    # ACL check - department:read on base DN
+    guard.require(settings.LDAP_BASE_DN, "department:read")
+    
     try:
         # Decode parent DN if provided
         parent_dn = unquote(parent) if parent else None
@@ -105,13 +118,20 @@ async def list_departments(
 async def create_department(
     department: DepartmentCreate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     dept_repo: DeptRepoDep,
 ):
     """
     Create a new department.
 
     Also creates container OUs (ou=people, ou=groups, etc.) inside the department.
+    
+    Requires: department:create
     """
+    # ACL check - department:create on parent DN
+    target_dn = department.parent_dn if department.parent_dn else settings.LDAP_BASE_DN
+    guard.require(target_dn, "department:create")
+    
     try:
         entry = await dept_repo.create(department)
 
@@ -150,12 +170,15 @@ async def create_department(
 async def get_department(
     dn: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     dept_repo: DeptRepoDep,
 ):
     """
     Get department by DN.
 
     The DN should be URL-encoded.
+    
+    Requires: department:read
     """
     try:
         # Decode DN
@@ -168,6 +191,9 @@ async def get_department(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Department not found: {decoded_dn}",
             )
+        
+        # ACL check - department:read on the specific department
+        guard.require(decoded_dn, "department:read")
 
         children_count = await dept_repo.get_children_count(decoded_dn)
         return dept_repo._entry_to_response(entry, children_count)
@@ -185,21 +211,29 @@ async def update_department(
     dn: str,
     updates: DepartmentUpdate,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     dept_repo: DeptRepoDep,
 ):
     """
     Update department attributes.
+    
+    Requires: department:write
     """
     try:
         decoded_dn = unquote(dn)
-
-        entry = await dept_repo.update(decoded_dn, updates)
-
+        
+        # Check if department exists first for ACL check
+        entry = await dept_repo.find_by_dn(decoded_dn)
         if not entry:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Department not found: {decoded_dn}",
             )
+        
+        # ACL check - department:write on the specific department
+        guard.require(decoded_dn, "department:write")
+
+        entry = await dept_repo.update(decoded_dn, updates)
 
         logger.info("department_updated", dn=decoded_dn, by=current_user.uid)
 
@@ -218,6 +252,7 @@ async def update_department(
 async def delete_department(
     dn: str,
     current_user: CurrentUser,
+    guard: AclGuardDep,
     dept_repo: DeptRepoDep,
     recursive: bool = Query(False, description="Delete all children recursively"),
 ):
@@ -225,17 +260,24 @@ async def delete_department(
     Delete a department.
 
     Use recursive=true to delete all children.
+    
+    Requires: department:delete
     """
     try:
         decoded_dn = unquote(dn)
-
-        deleted = await dept_repo.delete(decoded_dn, recursive=recursive)
-
-        if not deleted:
+        
+        # Check if department exists first for ACL check
+        entry = await dept_repo.find_by_dn(decoded_dn)
+        if not entry:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Department not found: {decoded_dn}",
             )
+        
+        # ACL check - department:delete on the specific department
+        guard.require(decoded_dn, "department:delete")
+
+        deleted = await dept_repo.delete(decoded_dn, recursive=recursive)
 
         logger.info("department_deleted", dn=decoded_dn, recursive=recursive, by=current_user.uid)
 

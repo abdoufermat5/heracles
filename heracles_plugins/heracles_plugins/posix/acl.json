@@ -1,0 +1,14 @@
+{
+  "$schema": "heracles://acl-definition/v1",
+  "permissions": [
+    {"scope": "posix", "action": "read",   "description": "View POSIX attributes (UID, GID, shell, home)"},
+    {"scope": "posix", "action": "write",  "description": "Modify POSIX attributes"},
+    {"scope": "posix", "action": "create", "description": "Add POSIX attributes to users/groups"},
+    {"scope": "posix", "action": "delete", "description": "Remove POSIX attributes"},
+    {"scope": "posix", "action": "manage", "description": "Manage POSIX ID allocation and policies"}
+  ],
+  "attribute_groups": [
+    {"object_type": "user", "group_name": "posix_user", "label": "POSIX User", "attributes": ["uidNumber", "gidNumber", "homeDirectory", "loginShell", "gecos"]},
+    {"object_type": "group", "group_name": "posix_group", "label": "POSIX Group", "attributes": ["gidNumber", "memberUid"]}
+  ]
+}
