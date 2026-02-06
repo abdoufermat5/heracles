@@ -19,20 +19,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { PageHeader, LoadingPage, ErrorDisplay } from '@/components/common'
+import { DataTable, SortableHeader, type ColumnDef } from '@/components/common/data-table'
 import { useAclAssignments, useAclPermissions, useAclPolicies } from '@/hooks'
 import type { AclAssignment, AclPermission, AclPolicy } from '@/types/acl'
 
@@ -234,7 +227,7 @@ export function AclAccessMatrixPage() {
     data: assignmentData,
     isLoading: assignmentsLoading,
     error: assignmentsError,
-  } = useAclAssignments({ page_size: 500 })
+  } = useAclAssignments({ page_size: 200 })
   const {
     data: permissions,
     isLoading: permsLoading,
@@ -269,6 +262,54 @@ export function AclAccessMatrixPage() {
       )
     })
   }, [allRows, search, subjectTypeFilter])
+
+  // Build columns dynamically: Subject (sortable) + Type + one column per scope
+  const columns = useMemo<ColumnDef<MatrixRow>[]>(() => {
+    const cols: ColumnDef<MatrixRow>[] = [
+      {
+        accessorKey: 'subjectDn',
+        header: ({ column }) => (
+          <SortableHeader column={column}>Subject</SortableHeader>
+        ),
+        cell: ({ row }) => (
+          <span className="font-medium font-mono text-sm">
+            {subjectLabel(row.original.subjectDn)}
+          </span>
+        ),
+        sortingFn: (rowA, rowB) =>
+          subjectLabel(rowA.original.subjectDn).localeCompare(
+            subjectLabel(rowB.original.subjectDn),
+          ),
+      },
+      {
+        accessorKey: 'subjectType',
+        header: 'Type',
+        enableSorting: false,
+        cell: ({ row }) => (
+          <Badge variant="outline" className="text-xs">
+            {row.original.subjectType}
+          </Badge>
+        ),
+        size: 80,
+      },
+    ]
+
+    for (const scope of scopes) {
+      cols.push({
+        id: `scope_${scope}`,
+        header: () => <span className="text-center block">{scope}</span>,
+        enableSorting: false,
+        cell: ({ row }) => (
+          <div className="flex justify-center">
+            <MatrixCellBadge cell={row.original.cells[scope]} />
+          </div>
+        ),
+        size: 80,
+      })
+    }
+
+    return cols
+  }, [scopes])
 
   if (isLoading) return <LoadingPage message="Building access matrix..." />
   if (error) return <ErrorDisplay message={error.message} />
@@ -338,53 +379,15 @@ export function AclAccessMatrixPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="sticky left-0 z-10 bg-background min-w-[200px]">
-                    Subject
-                  </TableHead>
-                  <TableHead className="w-20">Type</TableHead>
-                  {scopes.map((scope) => (
-                    <TableHead key={scope} className="text-center min-w-[80px]">
-                      {scope}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredRows.map((row) => (
-                  <TableRow key={row.subjectDn}>
-                    <TableCell className="sticky left-0 z-10 bg-background font-medium font-mono text-sm">
-                      {subjectLabel(row.subjectDn)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs">
-                        {row.subjectType}
-                      </Badge>
-                    </TableCell>
-                    {scopes.map((scope) => (
-                      <TableCell key={scope} className="text-center">
-                        <MatrixCellBadge cell={row.cells[scope]} />
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-
-                {filteredRows.length === 0 && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={scopes.length + 2}
-                      className="text-center py-12 text-muted-foreground"
-                    >
-                      No assignments to display
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+          <DataTable
+            columns={columns}
+            data={filteredRows}
+            isLoading={isLoading}
+            emptyMessage="No assignments to display"
+            enablePagination={false}
+            getRowId={(row: MatrixRow) => row.subjectDn}
+            dense
+          />
         </CardContent>
       </Card>
     </div>
