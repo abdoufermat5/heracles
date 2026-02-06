@@ -1,0 +1,415 @@
+{
+  "categories": [
+    {
+      "name": "general",
+      "label": "General",
+      "description": "General application settings",
+      "icon": "settings",
+      "display_order": 10,
+      "settings": [
+        {
+          "key": "language",
+          "value": "en",
+          "default_value": "en",
+          "label": "Language",
+          "description": "Default language for the interface",
+          "data_type": "select",
+          "options": [
+            { "value": "en", "label": "English" },
+            { "value": "fr", "label": "Français" },
+            { "value": "de", "label": "Deutsch" }
+          ],
+          "display_order": 10
+        },
+        {
+          "key": "timezone",
+          "value": "UTC",
+          "default_value": "UTC",
+          "label": "Timezone",
+          "description": "Default timezone for date/time display",
+          "data_type": "string",
+          "display_order": 20
+        },
+        {
+          "key": "date_format",
+          "value": "YYYY-MM-DD",
+          "default_value": "YYYY-MM-DD",
+          "label": "Date Format",
+          "description": "Format for displaying dates",
+          "data_type": "select",
+          "options": [
+            { "value": "YYYY-MM-DD", "label": "2026-01-31" },
+            { "value": "DD/MM/YYYY", "label": "31/01/2026" },
+            { "value": "MM/DD/YYYY", "label": "01/31/2026" }
+          ],
+          "display_order": 30
+        },
+        {
+          "key": "items_per_page",
+          "value": 25,
+          "default_value": 25,
+          "label": "Items Per Page",
+          "description": "Default number of items to show in lists",
+          "data_type": "integer",
+          "display_order": 40
+        },
+        {
+          "key": "theme",
+          "value": "system",
+          "default_value": "system",
+          "label": "Theme",
+          "description": "Color theme for the interface",
+          "data_type": "select",
+          "options": [
+            { "value": "light", "label": "Light" },
+            { "value": "dark", "label": "Dark" },
+            { "value": "system", "label": "System" }
+          ],
+          "display_order": 50
+        }
+      ]
+    },
+    {
+      "name": "ldap",
+      "label": "LDAP",
+      "description": "LDAP connection and directory settings",
+      "icon": "database",
+      "display_order": 20,
+      "settings": [
+        {
+          "key": "user_rdn",
+          "value": "ou=people",
+          "default_value": "ou=people",
+          "label": "User RDN",
+          "description": "Relative DN for user objects",
+          "data_type": "string",
+          "section": "RDN Settings",
+          "display_order": 10
+        },
+        {
+          "key": "group_rdn",
+          "value": "ou=groups",
+          "default_value": "ou=groups",
+          "label": "Group RDN",
+          "description": "Relative DN for group objects",
+          "data_type": "string",
+          "section": "RDN Settings",
+          "display_order": 20
+        },
+        {
+          "key": "roles_rdn",
+          "value": "ou=roles",
+          "default_value": "ou=roles",
+          "label": "Roles RDN",
+          "description": "Relative DN for organizational role entries",
+          "data_type": "string",
+          "section": "RDN Settings",
+          "display_order": 25
+        },
+        {
+          "key": "system_rdn",
+          "value": "ou=systems",
+          "default_value": "ou=systems",
+          "label": "System RDN",
+          "description": "Relative DN for system objects",
+          "data_type": "string",
+          "section": "RDN Settings",
+          "display_order": 30
+        },
+        {
+          "key": "dns_rdn",
+          "value": "ou=dns",
+          "default_value": "ou=dns",
+          "label": "DNS RDN",
+          "description": "Relative DN for DNS zones",
+          "data_type": "string",
+          "section": "RDN Settings",
+          "display_order": 40
+        },
+        {
+          "key": "dhcp_rdn",
+          "value": "ou=dhcp",
+          "default_value": "ou=dhcp",
+          "label": "DHCP RDN",
+          "description": "Relative DN for DHCP configuration",
+          "data_type": "string",
+          "section": "RDN Settings",
+          "display_order": 50
+        },
+        {
+          "key": "sudo_rdn",
+          "value": "ou=sudoers",
+          "default_value": "ou=sudoers",
+          "label": "Sudo RDN",
+          "description": "Relative DN for sudo rules",
+          "data_type": "string",
+          "section": "RDN Settings",
+          "display_order": 60
+        },
+        {
+          "key": "size_limit",
+          "value": 1000,
+          "default_value": 1000,
+          "label": "Size Limit",
+          "description": "Maximum entries to return in searches",
+          "data_type": "integer",
+          "section": "Search Limits",
+          "display_order": 70
+        },
+        {
+          "key": "time_limit",
+          "value": 30,
+          "default_value": 30,
+          "label": "Time Limit",
+          "description": "Maximum time in seconds for searches",
+          "data_type": "integer",
+          "section": "Search Limits",
+          "display_order": 80
+        }
+      ]
+    },
+    {
+      "name": "security",
+      "label": "Security",
+      "description": "Security and access control settings",
+      "icon": "shield",
+      "display_order": 30,
+      "settings": [
+        {
+          "key": "require_https",
+          "value": true,
+          "default_value": true,
+          "label": "Require HTTPS",
+          "description": "Force HTTPS connections for all requests",
+          "data_type": "boolean",
+          "display_order": 10
+        },
+        {
+          "key": "allowed_origins",
+          "value": ["*"],
+          "default_value": ["*"],
+          "label": "Allowed CORS Origins",
+          "description": "Origins allowed for CORS requests",
+          "data_type": "list",
+          "display_order": 20
+        },
+        {
+          "key": "rate_limit_enabled",
+          "value": true,
+          "default_value": true,
+          "label": "Enable Rate Limiting",
+          "description": "Enable API rate limiting",
+          "data_type": "boolean",
+          "display_order": 30
+        },
+        {
+          "key": "rate_limit_requests",
+          "value": 100,
+          "default_value": 100,
+          "label": "Rate Limit Requests",
+          "description": "Maximum requests per window",
+          "data_type": "integer",
+          "display_order": 40
+        },
+        {
+          "key": "rate_limit_window",
+          "value": 60,
+          "default_value": 60,
+          "label": "Rate Limit Window",
+          "description": "Rate limit window in seconds",
+          "data_type": "integer",
+          "display_order": 50
+        }
+      ]
+    },
+    {
+      "name": "password",
+      "label": "Password Policy",
+      "description": "Password requirements and hashing",
+      "icon": "key",
+      "display_order": 40,
+      "settings": [
+        {
+          "key": "min_length",
+          "value": 8,
+          "default_value": 8,
+          "label": "Minimum Length",
+          "description": "Minimum password length",
+          "data_type": "integer",
+          "validation_rules": { "min": 4, "max": 128 },
+          "display_order": 10
+        },
+        {
+          "key": "require_uppercase",
+          "value": true,
+          "default_value": true,
+          "label": "Require Uppercase",
+          "description": "Require at least one uppercase letter",
+          "data_type": "boolean",
+          "display_order": 20
+        },
+        {
+          "key": "require_lowercase",
+          "value": true,
+          "default_value": true,
+          "label": "Require Lowercase",
+          "description": "Require at least one lowercase letter",
+          "data_type": "boolean",
+          "display_order": 30
+        },
+        {
+          "key": "require_numbers",
+          "value": true,
+          "default_value": true,
+          "label": "Require Numbers",
+          "description": "Require at least one number",
+          "data_type": "boolean",
+          "display_order": 40
+        },
+        {
+          "key": "require_special",
+          "value": false,
+          "default_value": false,
+          "label": "Require Special Characters",
+          "description": "Require at least one special character",
+          "data_type": "boolean",
+          "display_order": 50
+        },
+        {
+          "key": "default_hash_method",
+          "value": "ssha",
+          "default_value": "ssha",
+          "label": "Hash Method",
+          "description": "Default password hashing algorithm",
+          "data_type": "select",
+          "options": [
+            { "value": "ssha", "label": "SSHA (Salted SHA-1)" },
+            { "value": "ssha256", "label": "SSHA256" },
+            { "value": "ssha512", "label": "SSHA512" },
+            { "value": "argon2", "label": "Argon2" }
+          ],
+          "display_order": 60
+        },
+        {
+          "key": "expiration_days",
+          "value": 0,
+          "default_value": 0,
+          "label": "Expiration Days",
+          "description": "Days until password expires (0 = never)",
+          "data_type": "integer",
+          "validation_rules": { "min": 0, "max": 365 },
+          "display_order": 70
+        }
+      ]
+    },
+    {
+      "name": "session",
+      "label": "Sessions",
+      "description": "Session management settings",
+      "icon": "clock",
+      "display_order": 50,
+      "settings": [
+        {
+          "key": "access_token_expire_minutes",
+          "value": 60,
+          "default_value": 60,
+          "label": "Access Token Expiry",
+          "description": "Access token lifetime in minutes",
+          "data_type": "integer",
+          "validation_rules": { "min": 5, "max": 1440 },
+          "display_order": 10
+        },
+        {
+          "key": "refresh_token_expire_days",
+          "value": 7,
+          "default_value": 7,
+          "label": "Refresh Token Expiry",
+          "description": "Refresh token lifetime in days",
+          "data_type": "integer",
+          "validation_rules": { "min": 1, "max": 90 },
+          "display_order": 20
+        },
+        {
+          "key": "session_timeout",
+          "value": 3600,
+          "default_value": 3600,
+          "label": "Session Timeout",
+          "description": "Session timeout in seconds",
+          "data_type": "integer",
+          "validation_rules": { "min": 300, "max": 86400 },
+          "display_order": 30
+        },
+        {
+          "key": "max_concurrent_sessions",
+          "value": 5,
+          "default_value": 5,
+          "label": "Max Concurrent Sessions",
+          "description": "Maximum concurrent sessions per user (0 = unlimited)",
+          "data_type": "integer",
+          "validation_rules": { "min": 0, "max": 100 },
+          "display_order": 40
+        },
+        {
+          "key": "idle_timeout",
+          "value": 1800,
+          "default_value": 1800,
+          "label": "Idle Timeout",
+          "description": "Idle timeout in seconds before auto-logout",
+          "data_type": "integer",
+          "validation_rules": { "min": 300, "max": 86400 },
+          "display_order": 50
+        }
+      ]
+    },
+    {
+      "name": "audit",
+      "label": "Audit & Logging",
+      "description": "Audit trail and logging settings",
+      "icon": "file-text",
+      "display_order": 60,
+      "settings": [
+        {
+          "key": "enable_audit_log",
+          "value": true,
+          "default_value": true,
+          "label": "Enable Audit Log",
+          "description": "Log all user actions",
+          "data_type": "boolean",
+          "display_order": 10
+        },
+        {
+          "key": "log_level",
+          "value": "INFO",
+          "default_value": "INFO",
+          "label": "Log Level",
+          "description": "Application log level",
+          "data_type": "select",
+          "options": [
+            { "value": "DEBUG", "label": "Debug" },
+            { "value": "INFO", "label": "Info" },
+            { "value": "WARNING", "label": "Warning" },
+            { "value": "ERROR", "label": "Error" }
+          ],
+          "display_order": 20
+        },
+        {
+          "key": "retention_days",
+          "value": 90,
+          "default_value": 90,
+          "label": "Retention Days",
+          "description": "Days to keep audit logs",
+          "data_type": "integer",
+          "display_order": 30
+        }
+      ]
+    },
+    {
+      "name": "snapshots",
+      "label": "Snapshots",
+      "description": "Backup and snapshot settings",
+      "icon": "archive",
+      "display_order": 70,
+      "settings": []
+    }
+  ]
+}

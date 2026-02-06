@@ -1,0 +1,26 @@
+# =============================================================================
+# Postfix LDAP Lookup - Group Mail (Mailing Lists)
+# =============================================================================
+# Maps group email addresses to member email addresses.
+# Queries LDAP for groups with hrcGroupMail objectClass.
+#
+# Template variables: @LDAP_HOST@, @LDAP_PORT@, @LDAP_BIND_DN@,
+#                     @LDAP_BIND_PASSWORD@, @LDAP_GROUPS_DN@
+# =============================================================================
+
+server_host = ldap://@LDAP_HOST@:@LDAP_PORT@
+version = 3
+
+bind = yes
+bind_dn = @LDAP_BIND_DN@
+bind_pw = @LDAP_BIND_PASSWORD@
+
+search_base = @LDAP_GROUPS_DN@
+
+# Find groups with mailing list enabled and matching mail address
+query_filter = (&(objectClass=hrcGroupMail)(mail=%s))
+
+# Return member UIDs - these will be resolved through virtual_mailbox_maps
+# For groups using memberUid, we expand to user@domain
+result_attribute = memberUid
+result_format = %s@@DOMAIN@

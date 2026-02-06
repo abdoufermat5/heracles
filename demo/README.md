@@ -54,9 +54,9 @@ dig @192.168.56.20 -x 192.168.56.10
 
 | Utilisateur | Mot de passe | Clé SSH | Sudo | Accès Hôtes |
 |-------------|--------------|---------|------|-------------|
-| testuser | testpassword123 | keys/testuser | ALL NOPASSWD | Tous (fullaccess) |
-| devuser | devpassword123 | keys/devuser | apt, systemctl, journalctl | server1 uniquement |
-| opsuser | opspassword123 | keys/opsuser | ALL (mot de passe) | Tous (fullaccess) |
+| testuser | Testpassword123 | keys/testuser | ALL NOPASSWD | Tous (fullaccess) |
+| devuser | Devpassword123 | keys/devuser | apt, systemctl, journalctl | server1 uniquement |
+| opsuser | Opspassword123 | keys/opsuser | ALL (mot de passe) | Tous (fullaccess) |
 
 ### Host-based Access Control
 

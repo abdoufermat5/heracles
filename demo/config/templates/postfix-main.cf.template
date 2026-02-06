@@ -1,0 +1,91 @@
+# =============================================================================
+# Postfix Main Configuration for Heracles Demo
+# =============================================================================
+# Template file - Variables are substituted during provisioning
+# Variables: @DOMAIN@, @MAIL_SERVER@, @MAIL1_IP@, @MAIL_ADMIN@,
+#            @VMAIL_UID@, @VMAIL_GID@, @VMAIL_HOME@,
+#            @MAIL_TLS_CERT@, @MAIL_TLS_KEY@
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# General Settings
+# -----------------------------------------------------------------------------
+smtpd_banner = $myhostname ESMTP Heracles Mail (Debian/GNU)
+biff = no
+append_dot_mydomain = no
+readme_directory = no
+compatibility_level = 3.6
+
+# Hostname and domain
+myhostname = @MAIL_SERVER@
+mydomain = @DOMAIN@
+myorigin = $mydomain
+mydestination = localhost, localhost.$mydomain
+
+# Network
+inet_interfaces = all
+inet_protocols = ipv4
+mynetworks = 127.0.0.0/8, 192.168.56.0/24
+
+# Mailbox size limits (0 = unlimited, managed by Dovecot quotas)
+mailbox_size_limit = 0
+message_size_limit = 52428800
+
+# Postmaster
+alias_maps = hash:/etc/aliases
+alias_database = hash:/etc/aliases
+
+# -----------------------------------------------------------------------------
+# TLS Configuration (STARTTLS with self-signed certificate)
+# -----------------------------------------------------------------------------
+# SMTP server (incoming connections)
+smtpd_tls_cert_file = @MAIL_TLS_CERT@
+smtpd_tls_key_file = @MAIL_TLS_KEY@
+smtpd_tls_security_level = may
+smtpd_tls_auth_only = yes
+smtpd_tls_loglevel = 1
+smtpd_tls_received_header = yes
+smtpd_tls_session_cache_database = btree:${data_directory}/smtpd_scache
+smtpd_tls_protocols = >=TLSv1.2
+smtpd_tls_mandatory_protocols = >=TLSv1.2
+
+# SMTP client (outgoing connections)
+smtp_tls_security_level = may
+smtp_tls_loglevel = 1
+smtp_tls_session_cache_database = btree:${data_directory}/smtp_scache
+
+# -----------------------------------------------------------------------------
+# SASL Authentication (via Dovecot)
+# -----------------------------------------------------------------------------
+smtpd_sasl_type = dovecot
+smtpd_sasl_path = private/auth
+smtpd_sasl_auth_enable = yes
+smtpd_sasl_security_options = noanonymous, noplaintext
+smtpd_sasl_tls_security_options = noanonymous
+
+# SMTP recipient restrictions
+smtpd_recipient_restrictions =
+    permit_sasl_authenticated,
+    permit_mynetworks,
+    reject_unauth_destination
+
+smtpd_relay_restrictions =
+    permit_mynetworks,
+    permit_sasl_authenticated,
+    reject_unauth_destination
+
+# -----------------------------------------------------------------------------
+# Virtual Mailbox Configuration (LDAP-backed)
+# -----------------------------------------------------------------------------
+virtual_mailbox_domains = @DOMAIN@
+virtual_mailbox_base = @VMAIL_HOME@
+virtual_minimum_uid = @VMAIL_UID@
+virtual_uid_maps = static:@VMAIL_UID@
+virtual_gid_maps = static:@VMAIL_GID@
+
+# LDAP lookups for virtual delivery
+virtual_mailbox_maps = ldap:/etc/postfix/ldap-virtual-mailbox.cf
+virtual_alias_maps = ldap:/etc/postfix/ldap-virtual-alias.cf, ldap:/etc/postfix/ldap-virtual-forward.cf, ldap:/etc/postfix/ldap-group-mail.cf
+
+# Deliver via Dovecot LDA (for quota enforcement and Sieve)
+virtual_transport = lmtp:unix:private/dovecot-lmtp

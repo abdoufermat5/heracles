@@ -1,0 +1,206 @@
+# =============================================================================
+# Dovecot Main Configuration for Heracles Demo
+# =============================================================================
+# Template file - Variables are substituted during provisioning
+# Variables: @DOMAIN@, @MAIL_SERVER@, @VMAIL_UID@, @VMAIL_GID@, @VMAIL_HOME@,
+#            @MAIL_TLS_CERT@, @MAIL_TLS_KEY@
+#
+# Authentication: Direct LDAP simple bind against OpenLDAP.
+# Dovecot queries LDAP for user entries (posixAccount + hrcMailAccount)
+# and authenticates via LDAP bind with the user's credentials.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Global Settings
+# -----------------------------------------------------------------------------
+protocols = imap lmtp
+listen = *, ::
+mail_debug = no
+auth_debug = no
+verbose_proctitle = yes
+
+# Log to syslog
+log_path = syslog
+syslog_facility = mail
+info_log_path =
+debug_log_path =
+
+# -----------------------------------------------------------------------------
+# Mail Location
+# -----------------------------------------------------------------------------
+# Virtual mailboxes stored under /var/mail/vhosts/<domain>/<user>/
+mail_location = maildir:@VMAIL_HOME@/@DOMAIN@/%n/Maildir
+mail_home = @VMAIL_HOME@/@DOMAIN@/%n
+
+# Namespace configuration
+namespace inbox {
+  inbox = yes
+  separator = /
+
+  mailbox Drafts {
+    auto = subscribe
+    special_use = \Drafts
+  }
+  mailbox Sent {
+    auto = subscribe
+    special_use = \Sent
+  }
+  mailbox "Sent Messages" {
+    special_use = \Sent
+  }
+  mailbox Trash {
+    auto = subscribe
+    special_use = \Trash
+  }
+  mailbox Junk {
+    auto = subscribe
+    special_use = \Junk
+  }
+  mailbox Archive {
+    auto = subscribe
+    special_use = \Archive
+  }
+}
+
+# Mail process user (virtual mailboxes)
+mail_uid = @VMAIL_UID@
+mail_gid = @VMAIL_GID@
+mail_privileged_group = vmail
+first_valid_uid = @VMAIL_UID@
+
+# -----------------------------------------------------------------------------
+# TLS Configuration
+# -----------------------------------------------------------------------------
+ssl = required
+ssl_cert = <@MAIL_TLS_CERT@
+ssl_key = <@MAIL_TLS_KEY@
+ssl_min_protocol = TLSv1.2
+ssl_prefer_server_ciphers = yes
+
+# -----------------------------------------------------------------------------
+# Authentication (Direct LDAP bind)
+# -----------------------------------------------------------------------------
+# Dovecot authenticates users directly against OpenLDAP via simple bind.
+# No SSSD/PAM dependency — the mail server talks to LDAP on its own.
+#
+# passdb: LDAP bind (verifies uid + password against userPassword)
+# userdb: static mapping to vmail uid/gid for virtual mailbox delivery
+
+disable_plaintext_auth = yes
+auth_mechanisms = plain login
+
+# LDAP password database (simple bind authentication)
+passdb {
+  driver = ldap
+  args = /etc/dovecot/dovecot-ldap.conf.ext
+}
+
+# Static user database — all virtual users map to the vmail system account
+userdb {
+  driver = static
+  args = uid=@VMAIL_UID@ gid=@VMAIL_GID@ home=@VMAIL_HOME@/@DOMAIN@/%n
+}
+
+# Auth socket for Postfix SASL
+service auth {
+  unix_listener /var/spool/postfix/private/auth {
+    mode = 0660
+    user = postfix
+    group = postfix
+  }
+  unix_listener auth-userdb {
+    mode = 0660
+    user = vmail
+    group = vmail
+  }
+}
+
+# -----------------------------------------------------------------------------
+# LMTP (Local Mail Transfer Protocol - for Postfix delivery)
+# -----------------------------------------------------------------------------
+service lmtp {
+  unix_listener /var/spool/postfix/private/dovecot-lmtp {
+    mode = 0600
+    user = postfix
+    group = postfix
+  }
+}
+
+protocol lmtp {
+  mail_plugins = $mail_plugins quota sieve
+  postmaster_address = postmaster@@DOMAIN@
+}
+
+# -----------------------------------------------------------------------------
+# IMAP Settings
+# -----------------------------------------------------------------------------
+protocol imap {
+  mail_plugins = $mail_plugins quota imap_quota imap_sieve
+  mail_max_userip_connections = 20
+}
+
+# -----------------------------------------------------------------------------
+# Quota Plugin (reads from LDAP via mail_attribute or default)
+# -----------------------------------------------------------------------------
+plugin {
+  # Default quota: 1GB (can be overridden per-user via hrcMailQuota in LDAP)
+  quota = maildir:User quota
+  quota_rule = *:storage=1G
+  quota_rule2 = Trash:storage=+100M
+  quota_grace = 10%%
+
+  # Quota warnings
+  quota_warning = storage=95%% quota-warning 95 %u
+  quota_warning2 = storage=80%% quota-warning 80 %u
+  quota_status_success = DUNNO
+  quota_status_nouser = DUNNO
+  quota_status_overquota = "552 5.2.2 Mailbox is full"
+}
+
+# Quota warning script service
+service quota-warning {
+  executable = script /usr/local/bin/quota-warning.sh
+  user = vmail
+
+  unix_listener quota-warning {
+    user = vmail
+    group = vmail
+    mode = 0660
+  }
+}
+
+# -----------------------------------------------------------------------------
+# Sieve Plugin (for vacation auto-reply)
+# -----------------------------------------------------------------------------
+plugin {
+  sieve = file:~/sieve;active=~/.dovecot.sieve
+  sieve_default = /etc/dovecot/sieve/default.sieve
+  sieve_global_dir = /etc/dovecot/sieve/global/
+  sieve_before = /etc/dovecot/sieve/before.d/
+  sieve_after = /etc/dovecot/sieve/after.d/
+
+  # IMAPSieve for server-side rules
+  imapsieve_mailbox1_name = Junk
+  imapsieve_mailbox1_causes = COPY
+  imapsieve_mailbox1_before = file:/etc/dovecot/sieve/report-spam.sieve
+  imapsieve_mailbox2_name = *
+  imapsieve_mailbox2_from = Junk
+  imapsieve_mailbox2_causes = COPY
+  imapsieve_mailbox2_before = file:/etc/dovecot/sieve/report-ham.sieve
+}
+
+# -----------------------------------------------------------------------------
+# Logging & Statistics
+# -----------------------------------------------------------------------------
+service stats {
+  unix_listener stats-reader {
+    user = vmail
+    group = vmail
+    mode = 0660
+  }
+  unix_listener stats-writer {
+    user = vmail
+    group = vmail
+    mode = 0660
+  }
+}

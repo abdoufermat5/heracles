@@ -12,6 +12,7 @@ Ce dossier contient la documentation complète pour l'environnement de démonstr
 6. [Architecture](06-ARCHITECTURE.md) - Architecture détaillée et flux de données
 7. [Guide DNS/DHCP](07-DNS-DHCP-GUIDE.md) - Configuration DNS et DHCP avancée
 8. [Scénarios](08-SCENARIOS.md) - Scénarios de démonstration pas-à-pas
+9. [Serveur de messagerie](09-MAIL-SERVER.md) - Postfix, Dovecot, Roundcube et intégration LDAP
 
 ## Démarrage rapide
 
@@ -49,6 +50,7 @@ vagrant ssh server1 -c 'sudo dhclient -v eth1'
 |----|-------|------|
 | ns1 | 192.168.56.20 | Serveur DNS BIND9 (zones depuis LDAP) |
 | dhcp1 | 192.168.56.21 | Serveur DHCP ISC (config depuis LDAP) |
+| mail1 | 192.168.56.22 | Serveur de messagerie (Postfix + Dovecot + Roundcube) |
 | server1 | 192.168.56.10 | Serveur de test SSSD |
 | workstation1 | 192.168.56.11 | Workstation de test SSSD |
 
@@ -56,9 +58,9 @@ vagrant ssh server1 -c 'sudo dhclient -v eth1'
 
 | Utilisateur | Mot de passe | Permissions sudo |
 |-------------|--------------|------------------|
-| testuser | testpassword123 | ALL (sans mot de passe) |
-| devuser | devpassword123 | apt, systemctl, journalctl |
-| opsuser | opspassword123 | ALL (avec mot de passe) |
+| testuser | Testpassword123 | ALL (sans mot de passe) |
+| devuser | Devpassword123 | apt, systemctl, journalctl |
+| opsuser | Opspassword123 | ALL (avec mot de passe) |
 
 ## Zones DNS de démo
 
@@ -70,6 +72,9 @@ vagrant ssh server1 -c 'sudo dhclient -v eth1'
 Enregistrements pré-configurés :
 - `ns1.heracles.local` → 192.168.56.20
 - `dhcp1.heracles.local` → 192.168.56.21
+- `mail1.heracles.local` → 192.168.56.22 (A)
+- `mail.heracles.local` → mail1.heracles.local (CNAME)
+- `heracles.local` → 10 mail1.heracles.local (MX)
 - `server1.heracles.local` → 192.168.56.10
 - `workstation1.heracles.local` → 192.168.56.11
 - `ldap.heracles.local` → 192.168.56.1
@@ -104,7 +109,8 @@ demo/
 │   ├── setup-ssh.sh      # Configuration SSH LDAP
 │   ├── setup-sudo.sh     # Configuration sudo LDAP
 │   ├── setup-bind.sh     # Configuration BIND9 DNS
-│   └── setup-dhcp.sh     # Configuration ISC DHCP
+│   ├── setup-dhcp.sh     # Configuration ISC DHCP
+│   └── setup-mail.sh     # Configuration Postfix + Dovecot + Roundcube
 ├── scripts/              # Scripts utilitaires
 │   ├── generate-keys.sh
 │   └── setup-demo-users.sh
@@ -113,6 +119,10 @@ demo/
 │   └── templates/        # Templates de configuration
 │       ├── dhcpd.conf.template
 │       ├── ldap-dhcp-sync.sh.template
+│       ├── postfix-main.cf.template
+│       ├── dovecot.conf.template
+│       ├── roundcube-config.php.template
+│       ├── nginx-roundcube.conf.template
 │       └── ...
 └── setup-docs/           # Documentation détaillée
     ├── README.md
@@ -120,5 +130,6 @@ demo/
     ├── 02-CONFIGURATION.md
     ├── 03-API-GUIDE.md
     ├── 04-TESTS.md
-    └── 05-DEPANNAGE.md
+    ├── 05-DEPANNAGE.md
+    └── 09-MAIL-SERVER.md
 ```

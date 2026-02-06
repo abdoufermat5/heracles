@@ -103,7 +103,7 @@ result=$(api_call POST "/api/v1/users" '{
     "sn": "User",
     "cn": "Test User",
     "mail": "testuser@heracles.local",
-    "password": "testpassword123"
+    "password": "Testpassword123"
 }')
 echo "$result" | jq -r '.uid // .detail // .' 2>/dev/null || echo "$result"
 
@@ -116,7 +116,7 @@ result=$(api_call POST "/api/v1/users" '{
     "sn": "User",
     "cn": "Developer User",
     "mail": "devuser@heracles.local",
-    "password": "devpassword123"
+    "password": "Devpassword123"
 }')
 echo "$result" | jq -r '.uid // .detail // .' 2>/dev/null || echo "$result"
 
@@ -129,7 +129,7 @@ result=$(api_call POST "/api/v1/users" '{
     "sn": "User",
     "cn": "Operations User",
     "mail": "opsuser@heracles.local",
-    "password": "opspassword123"
+    "password": "Opspassword123"
 }')
 echo "$result" | jq -r '.uid // .detail // .' 2>/dev/null || echo "$result"
 
@@ -331,6 +331,178 @@ result=$(api_call POST "/api/v1/systems" '{
 }')
 echo "$result" | jq -r '.cn // .detail // .' 2>/dev/null || echo "$result"
 
+# Create mail1
+echo ""
+echo "[*] Registering mail1..."
+result=$(api_call POST "/api/v1/systems" '{
+    "cn": "mail1",
+    "systemType": "server",
+    "description": "Demo mail server VM - Postfix + Dovecot",
+    "ipHostNumber": ["192.168.56.22"],
+    "l": "Demo Environment"
+}')
+echo "$result" | jq -r '.cn // .detail // .' 2>/dev/null || echo "$result"
+
+echo ""
+echo "=========================================================================="
+echo "[*] STEP 8: Create DNS Records for Mail Server"
+echo "=========================================================================="
+
+# mail1 A record
+echo ""
+echo "[*] Creating DNS A record: mail1 -> 192.168.56.22..."
+result=$(api_call POST "/api/v1/dns/zones/heracles.local/records" '{
+    "name": "mail1",
+    "recordType": "A",
+    "value": "192.168.56.22",
+    "ttl": 3600
+}')
+echo "$result" | jq -r '.name // .detail // .' 2>/dev/null || echo "$result"
+
+# mail CNAME record
+echo ""
+echo "[*] Creating DNS CNAME record: mail -> mail1.heracles.local..."
+result=$(api_call POST "/api/v1/dns/zones/heracles.local/records" '{
+    "name": "mail",
+    "recordType": "CNAME",
+    "value": "mail1.heracles.local.",
+    "ttl": 3600
+}')
+echo "$result" | jq -r '.name // .detail // .' 2>/dev/null || echo "$result"
+
+# MX record for the zone
+echo ""
+echo "[*] Creating DNS MX record: heracles.local -> mail1.heracles.local (priority 10)..."
+result=$(api_call POST "/api/v1/dns/zones/heracles.local/records" '{
+    "name": "@",
+    "recordType": "MX",
+    "value": "mail1.heracles.local.",
+    "ttl": 3600,
+    "priority": 10
+}')
+echo "$result" | jq -r '.name // .detail // .' 2>/dev/null || echo "$result"
+
+# PTR record in reverse zone
+echo ""
+echo "[*] Creating DNS PTR record: 22 -> mail1.heracles.local..."
+result=$(api_call POST "/api/v1/dns/zones/56.168.192.in-addr.arpa/records" '{
+    "name": "22",
+    "recordType": "PTR",
+    "value": "mail1.heracles.local.",
+    "ttl": 3600
+}')
+echo "$result" | jq -r '.name // .detail // .' 2>/dev/null || echo "$result"
+
+# Trigger DNS sync on ns1
+echo ""
+echo "[*] Syncing DNS records to BIND on ns1..."
+DEMO_DIR_PARENT="$(dirname "$(dirname "$SCRIPT_DIR")")"
+if command -v vagrant &>/dev/null && [ -f "$DEMO_DIR/Vagrantfile" ]; then
+    (cd "$DEMO_DIR" && vagrant ssh ns1 -c 'sudo /usr/local/bin/ldap-dns-sync.sh && sudo systemctl reload named' 2>/dev/null)
+    echo "[+] DNS synced and reloaded on ns1"
+else
+    echo "[!] Vagrant not available — DNS will sync within 5 minutes via cron"
+fi
+
+echo ""
+echo "=========================================================================="
+echo "[*] STEP 9: Create DHCP Reservation for Mail Server"
+echo "=========================================================================="
+
+echo ""
+echo "[*] Creating DHCP host reservation: mail1 (08:00:27:00:00:22 -> 192.168.56.22)..."
+result=$(api_call POST "/api/v1/dhcp/demo-dhcp-service/hosts" '{
+    "cn": "mail1",
+    "dhcpHWAddress": "ethernet 08:00:27:00:00:22",
+    "fixedAddress": "192.168.56.22",
+    "comments": "Mail server - Postfix + Dovecot + Roundcube"
+}')
+echo "$result" | jq -r '.cn // .detail // .' 2>/dev/null || echo "$result"
+
+# Trigger DHCP sync on dhcp1
+echo ""
+echo "[*] Syncing DHCP config on dhcp1..."
+if command -v vagrant &>/dev/null && [ -f "$DEMO_DIR/Vagrantfile" ]; then
+    if (cd "$DEMO_DIR" && vagrant ssh dhcp1 -c 'sudo /usr/local/bin/ldap-dhcp-sync.sh' 2>/dev/null); then
+        echo "[+] DHCP synced and reloaded on dhcp1"
+    else
+        echo "[!] DHCP sync failed — will retry via cron within 5 minutes"
+    fi
+else
+    echo "[!] Vagrant not available — DHCP will sync within 5 minutes via cron"
+fi
+
+echo ""
+echo "=========================================================================="
+echo "[*] STEP 10: Activate Mail Plugin on Users"
+echo "=========================================================================="
+
+# Activate mail for testuser
+echo ""
+echo "[*] Activating mail for testuser..."
+result=$(api_call POST "/api/v1/mail/users/testuser/activate" '{
+    "mail": "testuser@heracles.local",
+    "mailServer": "mail1.heracles.local",
+    "quotaMb": 1024,
+    "alternateAddresses": ["tuser@heracles.local"]
+}')
+echo "$result" | jq -r '.hasMail // .detail // .' 2>/dev/null || echo "$result"
+
+# Activate mail for devuser
+echo ""
+echo "[*] Activating mail for devuser..."
+result=$(api_call POST "/api/v1/mail/users/devuser/activate" '{
+    "mail": "devuser@heracles.local",
+    "mailServer": "mail1.heracles.local",
+    "quotaMb": 512,
+    "alternateAddresses": ["dev@heracles.local"]
+}')
+echo "$result" | jq -r '.hasMail // .detail // .' 2>/dev/null || echo "$result"
+
+# Activate mail for opsuser (with forwarding to testuser)
+echo ""
+echo "[*] Activating mail for opsuser (with forwarding)..."
+result=$(api_call POST "/api/v1/mail/users/opsuser/activate" '{
+    "mail": "opsuser@heracles.local",
+    "mailServer": "mail1.heracles.local",
+    "quotaMb": 1024,
+    "alternateAddresses": ["ops@heracles.local"],
+    "forwardingAddresses": ["testuser@heracles.local"]
+}')
+echo "$result" | jq -r '.hasMail // .detail // .' 2>/dev/null || echo "$result"
+
+echo ""
+echo "=========================================================================="
+echo "[*] STEP 11: Create Mailing List Group & Activate Mail"
+echo "=========================================================================="
+# Note: The mail plugin requires groupOfNames (not posixGroup).
+# We create a dedicated groupOfNames group for the mailing list,
+# add developer members, then activate the mail plugin on it.
+
+echo ""
+echo "[*] Creating developers-ml groupOfNames group..."
+result=$(api_call POST "/api/v1/groups" '{
+    "cn": "developers-ml",
+    "description": "Developers mailing list"
+}')
+echo "$result" | jq -r '.cn // .detail // .' 2>/dev/null || echo "$result"
+
+# Add members
+echo "[*] Adding testuser and devuser to developers-ml..."
+api_call POST "/api/v1/groups/developers-ml/members" '{"uid": "testuser"}' > /dev/null 2>&1
+api_call POST "/api/v1/groups/developers-ml/members" '{"uid": "devuser"}' > /dev/null 2>&1
+echo "    Members added"
+
+# Activate mailing list
+echo ""
+echo "[*] Activating mailing list on developers-ml..."
+result=$(api_call POST "/api/v1/mail/groups/developers-ml/activate" '{
+    "mail": "developers@heracles.local",
+    "mailServer": "mail1.heracles.local",
+    "alternateAddresses": ["dev-team@heracles.local"]
+}')
+echo "$result" | jq -r '.active // .detail // .' 2>/dev/null || echo "$result"
+
 echo ""
 echo "=========================================================================="
 echo "[+] Demo Setup Complete!"
@@ -340,10 +512,26 @@ echo "[i] Users created:"
 echo "   ┌─────────────┬──────────────────┬─────────────────────────────────────┐"
 echo "   │ User        │ Password         │ Sudo Permissions                    │"
 echo "   ├─────────────┼──────────────────┼─────────────────────────────────────┤"
-echo "   │ testuser    │ testpassword123  │ ALL (NOPASSWD)                      │"
-echo "   │ devuser     │ devpassword123   │ apt, systemctl status, journalctl   │"
-echo "   │ opsuser     │ opspassword123   │ ALL (with password)                 │"
+echo "   │ testuser    │ Testpassword123  │ ALL (NOPASSWD)                      │"
+echo "   │ devuser     │ Devpassword123   │ apt, systemctl status, journalctl   │"
+echo "   │ opsuser     │ Opspassword123   │ ALL (with password)                 │"
 echo "   └─────────────┴──────────────────┴─────────────────────────────────────┘"
+echo ""
+echo "[i] Mail accounts:"
+echo "   ┌─────────────┬─────────────────────────────┬──────────────────────────┐"
+echo "   │ User        │ Email                       │ Aliases                  │"
+echo "   ├─────────────┼─────────────────────────────┼──────────────────────────┤"
+echo "   │ testuser    │ testuser@heracles.local      │ tuser@heracles.local     │"
+echo "   │ devuser     │ devuser@heracles.local       │ dev@heracles.local       │"
+echo "   │ opsuser     │ opsuser@heracles.local       │ ops@heracles.local       │"
+echo "   └─────────────┴─────────────────────────────┴──────────────────────────┘"
+echo ""
+echo "[i] Mailing lists:"
+echo "   ┌─────────────────┬──────────────────────────────┬────────────────────────────┐"
+echo "   │ Group           │ Email                        │ Aliases                    │"
+echo "   ├─────────────────┼──────────────────────────────┼────────────────────────────┤"
+echo "   │ developers-ml   │ developers@heracles.local     │ dev-team@heracles.local    │"
+echo "   └─────────────────┴──────────────────────────────┴────────────────────────────┘"
 echo ""
 echo "[i] Systems registered:"
 echo "   ┌──────────────┬─────────────┬────────────────┐"
@@ -351,7 +539,25 @@ echo "   │ Hostname     │ Type        │ IP Address     │"
 echo "   ├──────────────┼─────────────┼────────────────┤"
 echo "   │ server1      │ server      │ 192.168.56.10  │"
 echo "   │ workstation1 │ workstation │ 192.168.56.11  │"
+echo "   │ mail1        │ server      │ 192.168.56.22  │"
 echo "   └──────────────┴─────────────┴────────────────┘"
+echo ""
+echo "[i] DNS records created:"
+echo "   ┌──────────┬───────┬────────────────────────────┐"
+echo "   │ Name     │ Type  │ Value                      │"
+echo "   ├──────────┼───────┼────────────────────────────┤"
+echo "   │ mail1    │ A     │ 192.168.56.22              │"
+echo "   │ mail     │ CNAME │ mail1.heracles.local.      │"
+echo "   │ @        │ MX    │ 10 mail1.heracles.local.   │"
+echo "   │ 22 (PTR) │ PTR   │ mail1.heracles.local.      │"
+echo "   └──────────┴───────┴────────────────────────────┘"
+echo ""
+echo "[i] DHCP reservations created:"
+echo "   ┌──────────────┬─────────────────────┬────────────────┐"
+echo "   │ Host         │ MAC Address         │ Fixed IP       │"
+echo "   ├──────────────┼─────────────────────┼────────────────┤"
+echo "   │ mail1        │ 08:00:27:00:00:22   │ 192.168.56.22  │"
+echo "   └──────────────┴─────────────────────┴────────────────┘"
 echo ""
 echo "[*] SSH Keys location: $KEYS_DIR"
 echo ""
@@ -366,6 +572,16 @@ echo "   ssh -i $KEYS_DIR/testuser testuser@192.168.56.10 'sudo whoami'"
 echo ""
 echo "   # devuser - allowed commands only"
 echo "   ssh -i $KEYS_DIR/devuser devuser@192.168.56.10 'sudo /usr/bin/apt --version'"
+echo ""
+echo "[i] Test mail:"
+echo "   # Send a test email (from the mail1 VM):"
+echo "   vagrant ssh mail1 -c 'swaks --to testuser@heracles.local --from admin@heracles.local --server localhost --body \"Hello from Heracles!\"'"
+echo ""
+echo "   # Send via authenticated submission:"
+echo "   vagrant ssh mail1 -c 'swaks --to devuser@heracles.local --from testuser@heracles.local --server localhost:587 --tls --auth-user testuser --auth-password Testpassword123'"
+echo ""
+echo "   # Check mailbox:"
+echo "   vagrant ssh mail1 -c 'sudo doveadm mailbox list -u testuser'"
 echo ""
 echo "   # Clear SSSD cache on VMs if users don't appear:"
 echo "   vagrant ssh server1 -c 'sudo sss_cache -E && sudo systemctl restart sssd'"

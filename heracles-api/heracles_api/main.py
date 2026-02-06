@@ -49,6 +49,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("database_initialized")
     except Exception as e:
         logger.error("database_init_failed", error=str(e))
+
+    # Run Alembic migrations (create/update tables from models)
+    if db_ready:
+        try:
+            from heracles_api.core.migrations import run_migrations
+            await run_migrations()
+            logger.info("database_migrations_applied")
+        except Exception as e:
+            logger.error("database_migrations_failed", error=str(e))
     
     # Initialize configuration service (requires database)
     session_factory = None

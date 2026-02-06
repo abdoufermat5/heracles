@@ -16,25 +16,25 @@ update-static-leases on;
 log-facility local7;
 
 # Default lease times
-default-lease-time ${DHCP_LEASE_TIME};
+default-lease-time @DHCP_LEASE_TIME@;
 max-lease-time 7200;
 
 # Domain configuration
-option domain-name "${DOMAIN}";
-option domain-name-servers ${DHCP_DNS};
+option domain-name "@DOMAIN@";
+option domain-name-servers @DHCP_DNS@;
 
 # DDNS configuration for dynamic DNS updates
-ddns-domainname "${DOMAIN}.";
+ddns-domainname "@DOMAIN@.";
 ddns-rev-domainname "in-addr.arpa.";
 
 # Allow DDNS updates to DNS server
 # Note: In production, use TSIG keys for secure updates
-zone ${DOMAIN}. {
-    primary ${DHCP_DNS};
+zone @DOMAIN@. {
+    primary @DHCP_DNS@;
 }
 
 zone 56.168.192.in-addr.arpa. {
-    primary ${DHCP_DNS};
+    primary @DHCP_DNS@;
 }
 
 # =============================================================================

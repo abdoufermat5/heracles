@@ -2,7 +2,7 @@
 # Heracles - Docker
 # ============================================================================
 
-.PHONY: up down logs clean build bootstrap schemas shell
+.PHONY: up down logs clean build bootstrap schemas shell seed
 
 # Start all services
 up:
@@ -82,3 +82,9 @@ shell-redis:
 
 shell-ldap:
 	@$(COMPOSE) exec ldap ldapsearch -x -H ldap://localhost -b "$(LDAP_BASE_DN)" -D "$(LDAP_ADMIN_DN)" -w "$(LDAP_ADMIN_PW)" "(objectClass=*)" dn
+
+# Seed default configuration into PostgreSQL
+seed:
+	@echo "🌱 Seeding default configuration..."
+	@$(COMPOSE) exec api python -m heracles_api.core.seed
+	@echo "✅ Seed complete"

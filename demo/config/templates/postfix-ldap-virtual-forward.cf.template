@@ -1,0 +1,24 @@
+# =============================================================================
+# Postfix LDAP Lookup - Virtual Forward Maps
+# =============================================================================
+# Maps email addresses to forwarding destinations.
+# Queries LDAP for users with forwarding addresses configured.
+#
+# Template variables: @LDAP_HOST@, @LDAP_PORT@, @LDAP_BIND_DN@,
+#                     @LDAP_BIND_PASSWORD@, @MAIL_LDAP_SEARCH_BASE@
+# =============================================================================
+
+server_host = ldap://@LDAP_HOST@:@LDAP_PORT@
+version = 3
+
+bind = yes
+bind_dn = @LDAP_BIND_DN@
+bind_pw = @LDAP_BIND_PASSWORD@
+
+search_base = @MAIL_LDAP_SEARCH_BASE@
+
+# Find users with forwarding addresses whose mail or alternate matches
+query_filter = (&(objectClass=hrcMailAccount)(mail=%s)(hrcMailForwardingAddress=*))
+
+# Return forwarding addresses
+result_attribute = hrcMailForwardingAddress

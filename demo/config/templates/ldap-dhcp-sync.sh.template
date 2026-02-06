@@ -10,19 +10,22 @@
 
 set -e
 
+# Ensure /usr/sbin is in PATH (needed for dhcpd when run via vagrant ssh or cron)
+export PATH="/usr/sbin:/usr/local/sbin:$PATH"
+
 # Configuration (replaced from demo.conf)
-LDAP_URI="${LDAP_URI}"
-LDAP_BASE_DN="${LDAP_BASE_DN}"
-LDAP_BIND_DN="${LDAP_BIND_DN}"
-LDAP_BIND_PASSWORD="${LDAP_BIND_PASSWORD}"
-LDAP_DHCP_DN="${LDAP_DHCP_DN}"
-DHCP_SERVICE_CN="${DHCP_SERVICE_CN}"
-DOMAIN="${DOMAIN}"
+LDAP_URI="@LDAP_URI@"
+LDAP_BASE_DN="@LDAP_BASE_DN@"
+LDAP_BIND_DN="@LDAP_BIND_DN@"
+LDAP_BIND_PASSWORD="@LDAP_BIND_PASSWORD@"
+LDAP_DHCP_DN="@LDAP_DHCP_DN@"
+DHCP_SERVICE_CN="@DHCP_SERVICE_CN@"
+DOMAIN="@DOMAIN@"
 
 # File paths
 DHCPD_CONF="/etc/dhcp/dhcpd.conf"
 DHCPD_CONF_BASE="/etc/dhcp/dhcpd.conf.base"
-DHCPD_CONF_TMP="/tmp/dhcpd.conf.tmp"
+DHCPD_CONF_TMP="/etc/dhcp/dhcpd.conf.tmp"
 
 # Logging
 log() {
@@ -191,6 +194,12 @@ if dhcpd -t -cf "$DHCPD_CONF_TMP" 2>/dev/null; then
     cp "$DHCPD_CONF_TMP" "$DHCPD_CONF"
     rm -f "$DHCPD_CONF_TMP"
     log "DHCP configuration updated successfully"
+    
+    # Reload DHCP service to apply new configuration
+    if systemctl is-active --quiet isc-dhcp-server 2>/dev/null; then
+        systemctl restart isc-dhcp-server
+        log "DHCP service restarted"
+    fi
 else
     log "ERROR: Generated configuration is invalid!"
     log "Keeping existing configuration"

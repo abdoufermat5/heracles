@@ -1,0 +1,24 @@
+# =============================================================================
+# Postfix LDAP Lookup - Virtual Alias Maps
+# =============================================================================
+# Maps alternate email addresses (aliases) to primary addresses.
+# Queries LDAP for hrcMailAlternateAddress → mail mapping.
+#
+# Template variables: @LDAP_HOST@, @LDAP_PORT@, @LDAP_BIND_DN@,
+#                     @LDAP_BIND_PASSWORD@, @MAIL_LDAP_SEARCH_BASE@
+# =============================================================================
+
+server_host = ldap://@LDAP_HOST@:@LDAP_PORT@
+version = 3
+
+bind = yes
+bind_dn = @LDAP_BIND_DN@
+bind_pw = @LDAP_BIND_PASSWORD@
+
+search_base = @MAIL_LDAP_SEARCH_BASE@
+
+# Find users whose alternate address matches
+query_filter = (&(objectClass=hrcMailAccount)(hrcMailAlternateAddress=%s))
+
+# Return the primary mail address
+result_attribute = mail

@@ -1,0 +1,55 @@
+# =============================================================================
+# Dovecot LDAP Authentication Configuration for Heracles Demo
+# =============================================================================
+# Direct LDAP simple bind — Dovecot authenticates users by binding to
+# OpenLDAP with the user's own DN and password (no service account needed
+# for authentication, only for the DN lookup query).
+#
+# Template variables: @LDAP_HOST@, @LDAP_PORT@, @LDAP_BIND_DN@,
+#                     @LDAP_BIND_PASSWORD@, @MAIL_LDAP_SEARCH_BASE@
+# =============================================================================
+
+# LDAP server connection
+hosts = @LDAP_HOST@:@LDAP_PORT@
+ldap_version = 3
+
+# TLS for the LDAP connection itself (disabled for demo — plain LDAP on LAN)
+tls = no
+
+# --- DN lookup phase ---
+# We need a service account to search for the user's DN before binding.
+# This finds: uid=<username> → dn: uid=<username>,ou=people,dc=heracles,dc=local
+dn = @LDAP_BIND_DN@
+dnpass = @LDAP_BIND_PASSWORD@
+
+# --- Authentication method ---
+# auth_bind = yes  →  Dovecot does an LDAP bind with the user's own DN + password.
+# This is the simplest and most secure approach: passwords are never read from LDAP,
+# they are verified server-side by OpenLDAP itself.
+auth_bind = yes
+
+# --- User lookup ---
+base = @MAIL_LDAP_SEARCH_BASE@
+
+# Only authenticate users that have the hrcMailAccount objectClass active.
+# This means the mail plugin MUST be activated on the user in Heracles before
+# they can log in to IMAP/SMTP.
+pass_filter = (&(objectClass=hrcMailAccount)(uid=%n))
+
+# Attributes to fetch (used by Dovecot for user info)
+pass_attrs = \
+  uid=user, \
+  mail=mail
+
+# User filter (for userdb lookups if needed)
+user_filter = (&(objectClass=hrcMailAccount)(uid=%n))
+user_attrs = \
+  uid=user, \
+  mail=mail, \
+  =home=/var/mail/vhosts/%d/%n, \
+  =uid=5000, \
+  =gid=5000
+
+# Iterate filter (for doveadm user listing)
+iterate_filter = (objectClass=hrcMailAccount)
+iterate_attrs = uid=user

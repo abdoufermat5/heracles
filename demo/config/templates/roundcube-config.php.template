@@ -1,0 +1,102 @@
+<?php
+/* =============================================================================
+ * Roundcube Webmail Configuration - Heracles Demo
+ * =============================================================================
+ * Auto-generated from template. Do not edit directly.
+ *
+ * IMAP: Dovecot on localhost:143 (STARTTLS)
+ * SMTP: Postfix on localhost:587 (STARTTLS, authenticated)
+ * Auth: LDAP via Dovecot (Roundcube authenticates via IMAP)
+ * Storage: SQLite (local, no extra database needed)
+ * =============================================================================
+ */
+
+// Database (SQLite for simplicity in demo)
+$config['db_dsnw'] = 'sqlite:////var/lib/roundcube/db/roundcube.db?mode=0646';
+
+// IMAP server (Dovecot on localhost)
+$config['imap_host'] = 'localhost:143';
+$config['imap_auth_type'] = 'LOGIN';
+$config['imap_conn_options'] = array(
+    'ssl' => array(
+        'verify_peer'       => false,
+        'verify_peer_name'  => false,
+        'allow_self_signed' => true,
+    ),
+);
+
+// SMTP server (Postfix submission on localhost)
+$config['smtp_host'] = 'tls://localhost:587';
+$config['smtp_auth_type'] = 'LOGIN';
+$config['smtp_user'] = '%u';
+$config['smtp_pass'] = '%p';
+$config['smtp_conn_options'] = array(
+    'ssl' => array(
+        'verify_peer'       => false,
+        'verify_peer_name'  => false,
+        'allow_self_signed' => true,
+    ),
+);
+
+// System settings
+$config['support_url'] = '';
+$config['product_name'] = 'Heracles Webmail';
+$config['des_key'] = 'heracles-demo-roundcube-k3y!';
+$config['skin'] = 'elastic';
+$config['language'] = 'en_US';
+$config['enable_installer'] = false;
+
+// Domain settings
+$config['username_domain'] = '@DOMAIN@';
+$config['mail_domain'] = '@DOMAIN@';
+
+// Plugins
+$config['plugins'] = array(
+    'archive',
+    'zipdownload',
+    'managesieve',
+);
+
+// ManageSieve plugin (connects to Dovecot Sieve)
+$config['managesieve_host'] = 'localhost';
+$config['managesieve_port'] = 4190;
+$config['managesieve_usetls'] = false;
+$config['managesieve_conn_options'] = array(
+    'ssl' => array(
+        'verify_peer'       => false,
+        'verify_peer_name'  => false,
+        'allow_self_signed' => true,
+    ),
+);
+
+// Logging
+$config['log_driver'] = 'file';
+$config['log_dir'] = '/var/lib/roundcube/logs/';
+
+// Temp directory
+$config['temp_dir'] = '/var/lib/roundcube/temp/';
+
+// Cache
+$config['imap_cache'] = 'db';
+$config['messages_cache'] = 'db';
+
+// Compose settings
+$config['htmleditor'] = 2;          // Always compose in HTML
+$config['draft_autosave'] = 120;    // Auto-save draft every 2 minutes
+$config['mime_param_folding'] = 0;
+
+// Display settings
+$config['message_show_email'] = true;
+$config['list_cols'] = array('flag', 'attachment', 'subject', 'from', 'date', 'size');
+$config['date_format'] = 'Y-m-d';
+$config['time_format'] = 'H:i';
+$config['preview_pane'] = true;
+
+// Upload / attachment limits
+$config['upload_max_filesize'] = '25M';
+$config['max_message_size'] = '25M';
+
+// Session
+$config['session_lifetime'] = 30;   // 30 minutes
+$config['session_domain'] = '';
+$config['login_autocomplete'] = 2;

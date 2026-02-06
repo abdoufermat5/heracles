@@ -24,6 +24,7 @@ help:
 	@echo "SETUP"
 	@echo "   make bootstrap       Initialize LDAP structure"
 	@echo "   make schemas         Load LDAP schemas"
+	@echo "   make seed            Seed default config into PostgreSQL"
 	@echo ""
 	@echo "SHELLS"
 	@echo "   make shell s=<svc>   Shell into service"

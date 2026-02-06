@@ -1,0 +1,25 @@
+# =============================================================================
+# Postfix LDAP Lookup - Virtual Mailbox Maps
+# =============================================================================
+# Maps email addresses to mailbox paths for virtual delivery.
+# Queries LDAP for users with hrcMailAccount objectClass.
+#
+# Template variables: @LDAP_HOST@, @LDAP_PORT@, @LDAP_BIND_DN@,
+#                     @LDAP_BIND_PASSWORD@, @MAIL_LDAP_SEARCH_BASE@, @DOMAIN@
+# =============================================================================
+
+server_host = ldap://@LDAP_HOST@:@LDAP_PORT@
+version = 3
+
+bind = yes
+bind_dn = @LDAP_BIND_DN@
+bind_pw = @LDAP_BIND_PASSWORD@
+
+search_base = @MAIL_LDAP_SEARCH_BASE@
+
+# Find users with hrcMailAccount and matching mail address
+query_filter = (&(objectClass=hrcMailAccount)(mail=%s))
+
+# Return the mailbox path: domain/user/Maildir/
+result_format = @DOMAIN@/%u/Maildir/
+result_attribute = mail

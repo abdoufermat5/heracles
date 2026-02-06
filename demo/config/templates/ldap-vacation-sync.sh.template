@@ -1,0 +1,159 @@
+#!/bin/bash
+# =============================================================================
+# LDAP → Vacation Sieve Sync Script for Heracles Demo
+# =============================================================================
+# Syncs vacation auto-reply settings from LDAP (hrcMailAccount) to
+# Dovecot Sieve scripts for each user. Runs periodically via cron/timer.
+#
+# Reads: hrcVacationMessage, hrcVacationStart, hrcVacationStop, hrcMailDeliveryMode
+# Writes: Per-user Sieve vacation scripts
+#
+# Template variables: @LDAP_HOST@, @LDAP_PORT@, @LDAP_BIND_DN@,
+#                     @LDAP_BIND_PASSWORD@, @MAIL_LDAP_SEARCH_BASE@,
+#                     @DOMAIN@, @VMAIL_HOME@, @VMAIL_UID@, @VMAIL_GID@
+# =============================================================================
+
+set -e
+
+LDAP_HOST="@LDAP_HOST@"
+LDAP_PORT="@LDAP_PORT@"
+LDAP_BIND_DN="@LDAP_BIND_DN@"
+LDAP_BIND_PASSWORD="@LDAP_BIND_PASSWORD@"
+SEARCH_BASE="@MAIL_LDAP_SEARCH_BASE@"
+DOMAIN="@DOMAIN@"
+VMAIL_HOME="@VMAIL_HOME@"
+VMAIL_UID="@VMAIL_UID@"
+VMAIL_GID="@VMAIL_GID@"
+
+TODAY=$(date +%Y%m%d)
+LOG_TAG="ldap-vacation-sync"
+
+log() {
+    logger -t "$LOG_TAG" "$1"
+}
+
+log "Starting vacation sync..."
+
+# Query LDAP for all users with hrcMailAccount and vacation mode (V flag in delivery mode)
+VACATION_USERS=$(ldapsearch -x -H "ldap://${LDAP_HOST}:${LDAP_PORT}" \
+    -D "${LDAP_BIND_DN}" -w "${LDAP_BIND_PASSWORD}" \
+    -b "${SEARCH_BASE}" \
+    "(&(objectClass=hrcMailAccount)(hrcMailDeliveryMode=*V*)(hrcVacationMessage=*))" \
+    uid mail hrcVacationMessage hrcVacationStart hrcVacationStop 2>/dev/null) || {
+    log "WARNING: LDAP query failed"
+    exit 0
+}
+
+# Also query all users with hrcMailAccount to clean up expired vacation scripts
+ALL_MAIL_USERS=$(ldapsearch -x -H "ldap://${LDAP_HOST}:${LDAP_PORT}" \
+    -D "${LDAP_BIND_DN}" -w "${LDAP_BIND_PASSWORD}" \
+    -b "${SEARCH_BASE}" \
+    "(objectClass=hrcMailAccount)" \
+    uid 2>/dev/null | grep "^uid:" | awk '{print $2}') || true
+
+SYNCED=0
+REMOVED=0
+
+# Process vacation users
+current_uid=""
+current_mail=""
+current_message=""
+current_start=""
+current_stop=""
+
+process_user() {
+    local uid="$1"
+    local mail="$2"
+    local message="$3"
+    local start="$4"
+    local stop="$5"
+
+    [ -z "$uid" ] && return
+    [ -z "$message" ] && return
+
+    # Check date range
+    if [ -n "$start" ] && [ "$TODAY" -lt "$start" ]; then
+        return  # Vacation hasn't started yet
+    fi
+    if [ -n "$stop" ] && [ "$TODAY" -gt "$stop" ]; then
+        return  # Vacation has ended
+    fi
+
+    # Create sieve directory for user
+    local sieve_dir="${VMAIL_HOME}/${DOMAIN}/${uid}/sieve"
+    mkdir -p "$sieve_dir"
+
+    # Generate vacation sieve script
+    cat > "${sieve_dir}/vacation.sieve" << SIEVE
+require ["vacation", "variables"];
+
+vacation :days 1
+         :subject "Out of Office Auto-Reply"
+         :from "${mail}"
+         "${message}";
+SIEVE
+
+    # Compile sieve script
+    sievec "${sieve_dir}/vacation.sieve" 2>/dev/null || true
+
+    # Activate vacation script
+    ln -sf "${sieve_dir}/vacation.sieve" "${VMAIL_HOME}/${DOMAIN}/${uid}/.dovecot.sieve"
+
+    # Fix ownership
+    chown -R "${VMAIL_UID}:${VMAIL_GID}" "${VMAIL_HOME}/${DOMAIN}/${uid}/sieve" 2>/dev/null || true
+    chown "${VMAIL_UID}:${VMAIL_GID}" "${VMAIL_HOME}/${DOMAIN}/${uid}/.dovecot.sieve" 2>/dev/null || true
+
+    SYNCED=$((SYNCED + 1))
+    log "Activated vacation for ${uid} (${mail})"
+}
+
+# Parse LDAP output
+while IFS= read -r line; do
+    case "$line" in
+        "dn: "*)
+            # Process previous user if exists
+            process_user "$current_uid" "$current_mail" "$current_message" "$current_start" "$current_stop"
+            current_uid=""
+            current_mail=""
+            current_message=""
+            current_start=""
+            current_stop=""
+            ;;
+        "uid: "*)
+            current_uid="${line#uid: }"
+            ;;
+        "mail: "*)
+            current_mail="${line#mail: }"
+            ;;
+        "hrcVacationMessage: "*)
+            current_message="${line#hrcVacationMessage: }"
+            ;;
+        "hrcVacationStart: "*)
+            current_start="${line#hrcVacationStart: }"
+            ;;
+        "hrcVacationStop: "*)
+            current_stop="${line#hrcVacationStop: }"
+            ;;
+    esac
+done <<< "$VACATION_USERS"
+
+# Process last user
+process_user "$current_uid" "$current_mail" "$current_message" "$current_start" "$current_stop"
+
+# Clean up vacation scripts for users without active vacation
+for uid in $ALL_MAIL_USERS; do
+    local_sieve="${VMAIL_HOME}/${DOMAIN}/${uid}/.dovecot.sieve"
+    vacation_sieve="${VMAIL_HOME}/${DOMAIN}/${uid}/sieve/vacation.sieve"
+
+    if [ -L "$local_sieve" ] && [ "$(readlink -f "$local_sieve")" = "$(readlink -f "$vacation_sieve" 2>/dev/null)" ]; then
+        # Check if this user has active vacation
+        has_vacation=$(echo "$VACATION_USERS" | grep -c "^uid: ${uid}$" || true)
+        if [ "$has_vacation" -eq 0 ]; then
+            rm -f "$local_sieve" "$vacation_sieve" "${vacation_sieve}c" 2>/dev/null || true
+            REMOVED=$((REMOVED + 1))
+            log "Deactivated vacation for ${uid}"
+        fi
+    fi
+done
+
+log "Vacation sync complete: ${SYNCED} activated, ${REMOVED} deactivated"

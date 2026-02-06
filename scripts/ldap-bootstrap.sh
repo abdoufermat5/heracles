@@ -325,7 +325,7 @@ dhcpRange: 192.168.56.100 192.168.56.199
 EOF
 
     echo "[*] Creating host reservations..."
-    for host in "server1:192.168.56.10:08:00:27:00:00:10" "workstation1:192.168.56.11:08:00:27:00:00:11" "ns1:192.168.56.20:08:00:27:00:00:20" "dhcp1:192.168.56.21:08:00:27:00:00:21"; do
+    for host in "server1:192.168.56.10:08:00:27:00:00:10" "workstation1:192.168.56.11:08:00:27:00:00:11" "ns1:192.168.56.20:08:00:27:00:00:20" "dhcp1:192.168.56.21:08:00:27:00:00:21" "mail1:192.168.56.22:08:00:27:00:00:22"; do
         IFS=':' read -r name ip mac <<< "$host"
         ldapadd -x -H "ldap://${LDAP_HOST}:${LDAP_PORT}" -D "$LDAP_ADMIN_DN" -w "$LDAP_ADMIN_PASSWORD" <<EOF
 dn: cn=$name,cn=$DHCP_SUBNET,cn=$DHCP_SERVICE,$DHCP_OU
