@@ -261,7 +261,7 @@ class MailUserService(TabService):
         if data.mail_server is not None:
             if data.mail_server:
                 mods["hrcMailServer"] = ("replace", [data.mail_server])
-            else:
+            elif status.data and status.data.mail_server:
                 mods["hrcMailServer"] = ("delete", None)
 
         # Quota
@@ -274,7 +274,7 @@ class MailUserService(TabService):
                 await self._validate_email_unique(addr, exclude_dn=user_dn)
             if data.alternate_addresses:
                 mods["hrcMailAlternateAddress"] = ("replace", data.alternate_addresses)
-            else:
+            elif status.data and status.data.alternate_addresses:
                 mods["hrcMailAlternateAddress"] = ("delete", None)
 
         # Forwarding addresses
@@ -284,7 +284,7 @@ class MailUserService(TabService):
                     "replace",
                     data.forwarding_addresses,
                 )
-            else:
+            elif status.data and status.data.forwarding_addresses:
                 mods["hrcMailForwardingAddress"] = ("delete", None)
 
         # Delivery mode and vacation
@@ -303,27 +303,31 @@ class MailUserService(TabService):
             mode_flags = self._build_delivery_mode(mode, vacation)
             if mode_flags:
                 mods["hrcMailDeliveryMode"] = ("replace", [mode_flags])
-            else:
+            elif status.data and (
+                status.data.delivery_mode != DeliveryMode.NORMAL
+                or status.data.vacation_enabled
+            ):
+                # Only delete if attribute exists in LDAP
                 mods["hrcMailDeliveryMode"] = ("delete", None)
 
         # Vacation message
         if data.vacation_message is not None:
             if data.vacation_message:
                 mods["hrcVacationMessage"] = ("replace", [data.vacation_message])
-            else:
+            elif status.data and status.data.vacation_message:
                 mods["hrcVacationMessage"] = ("delete", None)
 
         # Vacation dates
         if data.vacation_start is not None:
             if data.vacation_start:
                 mods["hrcVacationStart"] = ("replace", [data.vacation_start])
-            else:
+            elif status.data and status.data.vacation_start:
                 mods["hrcVacationStart"] = ("delete", None)
 
         if data.vacation_end is not None:
             if data.vacation_end:
                 mods["hrcVacationStop"] = ("replace", [data.vacation_end])
-            else:
+            elif status.data and status.data.vacation_end:
                 mods["hrcVacationStop"] = ("delete", None)
 
         if mods:

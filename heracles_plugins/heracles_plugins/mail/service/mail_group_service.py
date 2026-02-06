@@ -189,13 +189,20 @@ class MailGroupService(TabService):
             self._log.info("group_mail_already_inactive", cn=cn)
             return status
 
+        # Get current entry to see which attributes actually exist
+        entry = await self._ldap.get_by_dn(
+            group_dn,
+            attributes=["objectClass"] + self.MANAGED_ATTRIBUTES,
+        )
+
         # Remove objectClass and attributes
         mods = {
             "objectClass": ("delete", [self.OBJECT_CLASS]),
         }
 
+        # Only delete attributes that actually exist (except mail which may be used elsewhere)
         for attr in self.MANAGED_ATTRIBUTES:
-            if attr != "mail":  # mail may be used elsewhere
+            if attr != "mail" and attr in entry and entry[attr]:
                 mods[attr] = ("delete", None)
 
         await self._ldap.modify(group_dn, mods)
@@ -239,7 +246,7 @@ class MailGroupService(TabService):
         if data.mail_server is not None:
             if data.mail_server:
                 mods["hrcMailServer"] = ("replace", [data.mail_server])
-            else:
+            elif status.data and status.data.mail_server:
                 mods["hrcMailServer"] = ("delete", None)
 
         # Alternate addresses
@@ -248,7 +255,7 @@ class MailGroupService(TabService):
                 await self._validate_email_unique(addr, exclude_dn=group_dn)
             if data.alternate_addresses:
                 mods["hrcMailAlternateAddress"] = ("replace", data.alternate_addresses)
-            else:
+            elif status.data and status.data.alternate_addresses:
                 mods["hrcMailAlternateAddress"] = ("delete", None)
 
         # Forwarding addresses
@@ -258,21 +265,21 @@ class MailGroupService(TabService):
                     "replace",
                     data.forwarding_addresses,
                 )
-            else:
+            elif status.data and status.data.forwarding_addresses:
                 mods["hrcMailForwardingAddress"] = ("delete", None)
 
         # Local only
         if data.local_only is not None:
             if data.local_only:
                 mods["hrcGroupMailLocalOnly"] = ("replace", ["TRUE"])
-            else:
+            elif status.data and status.data.local_only:
                 mods["hrcGroupMailLocalOnly"] = ("delete", None)
 
         # Max message size
         if data.max_message_size_kb is not None:
             if data.max_message_size_kb > 0:
                 mods["hrcMailMaxSize"] = ("replace", [str(data.max_message_size_kb)])
-            else:
+            elif status.data and status.data.max_message_size_kb:
                 mods["hrcMailMaxSize"] = ("delete", None)
 
         if mods:
