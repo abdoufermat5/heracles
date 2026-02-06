@@ -84,7 +84,7 @@ ssl_prefer_server_ciphers = yes
 # No SSSD/PAM dependency — the mail server talks to LDAP on its own.
 #
 # passdb: LDAP bind (verifies uid + password against userPassword)
-# userdb: static mapping to vmail uid/gid for virtual mailbox delivery
+# userdb: LDAP lookup (reads uid/gid/home + hrcMailQuota for per-user quota)
 
 disable_plaintext_auth = yes
 auth_mechanisms = plain login
@@ -95,10 +95,11 @@ passdb {
   args = /etc/dovecot/dovecot-ldap.conf.ext
 }
 
-# Static user database — all virtual users map to the vmail system account
+# LDAP user database — reads per-user quota (hrcMailQuota) from LDAP
+# Static uid/gid/home are set in dovecot-ldap.conf.ext user_attrs
 userdb {
-  driver = static
-  args = uid=@VMAIL_UID@ gid=@VMAIL_GID@ home=@VMAIL_HOME@/@DOMAIN@/%n
+  driver = ldap
+  args = /etc/dovecot/dovecot-ldap.conf.ext
 }
 
 # Auth socket for Postfix SASL
@@ -140,10 +141,10 @@ protocol imap {
 }
 
 # -----------------------------------------------------------------------------
-# Quota Plugin (reads from LDAP via mail_attribute or default)
+# Quota Plugin (per-user from LDAP hrcMailQuota, fallback to 1GB default)
 # -----------------------------------------------------------------------------
 plugin {
-  # Default quota: 1GB (can be overridden per-user via hrcMailQuota in LDAP)
+  # Default quota: 1GB — overridden per-user by hrcMailQuota from LDAP userdb
   quota = maildir:User quota
   quota_rule = *:storage=1G
   quota_rule2 = Trash:storage=+100M
@@ -187,6 +188,13 @@ plugin {
   imapsieve_mailbox2_from = Junk
   imapsieve_mailbox2_causes = COPY
   imapsieve_mailbox2_before = file:/etc/dovecot/sieve/report-ham.sieve
+}
+
+# -----------------------------------------------------------------------------
+# Doveadm (needs quota plugin for quota commands)
+# -----------------------------------------------------------------------------
+protocol doveadm {
+  mail_plugins = $mail_plugins quota
 }
 
 # -----------------------------------------------------------------------------

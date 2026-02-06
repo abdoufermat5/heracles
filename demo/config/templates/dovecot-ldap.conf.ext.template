@@ -41,14 +41,14 @@ pass_attrs = \
   uid=user, \
   mail=mail
 
-# User filter (for userdb lookups if needed)
+# User filter (for userdb lookups — reads quota from LDAP)
 user_filter = (&(objectClass=hrcMailAccount)(uid=%n))
 user_attrs = \
   uid=user, \
-  mail=mail, \
-  =home=/var/mail/vhosts/%d/%n, \
-  =uid=5000, \
-  =gid=5000
+  =home=@VMAIL_HOME@/@DOMAIN@/%n, \
+  =uid=@VMAIL_UID@, \
+  =gid=@VMAIL_GID@, \
+  hrcMailQuota=quota_rule=*:storage=%$M
 
 # Iterate filter (for doveadm user listing)
 iterate_filter = (objectClass=hrcMailAccount)
