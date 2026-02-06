@@ -14,6 +14,12 @@ import {
   Palmtree,
   Forward,
   AtSign,
+  Pencil,
+  Plus,
+  X,
+  HardDrive,
+  Gauge,
+  Check,
 } from 'lucide-react'
 import {
   Card,
@@ -49,6 +55,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -81,6 +92,22 @@ export function MailUserTab({ uid, displayName }: MailUserTabProps) {
 
   // Activate form state
   const [activateMail, setActivateMail] = useState('')
+  const [activateQuota, setActivateQuota] = useState<number>(1024)
+  const [activateServer, setActivateServer] = useState('')
+  const [activateAliases, setActivateAliases] = useState<string[]>([])
+  const [activateAliasInput, setActivateAliasInput] = useState('')
+
+  // Inline edit states
+  const [editingQuota, setEditingQuota] = useState(false)
+  const [editQuotaValue, setEditQuotaValue] = useState<number>(0)
+
+  const [editingAliases, setEditingAliases] = useState(false)
+  const [editAliases, setEditAliases] = useState<string[]>([])
+  const [editAliasInput, setEditAliasInput] = useState('')
+
+  const [editingForwards, setEditingForwards] = useState(false)
+  const [editForwards, setEditForwards] = useState<string[]>([])
+  const [editForwardInput, setEditForwardInput] = useState('')
 
   // Edit states
   const [editingVacation, setEditingVacation] = useState(false)
@@ -102,14 +129,65 @@ export function MailUserTab({ uid, displayName }: MailUserTabProps) {
     try {
       const data: MailAccountCreate = {
         mail: activateMail.trim(),
+        quotaMb: activateQuota,
+        mailServer: activateServer.trim() || undefined,
+        alternateAddresses: activateAliases.length > 0 ? activateAliases : undefined,
       }
       await activateMutation.mutateAsync({ uid, data })
       toast.success('Mail account enabled')
       setShowActivateDialog(false)
       setActivateMail('')
+      setActivateQuota(1024)
+      setActivateServer('')
+      setActivateAliases([])
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : 'Failed to enable mail'
+      )
+    }
+  }
+
+  const handleQuotaSave = async () => {
+    try {
+      await updateMutation.mutateAsync({
+        uid,
+        data: { quotaMb: editQuotaValue },
+      })
+      toast.success('Quota updated')
+      setEditingQuota(false)
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to update quota'
+      )
+    }
+  }
+
+  const handleAliasesSave = async () => {
+    try {
+      await updateMutation.mutateAsync({
+        uid,
+        data: { alternateAddresses: editAliases },
+      })
+      toast.success('Alternate addresses updated')
+      setEditingAliases(false)
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to update addresses'
+      )
+    }
+  }
+
+  const handleForwardsSave = async () => {
+    try {
+      await updateMutation.mutateAsync({
+        uid,
+        data: { forwardingAddresses: editForwards },
+      })
+      toast.success('Forwarding addresses updated')
+      setEditingForwards(false)
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to update forwarding'
       )
     }
   }
@@ -252,11 +330,11 @@ export function MailUserTab({ uid, displayName }: MailUserTabProps) {
 
         {/* Activate Dialog */}
         <Dialog open={showActivateDialog} onOpenChange={setShowActivateDialog}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>Enable Mail Account</DialogTitle>
               <DialogDescription>
-                Configure the primary email address for {displayName}
+                Configure mail settings for {displayName}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -269,6 +347,108 @@ export function MailUserTab({ uid, displayName }: MailUserTabProps) {
                   value={activateMail}
                   onChange={(e) => setActivateMail(e.target.value)}
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="mail-quota">
+                    <Gauge className="inline h-3.5 w-3.5 mr-1" />
+                    Quota (MB)
+                  </Label>
+                  <Input
+                    id="mail-quota"
+                    type="number"
+                    min={0}
+                    value={activateQuota}
+                    onChange={(e) =>
+                      setActivateQuota(parseInt(e.target.value, 10) || 0)
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {formatQuota(activateQuota)}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="mail-server">
+                    <HardDrive className="inline h-3.5 w-3.5 mr-1" />
+                    Mail Server
+                  </Label>
+                  <Input
+                    id="mail-server"
+                    placeholder="mail1.example.com"
+                    value={activateServer}
+                    onChange={(e) => setActivateServer(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Optional, uses default if empty
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Alternate Addresses</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="email"
+                    placeholder="alias@example.com"
+                    value={activateAliasInput}
+                    onChange={(e) => setActivateAliasInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (
+                        e.key === 'Enter' &&
+                        activateAliasInput.trim() &&
+                        !activateAliases.includes(activateAliasInput.trim())
+                      ) {
+                        e.preventDefault()
+                        setActivateAliases([
+                          ...activateAliases,
+                          activateAliasInput.trim(),
+                        ])
+                        setActivateAliasInput('')
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    disabled={!activateAliasInput.trim()}
+                    onClick={() => {
+                      if (
+                        activateAliasInput.trim() &&
+                        !activateAliases.includes(activateAliasInput.trim())
+                      ) {
+                        setActivateAliases([
+                          ...activateAliases,
+                          activateAliasInput.trim(),
+                        ])
+                        setActivateAliasInput('')
+                      }
+                    }}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                {activateAliases.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {activateAliases.map((alias) => (
+                      <Badge key={alias} variant="secondary" className="gap-1">
+                        {alias}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setActivateAliases(
+                              activateAliases.filter((a) => a !== alias)
+                            )
+                          }
+                          className="ml-0.5 hover:text-destructive"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             <DialogFooter>
@@ -334,17 +514,74 @@ export function MailUserTab({ uid, displayName }: MailUserTabProps) {
             </div>
 
             {/* Quota */}
-            {data.quotaMb && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Quota</Label>
-                  <span className="text-sm text-muted-foreground">
-                    {formatQuota(data.quotaUsedMb)} / {formatQuota(data.quotaMb)}
-                  </span>
-                </div>
-                <Progress value={quotaPercent} />
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-2">
+                  <Gauge className="h-4 w-4" />
+                  Quota
+                </Label>
+                {editingQuota ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      className="w-28 h-8 text-sm"
+                      value={editQuotaValue}
+                      onChange={(e) =>
+                        setEditQuotaValue(parseInt(e.target.value, 10) || 0)
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleQuotaSave()
+                        if (e.key === 'Escape') setEditingQuota(false)
+                      }}
+                    />
+                    <span className="text-xs text-muted-foreground">MB</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={handleQuotaSave}
+                      disabled={updateMutation.isPending}
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => setEditingQuota(false)}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">
+                      {formatQuota(data.quotaUsedMb)} / {formatQuota(data.quotaMb)}
+                    </span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => {
+                            setEditQuotaValue(data.quotaMb ?? 1024)
+                            setEditingQuota(true)
+                          }}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Edit quota</TooltipContent>
+                    </Tooltip>
+                  </div>
+                )}
               </div>
-            )}
+              {!editingQuota && data.quotaMb && (
+                <Progress value={quotaPercent} />
+              )}
+            </div>
 
             {/* Delivery Mode */}
             <div className="space-y-2">
@@ -372,38 +609,250 @@ export function MailUserTab({ uid, displayName }: MailUserTabProps) {
             </div>
 
             {/* Alternate Addresses */}
-            {data.alternateAddresses.length > 0 && (
-              <div className="space-y-2">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
                 <Label className="flex items-center gap-2">
                   <AtSign className="h-4 w-4" />
                   Alternate Addresses
                 </Label>
-                <div className="flex flex-wrap gap-2">
-                  {data.alternateAddresses.map((addr) => (
-                    <Badge key={addr} variant="outline">
-                      {addr}
-                    </Badge>
-                  ))}
-                </div>
+                {!editingAliases && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => {
+                          setEditAliases([...data.alternateAddresses])
+                          setEditAliasInput('')
+                          setEditingAliases(true)
+                        }}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Edit aliases</TooltipContent>
+                  </Tooltip>
+                )}
               </div>
-            )}
+              {editingAliases ? (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      type="email"
+                      placeholder="alias@example.com"
+                      className="h-8 text-sm"
+                      value={editAliasInput}
+                      onChange={(e) => setEditAliasInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (
+                          e.key === 'Enter' &&
+                          editAliasInput.trim() &&
+                          !editAliases.includes(editAliasInput.trim())
+                        ) {
+                          e.preventDefault()
+                          setEditAliases([...editAliases, editAliasInput.trim()])
+                          setEditAliasInput('')
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      disabled={!editAliasInput.trim()}
+                      onClick={() => {
+                        if (
+                          editAliasInput.trim() &&
+                          !editAliases.includes(editAliasInput.trim())
+                        ) {
+                          setEditAliases([...editAliases, editAliasInput.trim()])
+                          setEditAliasInput('')
+                        }
+                      }}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {editAliases.map((addr) => (
+                      <Badge key={addr} variant="secondary" className="gap-1">
+                        {addr}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditAliases(editAliases.filter((a) => a !== addr))
+                          }
+                          className="ml-0.5 hover:text-destructive"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                    {editAliases.length === 0 && (
+                      <span className="text-xs text-muted-foreground">No aliases</span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={handleAliasesSave}
+                      disabled={updateMutation.isPending}
+                    >
+                      {updateMutation.isPending ? 'Saving...' : 'Save'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEditingAliases(false)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {data.alternateAddresses.length > 0 ? (
+                    data.alternateAddresses.map((addr) => (
+                      <Badge key={addr} variant="outline">
+                        {addr}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">None</span>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Forwarding */}
-            {data.forwardingAddresses.length > 0 && (
-              <div className="space-y-2">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
                 <Label className="flex items-center gap-2">
                   <Forward className="h-4 w-4" />
                   Forwarding To
                 </Label>
-                <div className="flex flex-wrap gap-2">
-                  {data.forwardingAddresses.map((addr) => (
-                    <Badge key={addr} variant="outline">
-                      {addr}
-                    </Badge>
-                  ))}
-                </div>
+                {!editingForwards && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => {
+                          setEditForwards([...data.forwardingAddresses])
+                          setEditForwardInput('')
+                          setEditingForwards(true)
+                        }}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Edit forwarding</TooltipContent>
+                  </Tooltip>
+                )}
               </div>
-            )}
+              {editingForwards ? (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      type="email"
+                      placeholder="forward@example.com"
+                      className="h-8 text-sm"
+                      value={editForwardInput}
+                      onChange={(e) => setEditForwardInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (
+                          e.key === 'Enter' &&
+                          editForwardInput.trim() &&
+                          !editForwards.includes(editForwardInput.trim())
+                        ) {
+                          e.preventDefault()
+                          setEditForwards([
+                            ...editForwards,
+                            editForwardInput.trim(),
+                          ])
+                          setEditForwardInput('')
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      disabled={!editForwardInput.trim()}
+                      onClick={() => {
+                        if (
+                          editForwardInput.trim() &&
+                          !editForwards.includes(editForwardInput.trim())
+                        ) {
+                          setEditForwards([
+                            ...editForwards,
+                            editForwardInput.trim(),
+                          ])
+                          setEditForwardInput('')
+                        }
+                      }}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {editForwards.map((addr) => (
+                      <Badge key={addr} variant="secondary" className="gap-1">
+                        {addr}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditForwards(
+                              editForwards.filter((a) => a !== addr)
+                            )
+                          }
+                          className="ml-0.5 hover:text-destructive"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                    {editForwards.length === 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        No forwarding addresses
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={handleForwardsSave}
+                      disabled={updateMutation.isPending}
+                    >
+                      {updateMutation.isPending ? 'Saving...' : 'Save'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEditingForwards(false)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {data.forwardingAddresses.length > 0 ? (
+                    data.forwardingAddresses.map((addr) => (
+                      <Badge key={addr} variant="outline">
+                        {addr}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">None</span>
+                  )}
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 
