@@ -8,6 +8,7 @@ Core configuration service that orchestrates settings, plugins, and history.
 from typing import Any, Dict, List, Optional, Tuple
 
 import structlog
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from heracles_api.schemas.config import (
     ConfigCategoryResponse,
@@ -35,22 +36,19 @@ class ConfigService:
     - Caching for performance
     """
 
-    def __init__(self, db_pool: Any, redis_client: Any = None):
-        """
-        Initialize the config service.
-
-        Args:
-            db_pool: asyncpg connection pool
-            redis_client: Optional Redis client for caching
-        """
-        self._db = db_pool
+    def __init__(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        redis_client: Any = None,
+    ):
+        self._session_factory = session_factory
         self._redis = redis_client
         self._plugin_registry: Dict[str, Plugin] = {}
 
         # Initialize managers
-        self._settings = SettingsManager(db_pool)
-        self._plugins = PluginConfigManager(db_pool, self._plugin_registry)
-        self._history = HistoryManager(db_pool)
+        self._settings = SettingsManager(session_factory)
+        self._plugins = PluginConfigManager(session_factory, self._plugin_registry)
+        self._history = HistoryManager(session_factory)
 
     # =========================================================================
     # Plugin Registry
@@ -72,12 +70,7 @@ class ConfigService:
     # =========================================================================
 
     async def get_all_config(self) -> GlobalConfigResponse:
-        """
-        Get all configuration: categories and plugins.
-
-        Returns:
-            GlobalConfigResponse with all categories and plugin configs.
-        """
+        """Get all configuration: categories and plugins."""
         categories = await self.get_categories()
         plugins = await self.get_all_plugin_configs()
 

@@ -7,6 +7,8 @@ Modular configuration management for Heracles.
 
 from typing import Any, Optional
 
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
 from heracles_api.services.config.base import ConfigService
 from heracles_api.services.config.settings import SettingsManager
 from heracles_api.services.config.plugins import PluginConfigManager
@@ -38,10 +40,13 @@ def get_config_service() -> ConfigService:
     return _config_service
 
 
-def init_config_service(db_pool: Any, redis_client: Any = None) -> ConfigService:
+def init_config_service(
+    session_factory: async_sessionmaker[AsyncSession],
+    redis_client: Any = None,
+) -> ConfigService:
     """Initialize the global config service."""
     global _config_service
-    _config_service = ConfigService(db_pool, redis_client)
+    _config_service = ConfigService(session_factory, redis_client)
     # Set reference in cache module
     set_config_service(_config_service)
     return _config_service

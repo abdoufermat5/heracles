@@ -10,6 +10,7 @@ from typing import Annotated, Optional
 from fastapi import Depends, HTTPException, status, Request, Cookie
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from heracles_api.services import (
     get_ldap_service,
@@ -19,9 +20,19 @@ from heracles_api.services import (
     TokenError,
     UserSession,
 )
-from heracles_api.repositories import UserRepository, GroupRepository, RoleRepository, DepartmentRepository
+from heracles_api.repositories import (
+    UserRepository,
+    GroupRepository,
+    RoleRepository,
+    DepartmentRepository,
+    AclRepository,
+    ConfigRepository,
+    PluginConfigRepository,
+    ConfigHistoryRepository,
+)
 from heracles_api.config import settings
 from heracles_api.acl.guard import AclGuard
+from heracles_api.core.database import get_db_session
 
 # HTTP Bearer token scheme
 security = HTTPBearer(auto_error=False)
@@ -70,6 +81,37 @@ async def get_role_repository(ldap: Annotated[LdapService, Depends(get_ldap)]) -
 async def get_department_repository(ldap: Annotated[LdapService, Depends(get_ldap)]) -> DepartmentRepository:
     """Get Department repository dependency."""
     return DepartmentRepository(ldap)
+
+
+# --- PostgreSQL repositories ---
+
+
+async def get_acl_repository(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> AclRepository:
+    """Get ACL repository dependency."""
+    return AclRepository(session)
+
+
+async def get_config_repository(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> ConfigRepository:
+    """Get Config repository dependency."""
+    return ConfigRepository(session)
+
+
+async def get_plugin_config_repository(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> PluginConfigRepository:
+    """Get PluginConfig repository dependency."""
+    return PluginConfigRepository(session)
+
+
+async def get_config_history_repository(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> ConfigHistoryRepository:
+    """Get ConfigHistory repository dependency."""
+    return ConfigHistoryRepository(session)
 
 
 async def get_current_user(
@@ -173,6 +215,13 @@ GroupRepoDep = Annotated[GroupRepository, Depends(get_group_repository)]
 RoleRepoDep = Annotated[RoleRepository, Depends(get_role_repository)]
 DeptRepoDep = Annotated[DepartmentRepository, Depends(get_department_repository)]
 
+# PostgreSQL repository type aliases
+DbSessionDep = Annotated[AsyncSession, Depends(get_db_session)]
+AclRepoDep = Annotated[AclRepository, Depends(get_acl_repository)]
+ConfigRepoDep = Annotated[ConfigRepository, Depends(get_config_repository)]
+PluginConfigRepoDep = Annotated[PluginConfigRepository, Depends(get_plugin_config_repository)]
+ConfigHistoryRepoDep = Annotated[ConfigHistoryRepository, Depends(get_config_history_repository)]
+
 
 async def get_acl_guard(
     request: Request,
@@ -204,34 +253,26 @@ async def get_acl_guard(
             detail="ACL system not initialized",
         )
     
-    # Get database pool from app state
-    db_pool = getattr(request.app.state, "db_pool", None)
-    if db_pool is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Database not initialized",
-        )
-    
     # Try to load from request state (set by middleware) or cache
     user_acl = getattr(request.state, "user_acl", None)
-    
+
     if user_acl is None:
         # Compile or fetch from cache via AclService
         from heracles_api.acl.service import AclService
-        
-        acl_service = AclService(db_pool, redis, registry)
-        
+        from heracles_api.core.database import get_session_factory
+
+        acl_service = AclService(get_session_factory(), redis, registry)
+
         # Get user's group and role memberships for ACL compilation
-        # UserSession stores groups and roles as list of DNs
         group_dns = getattr(current_user, "groups", [])
         role_dns = getattr(current_user, "roles", [])
-        
+
         user_acl = await acl_service.get_or_compile(
             current_user.user_dn,
             group_dns,
             role_dns,
         )
-        
+
         # Cache on request state for subsequent calls
         request.state.user_acl = user_acl
     

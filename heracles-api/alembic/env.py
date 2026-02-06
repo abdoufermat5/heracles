@@ -30,11 +30,9 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Import models metadata for autogenerate support
-# from heracles_api.models import Base
-# target_metadata = Base.metadata
+from heracles_api.models import Base  # noqa: E402
 
-# For now, we don't have SQLAlchemy ORM models, just raw SQL
-target_metadata = None
+target_metadata = Base.metadata
 
 # Get database URL from environment variables
 def get_database_url() -> str:

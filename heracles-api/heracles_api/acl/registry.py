@@ -14,7 +14,9 @@ import structlog
 from pathlib import Path
 from typing import Any, Optional
 
-import asyncpg
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from heracles_api.repositories.acl_repository import AclRepository
 
 logger = structlog.get_logger(__name__)
 
@@ -22,21 +24,21 @@ logger = structlog.get_logger(__name__)
 class PermissionRegistry:
     """
     Central registry for ACL permissions and attribute groups.
-    
+
     Loads definitions from JSON files (core + plugins), syncs to PostgreSQL,
-    and provides efficient runtime lookups for permission name → bit position.
-    
+    and provides efficient runtime lookups for permission name -> bit position.
+
     Usage:
         registry = PermissionRegistry()
-        await registry.load(db_pool, plugins=[...])
-        
+        await registry.load(plugins=[...])
+
         # Get bitmap for permission names
         low, high = registry.bitmap("user:read", "user:write")
-        
+
         # Resolve attribute groups to actual attributes
         attrs = registry.resolve_attr_groups("user", ["identity", "contact"])
     """
-    
+
     def __init__(self):
         # "scope:action" -> bit_position
         self._by_name: dict[str, int] = {}
@@ -48,35 +50,31 @@ class PermissionRegistry:
         self._loaded_sources: list[str] = []
         # Policy names that used "*" wildcard (need recompile after all plugins load)
         self._wildcard_policies: set[str] = set()
-    
+
     async def load(
         self,
-        db: asyncpg.Pool,
+        session_factory: async_sessionmaker[AsyncSession],
         plugins: Optional[list[Any]] = None,
     ) -> None:
         """
         Load ACL definitions from JSON files and sync to PostgreSQL.
-        
+
         1. Load core_acl.json
         2. For each enabled plugin, load its acl.json (if exists)
         3. Upsert permissions (assign bit positions if new)
         4. Upsert attribute groups
         5. Upsert built-in policies
         6. Build in-memory lookups from database
-        
-        Args:
-            db: PostgreSQL connection pool.
-            plugins: List of Plugin instances (optional).
         """
         plugins = plugins or []
-        
+
         # Load core definitions
         core_path = Path(__file__).parent / "core_acl.json"
         if core_path.exists():
-            await self._load_json_file(db, core_path, plugin_name=None)
+            await self._load_json_file(session_factory, core_path, plugin_name=None)
         else:
             logger.warning("core_acl_not_found", path=str(core_path))
-        
+
         # Load plugin definitions
         for plugin in plugins:
             acl_file = getattr(plugin, "acl_file", None)
@@ -84,26 +82,25 @@ class PermissionRegistry:
                 path = acl_file()
                 if path and path.exists():
                     info = plugin.info()
-                    await self._load_json_file(db, path, plugin_name=info.name)
-        
+                    await self._load_json_file(session_factory, path, plugin_name=info.name)
+
         # Recompile wildcard policies now that ALL permissions are registered
-        # (fixes Superadmin "*" bitmap missing plugin permission bits)
         if self._wildcard_policies:
-            await self._recompile_wildcard_policies(db)
-        
+            await self._recompile_wildcard_policies(session_factory)
+
         # Rebuild in-memory lookups from database
-        await self._rebuild_lookups(db)
-        
+        await self._rebuild_lookups(session_factory)
+
         logger.info(
             "acl_registry_loaded",
             permissions=len(self._by_name),
             attr_groups=len(self._attr_groups),
             sources=self._loaded_sources,
         )
-    
+
     async def _load_json_file(
         self,
-        db: asyncpg.Pool,
+        session_factory: async_sessionmaker[AsyncSession],
         path: Path,
         plugin_name: Optional[str],
     ) -> None:
@@ -114,123 +111,54 @@ class PermissionRegistry:
         except Exception as e:
             logger.error("acl_json_load_failed", path=str(path), error=str(e))
             return
-        
+
         source = plugin_name or "core"
         self._loaded_sources.append(source)
-        
-        async with db.acquire() as conn:
+
+        async with session_factory() as session:
+            repo = AclRepository(session)
+
             # Sync permissions
             for perm in data.get("permissions", []):
-                await self._upsert_permission(
-                    conn,
+                result = await repo.upsert_permission(
                     scope=perm["scope"],
                     action=perm["action"],
                     description=perm["description"],
                     plugin=plugin_name,
                 )
-            
+                if result is not None:
+                    logger.debug(
+                        "acl_permission_created",
+                        scope=perm["scope"],
+                        action=perm["action"],
+                        bit=result,
+                    )
+
             # Sync attribute groups
             for group in data.get("attribute_groups", []):
-                await self._upsert_attr_group(
-                    conn,
+                await repo.upsert_attribute_group(
                     object_type=group["object_type"],
                     group_name=group["group_name"],
                     label=group["label"],
                     attributes=group["attributes"],
                     plugin=plugin_name,
                 )
-            
+
             # Sync built-in policies
             for policy in data.get("policies", []):
                 if policy.get("builtin", False):
-                    await self._upsert_policy(conn, policy, plugin_name)
-            
+                    await self._upsert_policy(repo, policy, plugin_name)
+
             # Sync initial assignments (only from core, not plugins)
             if plugin_name is None:
                 for assignment in data.get("initial_assignments", []):
-                    await self._upsert_initial_assignment(conn, assignment)
-    
-    async def _upsert_permission(
-        self,
-        conn: asyncpg.Connection,
-        scope: str,
-        action: str,
-        description: str,
-        plugin: Optional[str],
-    ) -> None:
-        """Upsert a permission, assigning bit position if new."""
-        # Check if exists
-        existing = await conn.fetchrow(
-            """
-            SELECT bit_position FROM acl_permissions 
-            WHERE scope = $1 AND action = $2
-            """,
-            scope, action
-        )
-        
-        if existing:
-            # Update description/plugin only
-            await conn.execute(
-                """
-                UPDATE acl_permissions 
-                SET description = $3, plugin = $4
-                WHERE scope = $1 AND action = $2
-                """,
-                scope, action, description, plugin
-            )
-        else:
-            # Assign new bit position
-            next_bit = await conn.fetchval(
-                "SELECT COALESCE(MAX(bit_position), -1) + 1 FROM acl_permissions"
-            )
-            if next_bit > 127:
-                logger.error(
-                    "acl_permission_limit_exceeded",
-                    scope=scope,
-                    action=action,
-                    max_bits=128,
-                )
-                return
-            
-            await conn.execute(
-                """
-                INSERT INTO acl_permissions (bit_position, scope, action, description, plugin)
-                VALUES ($1, $2, $3, $4, $5)
-                """,
-                next_bit, scope, action, description, plugin
-            )
-            logger.debug(
-                "acl_permission_created",
-                scope=scope,
-                action=action,
-                bit=next_bit,
-            )
-    
-    async def _upsert_attr_group(
-        self,
-        conn: asyncpg.Connection,
-        object_type: str,
-        group_name: str,
-        label: str,
-        attributes: list[str],
-        plugin: Optional[str],
-    ) -> None:
-        """Upsert an attribute group."""
-        await conn.execute(
-            """
-            INSERT INTO acl_attribute_groups (object_type, group_name, label, attributes, plugin)
-            VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (object_type, group_name) DO UPDATE SET
-                label = EXCLUDED.label,
-                attributes = EXCLUDED.attributes,
-                plugin = EXCLUDED.plugin
-            """,
-            object_type, group_name, label, attributes, plugin
-        )
-    
+                    await self._upsert_initial_assignment(repo, assignment)
+
+            await session.commit()
+
     async def _upsert_policy(
         self,
-        conn: asyncpg.Connection,
+        repo: AclRepository,
         policy: dict,
         plugin: Optional[str],
     ) -> None:
@@ -238,70 +166,46 @@ class PermissionRegistry:
         name = policy["name"]
         description = policy.get("description", "")
         perm_names = policy.get("permissions", [])
-        
+
         # Handle wildcard "*" - grant all registered permissions
         if perm_names == "*":
             self._wildcard_policies.add(name)
-            rows = await conn.fetch(
-                "SELECT scope || ':' || action AS name FROM acl_permissions"
-            )
-            perm_names = [row["name"] for row in rows]
-        
+            perm_names = await repo.get_all_permission_names()
+
         # Calculate bitmap from permission names
-        perm_low, perm_high = await self._calculate_bitmap(conn, perm_names)
-        
+        perm_low, perm_high = await self._calculate_bitmap(repo, perm_names)
+
         # Upsert policy
-        policy_id = await conn.fetchval(
-            """
-            INSERT INTO acl_policies (name, description, perm_low, perm_high, builtin)
-            VALUES ($1, $2, $3, $4, true)
-            ON CONFLICT (name) DO UPDATE SET
-                description = EXCLUDED.description,
-                perm_low = EXCLUDED.perm_low,
-                perm_high = EXCLUDED.perm_high,
-                updated_at = NOW()
-            RETURNING id
-            """,
-            name, description, perm_low, perm_high
+        policy_id = await repo.upsert_builtin_policy(
+            name=name,
+            description=description,
+            perm_low=perm_low,
+            perm_high=perm_high,
         )
-        
-        # Delete existing attr rules for this policy
-        await conn.execute(
-            "DELETE FROM acl_policy_attr_rules WHERE policy_id = $1",
-            policy_id
-        )
-        
-        # Insert attr rules
+
+        # Delete existing attr rules and re-insert
+        await repo.delete_all_attr_rules_for_policy(policy_id)
+
         for rule in policy.get("attr_rules", []):
-            await conn.execute(
-                """
-                INSERT INTO acl_policy_attr_rules 
-                    (policy_id, object_type, action, rule_type, attr_groups)
-                VALUES ($1, $2, $3, $4, $5)
-                """,
-                policy_id,
-                rule["object_type"],
-                rule["action"],
-                rule["rule_type"],
-                rule["attr_groups"],
+            await repo.create_attr_rule(
+                policy_id=policy_id,
+                object_type=rule["object_type"],
+                action=rule["action"],
+                rule_type=rule["rule_type"],
+                attr_groups=rule["attr_groups"],
             )
-    
+
     async def _upsert_initial_assignment(
         self,
-        conn: asyncpg.Connection,
+        repo: AclRepository,
         assignment: dict,
     ) -> None:
-        """
-        Upsert an initial assignment (bootstrap assignments like superadmin).
-        
-        The subject_dn can reference a settings value via subject_dn_setting,
-        which is resolved from the application config.
-        """
+        """Upsert an initial assignment (bootstrap assignments like superadmin)."""
         from heracles_api.config import settings
-        
+
         policy_name = assignment["policy"]
         subject_type = assignment["subject_type"]
-        
+
         # Resolve subject DN from settings if specified
         if "subject_dn_setting" in assignment:
             setting_name = assignment["subject_dn_setting"]
@@ -315,157 +219,112 @@ class PermissionRegistry:
                 return
         else:
             subject_dn = assignment["subject_dn"]
-        
+
         scope_dn = assignment.get("scope_dn", "")
         scope_type = assignment.get("scope_type", "subtree")
         self_only = assignment.get("self_only", False)
         deny = assignment.get("deny", False)
         priority = assignment.get("priority", 0)
-        
+
         # Get policy ID
-        policy_id = await conn.fetchval(
-            "SELECT id FROM acl_policies WHERE name = $1",
-            policy_name
-        )
-        if not policy_id:
+        policy = await repo.get_policy_by_name(policy_name)
+        if not policy:
             logger.error(
                 "acl_initial_assignment_failed",
                 policy=policy_name,
                 reason="Policy not found",
             )
             return
-        
+
         # Upsert assignment (mark as builtin so it cannot be deleted via API)
-        await conn.execute(
-            """
-            INSERT INTO acl_assignments 
-                (policy_id, subject_type, subject_dn, scope_dn, scope_type, self_only, deny, priority, builtin)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
-            ON CONFLICT (policy_id, subject_type, subject_dn, scope_dn, self_only) 
-            DO UPDATE SET
-                scope_type = EXCLUDED.scope_type,
-                deny = EXCLUDED.deny,
-                priority = EXCLUDED.priority,
-                builtin = true
-            """,
-            policy_id,
-            subject_type,
-            subject_dn,
-            scope_dn,
-            scope_type,
-            self_only,
-            deny,
-            priority,
+        await repo.upsert_builtin_assignment(
+            policy_id=policy.id,
+            subject_type=subject_type,
+            subject_dn=subject_dn,
+            scope_dn=scope_dn,
+            scope_type=scope_type,
+            self_only=self_only,
+            deny=deny,
+            priority=priority,
         )
-        
+
         logger.info(
             "acl_initial_assignment_created",
             policy=policy_name,
             subject_dn=subject_dn,
         )
-    
-    async def _recompile_wildcard_policies(self, db: asyncpg.Pool) -> None:
-        """
-        Recompile bitmaps for policies that used the "*" wildcard.
-        
-        This must run AFTER all permissions (core + plugins) are registered,
-        so the bitmap includes every permission bit.
-        """
-        async with db.acquire() as conn:
-            # Get ALL permission names now in the database
-            rows = await conn.fetch(
-                "SELECT scope || ':' || action AS name FROM acl_permissions"
-            )
-            all_perm_names = [row["name"] for row in rows]
-            
+
+    async def _recompile_wildcard_policies(
+        self, session_factory: async_sessionmaker[AsyncSession]
+    ) -> None:
+        """Recompile bitmaps for policies that used the "*" wildcard."""
+        async with session_factory() as session:
+            repo = AclRepository(session)
+
+            all_perm_names = await repo.get_all_permission_names()
             if not all_perm_names:
                 return
-            
-            # Calculate the full bitmap
-            perm_low, perm_high = await self._calculate_bitmap(conn, all_perm_names)
-            
+
+            perm_low, perm_high = await self._calculate_bitmap(repo, all_perm_names)
+
             for policy_name in self._wildcard_policies:
-                await conn.execute(
-                    """
-                    UPDATE acl_policies
-                    SET perm_low = $1, perm_high = $2, updated_at = NOW()
-                    WHERE name = $3 AND builtin = true
-                    """,
-                    perm_low, perm_high, policy_name
+                await repo.update_wildcard_policy_bitmap(
+                    policy_name, perm_low, perm_high
                 )
                 logger.info(
                     "acl_wildcard_policy_recompiled",
                     policy=policy_name,
                     total_permissions=len(all_perm_names),
                 )
-    
+
+            await session.commit()
+
     async def _calculate_bitmap(
         self,
-        conn: asyncpg.Connection,
+        repo: AclRepository,
         perm_names: list[str],
     ) -> tuple[int, int]:
         """Calculate permission bitmap from permission names."""
         if not perm_names:
             return (0, 0)
-        
-        # Fetch bit positions for all permissions
-        rows = await conn.fetch(
-            """
-            SELECT bit_position FROM acl_permissions
-            WHERE scope || ':' || action = ANY($1)
-            """,
-            perm_names
-        )
-        
+
+        bit_positions = await repo.get_bit_positions_for_names(perm_names)
+
         bits = 0
-        for row in rows:
-            bits |= (1 << row["bit_position"])
-        
+        for bit in bit_positions:
+            bits |= 1 << bit
+
         low = bits & ((1 << 64) - 1)
         high = bits >> 64
-        
+
         # Convert to signed i64 for PostgreSQL BIGINT
         if low >= (1 << 63):
-            low -= (1 << 64)
+            low -= 1 << 64
         if high >= (1 << 63):
-            high -= (1 << 64)
-        
+            high -= 1 << 64
+
         return (low, high)
-    
-    async def _rebuild_lookups(self, db: asyncpg.Pool) -> None:
+
+    async def _rebuild_lookups(
+        self, session_factory: async_sessionmaker[AsyncSession]
+    ) -> None:
         """Rebuild in-memory lookups from database."""
-        async with db.acquire() as conn:
+        async with session_factory() as session:
+            repo = AclRepository(session)
+
             # Load permissions
-            rows = await conn.fetch(
-                "SELECT bit_position, scope, action FROM acl_permissions"
-            )
-            self._by_name.clear()
-            self._by_bit.clear()
-            for row in rows:
-                name = f"{row['scope']}:{row['action']}"
-                bit = row["bit_position"]
-                self._by_name[name] = bit
-                self._by_bit[bit] = name
-            
+            self._by_name, self._by_bit = await repo.get_all_permission_lookups()
+
             # Load attribute groups
-            rows = await conn.fetch(
-                "SELECT object_type, group_name, attributes FROM acl_attribute_groups"
-            )
-            self._attr_groups.clear()
-            for row in rows:
-                key = (row["object_type"], row["group_name"])
-                self._attr_groups[key] = list(row["attributes"])
-    
+            self._attr_groups = await repo.get_all_attr_group_lookups()
+
     def bitmap(self, *permissions: str) -> tuple[int, int]:
         """
         Convert permission names to bitmap halves.
-        
-        Args:
-            permissions: Permission names like "user:read", "user:write"
-            
+
         Returns:
             Tuple of (perm_low, perm_high) suitable for Rust ACL check.
-            
+
         Raises:
             KeyError: If a permission name is not registered.
         """
@@ -473,19 +332,19 @@ class PermissionRegistry:
         for perm in permissions:
             if perm not in self._by_name:
                 raise KeyError(f"Unknown permission: {perm}")
-            bits |= (1 << self._by_name[perm])
-        
+            bits |= 1 << self._by_name[perm]
+
         low = bits & ((1 << 64) - 1)
         high = bits >> 64
-        
+
         # Convert to signed i64 for compatibility
         if low >= (1 << 63):
-            low -= (1 << 64)
+            low -= 1 << 64
         if high >= (1 << 63):
-            high -= (1 << 64)
-        
+            high -= 1 << 64
+
         return (low, high)
-    
+
     def bitmap_safe(self, *permissions: str) -> tuple[int, int]:
         """
         Like bitmap(), but returns empty bitmap for unknown permissions
@@ -494,65 +353,45 @@ class PermissionRegistry:
         bits = 0
         for perm in permissions:
             if perm in self._by_name:
-                bits |= (1 << self._by_name[perm])
-        
+                bits |= 1 << self._by_name[perm]
+
         low = bits & ((1 << 64) - 1)
         high = bits >> 64
-        
+
         if low >= (1 << 63):
-            low -= (1 << 64)
+            low -= 1 << 64
         if high >= (1 << 63):
-            high -= (1 << 64)
-        
+            high -= 1 << 64
+
         return (low, high)
-    
+
     def resolve_attr_groups(
         self,
         object_type: str,
         group_names: list[str],
     ) -> set[str]:
-        """
-        Expand attribute group names into actual LDAP attribute names.
-        
-        Args:
-            object_type: Object type (e.g., "user", "group")
-            group_names: List of group names (e.g., ["identity", "contact"])
-            
-        Returns:
-            Set of LDAP attribute names.
-        """
+        """Expand attribute group names into actual LDAP attribute names."""
         attrs = set()
         for group_name in group_names:
             key = (object_type, group_name)
             if key in self._attr_groups:
                 attrs.update(self._attr_groups[key])
         return attrs
-    
+
     def name(self, bit_position: int) -> str:
-        """
-        Reverse lookup: bit position → 'scope:action'.
-        
-        Args:
-            bit_position: The bit position to look up.
-            
-        Returns:
-            Permission name like "user:read".
-            
-        Raises:
-            KeyError: If bit position is not registered.
-        """
+        """Reverse lookup: bit position -> 'scope:action'."""
         if bit_position not in self._by_bit:
             raise KeyError(f"Unknown bit position: {bit_position}")
         return self._by_bit[bit_position]
-    
+
     def all_permissions(self) -> dict[str, int]:
         """Get all registered permissions as {name: bit_position}."""
         return self._by_name.copy()
-    
+
     def all_attr_groups(self) -> dict[tuple[str, str], list[str]]:
         """Get all registered attribute groups."""
         return {k: list(v) for k, v in self._attr_groups.items()}
-    
+
     def is_loaded(self) -> bool:
         """Check if registry has been loaded."""
         return len(self._by_name) > 0

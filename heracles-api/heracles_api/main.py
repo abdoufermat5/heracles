@@ -15,7 +15,7 @@ import structlog
 from heracles_api.config import settings
 from heracles_api.api.v1 import router as api_v1_router
 from heracles_api.core.logging import setup_logging
-from heracles_api.core.database import init_database, close_database, get_database
+from heracles_api.core.database import init_database, close_database, get_session_factory
 from heracles_api.services import init_ldap_service, close_ldap_service, get_ldap_service
 from heracles_api.services.config import init_config_service
 from heracles_api.plugins.loader import load_enabled_plugins, unload_all_plugins
@@ -41,26 +41,25 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("shutting_down_heracles_api")
         return
 
-    # Initialize PostgreSQL connection pool
-    db_pool = None
+    # Initialize PostgreSQL connection (SQLAlchemy async engine)
+    db_ready = False
     try:
-        db_pool = await init_database()
+        await init_database()
+        db_ready = True
         logger.info("database_initialized")
     except Exception as e:
         logger.error("database_init_failed", error=str(e))
     
     # Initialize configuration service (requires database)
-    if db_pool is not None:
+    session_factory = None
+    if db_ready:
         try:
-            init_config_service(db_pool)
+            session_factory = get_session_factory()
+            init_config_service(session_factory)
             logger.info("config_service_initialized")
             
-            # Inject database pool into plugin access middleware
-            for middleware in app.middleware_stack.app.__dict__.get('middleware', []):
-                if hasattr(middleware, 'set_db_pool'):
-                    middleware.set_db_pool(db_pool)
-            # Alternative: store on app state for middleware access
-            app.state.db_pool = db_pool
+            # Store session factory on app state for middleware access
+            app.state.session_factory = session_factory
         except Exception as e:
             logger.warning("config_service_init_failed", error=str(e))
     else:
@@ -125,12 +124,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning("plugins_load_failed", error=str(e))
 
     # Initialize ACL system (requires database and plugins)
-    if db_pool is not None:
+    if session_factory is not None:
         try:
             from heracles_api.acl.registry import PermissionRegistry
             
             acl_registry = PermissionRegistry()
-            await acl_registry.load(db_pool, loaded_plugins if 'loaded_plugins' in dir() else [])
+            await acl_registry.load(session_factory, loaded_plugins if 'loaded_plugins' in dir() else [])
             app.state.acl_registry = acl_registry
             logger.info("acl_system_initialized", permissions=len(acl_registry._by_name))
             
@@ -143,7 +142,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                         settings.REDIS_URL,
                         decode_responses=False,
                     )
-                    acl_svc = AclService(db_pool, redis, acl_registry)
+                    acl_svc = AclService(session_factory, redis, acl_registry)
                     await acl_svc.invalidate_all()
                     await redis.aclose()
                     logger.info("acl_cache_flushed_after_wildcard_recompile")
@@ -187,8 +186,7 @@ app.add_middleware(
 app.add_middleware(RateLimitMiddleware)
 
 # Plugin access middleware (blocks requests to disabled plugins)
-# Note: Database pool is injected in lifespan after init
-_plugin_access_middleware = PluginAccessMiddleware(app)
+# Note: Uses session_factory from app.state (set during lifespan)
 app.add_middleware(PluginAccessMiddleware)
 
 # ACL middleware (loads user ACL into request.state)
