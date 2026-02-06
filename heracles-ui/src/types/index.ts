@@ -1,4 +1,5 @@
 export * from './api'
+export * from './acl'
 export * from './posix'
 export * from './mail'
 export * from './dhcp'

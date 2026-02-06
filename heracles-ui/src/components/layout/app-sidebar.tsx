@@ -33,6 +33,13 @@ import {
   Network,
   Building2,
   KeyRound,
+  Shield,
+  UserCheck,
+  ScrollText,
+  UserCircle,
+  Key,
+  Layers,
+  Grid3X3,
 } from 'lucide-react'
 import { useAuthStore, usePluginStore, PLUGIN_NAMES } from '@/stores'
 import { ROUTES, PLUGIN_ROUTES } from '@/config/constants'
@@ -98,6 +105,40 @@ const securityNavItems = [
     icon: KeyRound,
     disabled: true,
     pluginName: PLUGIN_NAMES.SSH,
+  },
+]
+
+// ACL Management
+const aclNavItems = [
+  {
+    title: 'Policies',
+    url: ROUTES.ACL_POLICIES,
+    icon: Shield,
+  },
+  {
+    title: 'Assignments',
+    url: ROUTES.ACL_ASSIGNMENTS,
+    icon: UserCheck,
+  },
+  {
+    title: 'Permissions',
+    url: ROUTES.ACL_PERMISSIONS,
+    icon: Key,
+  },
+  {
+    title: 'Attribute Groups',
+    url: ROUTES.ACL_ATTR_GROUPS,
+    icon: Layers,
+  },
+  {
+    title: 'Access Matrix',
+    url: ROUTES.ACL_MATRIX,
+    icon: Grid3X3,
+  },
+  {
+    title: 'Audit Log',
+    url: ROUTES.ACL_AUDIT,
+    icon: ScrollText,
   },
 ]
 
@@ -239,6 +280,28 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
+        {/* ACL Management */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Access Control</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {aclNavItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location.pathname === item.url || location.pathname.startsWith(item.url + '/')}
+                  >
+                    <Link to={item.url}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
         <SidebarSeparator />
 
         {/* Administration */}
@@ -287,6 +350,12 @@ export function AppSidebar() {
                 align="start"
                 sideOffset={4}
               >
+                <DropdownMenuItem asChild>
+                  <Link to={ROUTES.PROFILE}>
+                    <UserCircle className="mr-2 h-4 w-4" />
+                    My Profile
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link to={ROUTES.SETTINGS}>
                     <Settings className="mr-2 h-4 w-4" />

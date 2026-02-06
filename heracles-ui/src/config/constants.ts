@@ -25,6 +25,7 @@ export {
   posixGroupPath,
   mixedGroupPath,
   sudoRolePath,
+  aclPolicyDetailPath,
   withCreateQuery,
 } from './routes'
 

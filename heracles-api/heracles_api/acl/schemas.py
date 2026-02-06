@@ -113,6 +113,7 @@ class AssignmentResponse(BaseModel):
     self_only: bool = Field(..., alias="selfOnly", description="Only applies to own entry")
     deny: bool = Field(..., description="Deny (negate) permissions")
     priority: int = Field(..., description="Priority (higher=later evaluation)")
+    builtin: bool = Field(..., description="Whether this is a built-in assignment")
     created_at: datetime = Field(..., alias="createdAt", description="Creation timestamp")
     
     model_config = {"from_attributes": True, "populate_by_name": True}
@@ -145,6 +146,18 @@ class AssignmentCreate(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class AssignmentUpdate(BaseModel):
+    """Update an existing assignment."""
+    
+    scope_dn: Optional[str] = Field(None, alias="scopeDn", description="Scope DN (empty=global)")
+    scope_type: Optional[str] = Field(None, alias="scopeType", pattern="^(base|subtree)$", description="Scope type")
+    self_only: Optional[bool] = Field(None, alias="selfOnly", description="Only applies to own entry")
+    deny: Optional[bool] = Field(None, description="Deny (negate) permissions")
+    priority: Optional[int] = Field(None, ge=0, le=1000, description="Priority")
+    
+    model_config = {"populate_by_name": True}
+
+
 # ============================================================================
 # My Permissions
 # ============================================================================
@@ -155,5 +168,81 @@ class MyPermissionsResponse(BaseModel):
     
     user_dn: str = Field(..., alias="userDn", description="User DN")
     permissions: list[str] = Field(..., description="List of effective permission names")
+    
+    model_config = {"populate_by_name": True}
+
+
+# ============================================================================
+# Policy Attribute Rules
+# ============================================================================
+
+
+class PolicyAttrRuleResponse(BaseModel):
+    """An attribute rule within a policy."""
+    
+    id: UUID = Field(..., description="Rule UUID")
+    policy_id: UUID = Field(..., alias="policyId", description="Policy UUID")
+    object_type: str = Field(..., alias="objectType", description="Object type (user, group, system)")
+    action: str = Field(..., description="Action (read, write)")
+    rule_type: str = Field(..., alias="ruleType", description="Rule type (allow, deny)")
+    attr_groups: list[str] = Field(..., alias="attrGroups", description="Attribute group names")
+    
+    model_config = {"from_attributes": True, "populate_by_name": True}
+
+
+class PolicyAttrRuleCreate(BaseModel):
+    """Create an attribute rule within a policy."""
+    
+    object_type: str = Field(..., alias="objectType", description="Object type")
+    action: str = Field(..., alias="action", pattern="^(read|write)$", description="Action")
+    rule_type: str = Field(..., alias="ruleType", pattern="^(allow|deny)$", description="Rule type")
+    attr_groups: list[str] = Field(..., alias="attrGroups", min_length=1, description="Attribute group names")
+    
+    model_config = {"populate_by_name": True}
+
+
+class PolicyDetailResponse(BaseModel):
+    """A policy with its attribute rules."""
+    
+    id: UUID = Field(..., description="Policy UUID")
+    name: str = Field(..., description="Policy name")
+    description: Optional[str] = Field(None, description="Policy description")
+    permissions: list[str] = Field(..., description="List of permission names (scope:action)")
+    builtin: bool = Field(..., description="Whether this is a built-in policy")
+    attr_rules: list[PolicyAttrRuleResponse] = Field(default_factory=list, alias="attrRules", description="Attribute rules")
+    created_at: datetime = Field(..., alias="createdAt", description="Creation timestamp")
+    updated_at: datetime = Field(..., alias="updatedAt", description="Last update timestamp")
+    
+    model_config = {"from_attributes": True, "populate_by_name": True}
+
+
+# ============================================================================
+# Audit Log
+# ============================================================================
+
+
+class AuditLogEntry(BaseModel):
+    """An entry in the ACL audit log."""
+    
+    id: int = Field(..., description="Log entry ID")
+    ts: datetime = Field(..., description="Timestamp")
+    user_dn: str = Field(..., alias="userDn", description="User DN")
+    action: str = Field(..., description="Action performed")
+    target_dn: Optional[str] = Field(None, alias="targetDn", description="Target DN")
+    permission: Optional[str] = Field(None, description="Permission checked")
+    result: Optional[bool] = Field(None, description="Check result (allowed/denied)")
+    details: Optional[dict] = Field(None, description="Additional details")
+    
+    model_config = {"from_attributes": True, "populate_by_name": True}
+
+
+class AuditLogListResponse(BaseModel):
+    """Paginated list of audit log entries."""
+    
+    entries: list[AuditLogEntry]
+    total: int
+    page: int
+    page_size: int = Field(..., alias="pageSize")
+    has_more: bool = Field(..., alias="hasMore")
     
     model_config = {"populate_by_name": True}

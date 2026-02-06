@@ -133,6 +133,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             await acl_registry.load(db_pool, loaded_plugins if 'loaded_plugins' in dir() else [])
             app.state.acl_registry = acl_registry
             logger.info("acl_system_initialized", permissions=len(acl_registry._by_name))
+            
+            # Flush Redis ACL cache so users pick up recompiled policy bitmaps
+            if acl_registry._wildcard_policies:
+                try:
+                    from heracles_api.acl.service import AclService
+                    from redis.asyncio import Redis as AsyncRedis
+                    redis = AsyncRedis.from_url(
+                        settings.REDIS_URL,
+                        decode_responses=False,
+                    )
+                    acl_svc = AclService(db_pool, redis, acl_registry)
+                    await acl_svc.invalidate_all()
+                    await redis.aclose()
+                    logger.info("acl_cache_flushed_after_wildcard_recompile")
+                except Exception as cache_err:
+                    logger.warning("acl_cache_flush_failed", error=str(cache_err))
         except Exception as e:
             logger.warning("acl_system_init_failed", error=str(e))
     else:

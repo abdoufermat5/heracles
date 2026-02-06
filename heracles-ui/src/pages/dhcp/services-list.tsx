@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react'
-import { Plus, Network, RefreshCw } from 'lucide-react'
+import { Plus, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'

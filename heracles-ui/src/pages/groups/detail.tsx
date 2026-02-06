@@ -2,7 +2,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
-import { Save, ArrowLeft, Trash2, Users, UserPlus, UserMinus } from 'lucide-react'
+import { Save, ArrowLeft, Trash2, Users, UserPlus, UserMinus, Shield } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -29,6 +29,7 @@ import {
 import { PageHeader, LoadingPage, ErrorDisplay, LoadingSpinner, ConfirmDialog } from '@/components/common'
 import { PosixGroupTab } from '@/components/plugins/posix'
 import { MailGroupTab } from '@/components/plugins/mail'
+import { EntityPermissionsTab } from '@/components/acl'
 import { useGroup, useUpdateGroup, useDeleteGroup, useAddGroupMember, useRemoveGroupMember } from '@/hooks'
 import { groupUpdateSchema, type GroupUpdateFormData } from '@/lib/schemas'
 import { AppError } from '@/lib/errors'
@@ -132,6 +133,10 @@ export function GroupDetailPage() {
           <TabsTrigger value="members">Members</TabsTrigger>
           <TabsTrigger value="posix">POSIX</TabsTrigger>
           <TabsTrigger value="mail">Mail</TabsTrigger>
+          <TabsTrigger value="permissions">
+            <Shield className="mr-1 h-3.5 w-3.5" />
+            Permissions
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="general">
@@ -278,6 +283,13 @@ export function GroupDetailPage() {
           <div className="max-w-4xl">
             <MailGroupTab cn={group.cn} displayName={group.cn} />
           </div>
+        </TabsContent>
+
+        <TabsContent value="permissions">
+          <EntityPermissionsTab
+            subjectDn={group.dn}
+            entityLabel={group.cn}
+          />
         </TabsContent>
       </Tabs>
 

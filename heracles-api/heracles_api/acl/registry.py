@@ -46,6 +46,8 @@ class PermissionRegistry:
         self._attr_groups: dict[tuple[str, str], list[str]] = {}
         # Cache of loaded JSON files
         self._loaded_sources: list[str] = []
+        # Policy names that used "*" wildcard (need recompile after all plugins load)
+        self._wildcard_policies: set[str] = set()
     
     async def load(
         self,
@@ -83,6 +85,11 @@ class PermissionRegistry:
                 if path and path.exists():
                     info = plugin.info()
                     await self._load_json_file(db, path, plugin_name=info.name)
+        
+        # Recompile wildcard policies now that ALL permissions are registered
+        # (fixes Superadmin "*" bitmap missing plugin permission bits)
+        if self._wildcard_policies:
+            await self._recompile_wildcard_policies(db)
         
         # Rebuild in-memory lookups from database
         await self._rebuild_lookups(db)
@@ -234,6 +241,7 @@ class PermissionRegistry:
         
         # Handle wildcard "*" - grant all registered permissions
         if perm_names == "*":
+            self._wildcard_policies.add(name)
             rows = await conn.fetch(
                 "SELECT scope || ':' || action AS name FROM acl_permissions"
             )
@@ -327,17 +335,18 @@ class PermissionRegistry:
             )
             return
         
-        # Upsert assignment
+        # Upsert assignment (mark as builtin so it cannot be deleted via API)
         await conn.execute(
             """
             INSERT INTO acl_assignments 
-                (policy_id, subject_type, subject_dn, scope_dn, scope_type, self_only, deny, priority)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                (policy_id, subject_type, subject_dn, scope_dn, scope_type, self_only, deny, priority, builtin)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
             ON CONFLICT (policy_id, subject_type, subject_dn, scope_dn, self_only) 
             DO UPDATE SET
                 scope_type = EXCLUDED.scope_type,
                 deny = EXCLUDED.deny,
-                priority = EXCLUDED.priority
+                priority = EXCLUDED.priority,
+                builtin = true
             """,
             policy_id,
             subject_type,
@@ -354,6 +363,41 @@ class PermissionRegistry:
             policy=policy_name,
             subject_dn=subject_dn,
         )
+    
+    async def _recompile_wildcard_policies(self, db: asyncpg.Pool) -> None:
+        """
+        Recompile bitmaps for policies that used the "*" wildcard.
+        
+        This must run AFTER all permissions (core + plugins) are registered,
+        so the bitmap includes every permission bit.
+        """
+        async with db.acquire() as conn:
+            # Get ALL permission names now in the database
+            rows = await conn.fetch(
+                "SELECT scope || ':' || action AS name FROM acl_permissions"
+            )
+            all_perm_names = [row["name"] for row in rows]
+            
+            if not all_perm_names:
+                return
+            
+            # Calculate the full bitmap
+            perm_low, perm_high = await self._calculate_bitmap(conn, all_perm_names)
+            
+            for policy_name in self._wildcard_policies:
+                await conn.execute(
+                    """
+                    UPDATE acl_policies
+                    SET perm_low = $1, perm_high = $2, updated_at = NOW()
+                    WHERE name = $3 AND builtin = true
+                    """,
+                    perm_low, perm_high, policy_name
+                )
+                logger.info(
+                    "acl_wildcard_policy_recompiled",
+                    policy=policy_name,
+                    total_permissions=len(all_perm_names),
+                )
     
     async def _calculate_bitmap(
         self,

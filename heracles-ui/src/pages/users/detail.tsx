@@ -2,7 +2,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
-import { Save, ArrowLeft, Key, Trash2, UsersRound, Lock, Unlock } from 'lucide-react'
+import { Save, ArrowLeft, Key, Trash2, UsersRound, Lock, Unlock, Shield } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,6 +30,7 @@ import { PageHeader, LoadingPage, ErrorDisplay, LoadingSpinner, ConfirmDialog, P
 import { PosixUserTab } from '@/components/plugins/posix'
 import { SSHUserTab } from '@/components/plugins/ssh'
 import { MailUserTab } from '@/components/plugins/mail'
+import { EntityPermissionsTab } from '@/components/acl'
 import { useUser, useUpdateUser, useDeleteUser, useSetUserPassword, useUserLockStatus, useLockUser, useUnlockUser } from '@/hooks'
 import { usePluginStore, PLUGIN_NAMES } from '@/stores'
 import { userUpdateSchema, setPasswordSchema, type UserUpdateFormData, type SetPasswordFormData } from '@/lib/schemas'
@@ -212,6 +213,10 @@ export function UserDetailPage() {
           {isSSHEnabled && <TabsTrigger value="ssh">SSH Keys</TabsTrigger>}
           {isMailEnabled && <TabsTrigger value="mail">Mail</TabsTrigger>}
           <TabsTrigger value="groups">Groups</TabsTrigger>
+          <TabsTrigger value="permissions">
+            <Shield className="mr-1 h-3.5 w-3.5" />
+            Permissions
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="general">
@@ -411,6 +416,13 @@ export function UserDetailPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="permissions">
+          <EntityPermissionsTab
+            subjectDn={user.dn}
+            entityLabel={user.displayName || `${user.givenName} ${user.sn}`}
+          />
         </TabsContent>
       </Tabs>
 

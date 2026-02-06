@@ -25,6 +25,18 @@ import { PosixGroupsPage, PosixGroupDetailPage, MixedGroupsPage, MixedGroupDetai
 import { SudoRolesPage, SudoRoleDetailPage } from '@/pages/sudo'
 import { DnsZonesListPage, DnsZoneDetailPage } from '@/pages/dns'
 import { DhcpServicesListPage, DhcpServiceDetailPage, DhcpSubnetDetailPage, DhcpHostDetailPage } from '@/pages/dhcp'
+import {
+  AclPoliciesListPage,
+  AclPolicyCreatePage,
+  AclPolicyDetailPage,
+  AclAssignmentsListPage,
+  AclAssignmentCreatePage,
+  AclPermissionsListPage,
+  AclAttrGroupsListPage,
+  AclAccessMatrixPage,
+  AclAuditLogPage,
+} from '@/pages/acl'
+import { ProfilePage } from '@/pages/profile'
 import { ROUTES, PLUGIN_ROUTES } from '@/config/constants'
 
 export function AppRouter() {
@@ -90,6 +102,20 @@ export function AppRouter() {
         <Route path={PLUGIN_ROUTES.DHCP.SERVICE_DETAIL} element={<DhcpServiceDetailPage />} />
         <Route path={PLUGIN_ROUTES.DHCP.SUBNET_DETAIL} element={<DhcpSubnetDetailPage />} />
         <Route path={PLUGIN_ROUTES.DHCP.HOST_DETAIL} element={<DhcpHostDetailPage />} />
+
+        {/* ACL Management */}
+        <Route path={ROUTES.ACL_POLICIES} element={<AclPoliciesListPage />} />
+        <Route path={ROUTES.ACL_POLICY_CREATE} element={<AclPolicyCreatePage />} />
+        <Route path={ROUTES.ACL_POLICY_DETAIL} element={<AclPolicyDetailPage />} />
+        <Route path={ROUTES.ACL_ASSIGNMENTS} element={<AclAssignmentsListPage />} />
+        <Route path={ROUTES.ACL_ASSIGNMENT_CREATE} element={<AclAssignmentCreatePage />} />
+        <Route path={ROUTES.ACL_PERMISSIONS} element={<AclPermissionsListPage />} />
+        <Route path={ROUTES.ACL_ATTR_GROUPS} element={<AclAttrGroupsListPage />} />
+        <Route path={ROUTES.ACL_MATRIX} element={<AclAccessMatrixPage />} />
+        <Route path={ROUTES.ACL_AUDIT} element={<AclAuditLogPage />} />
+
+        {/* Profile */}
+        <Route path={ROUTES.PROFILE} element={<ProfilePage />} />
 
         {/* Settings */}
         <Route path={ROUTES.SETTINGS} element={<SettingsPage />} />

@@ -100,3 +100,43 @@ export type RoleFormData = z.infer<typeof roleSchema>
 export type RoleCreateFormData = z.infer<typeof roleCreateSchema>
 export type RoleUpdateFormData = z.infer<typeof roleUpdateSchema>
 
+// ACL Policy schemas
+export const policyCreateSchema = z.object({
+  name: z.string().min(1, 'Policy name is required').max(128, 'Policy name must be at most 128 characters'),
+  description: z.string().max(1024).optional(),
+  permissions: z.array(z.string()).min(1, 'At least one permission is required'),
+})
+
+export const policyUpdateSchema = z.object({
+  name: z.string().min(1).max(128).optional(),
+  description: z.string().max(1024).optional(),
+  permissions: z.array(z.string()).min(1).optional(),
+})
+
+export type PolicyCreateFormData = z.infer<typeof policyCreateSchema>
+export type PolicyUpdateFormData = z.infer<typeof policyUpdateSchema>
+
+// ACL Assignment schemas
+export const assignmentCreateSchema = z.object({
+  policyId: z.string().uuid('Invalid policy ID'),
+  subjectType: z.enum(['user', 'group', 'role'], { required_error: 'Subject type is required' }),
+  subjectDn: z.string().min(1, 'Subject DN is required'),
+  scopeDn: z.string().default(''),
+  scopeType: z.enum(['base', 'subtree']).default('subtree'),
+  selfOnly: z.boolean().default(false),
+  deny: z.boolean().default(false),
+  priority: z.coerce.number().int().min(0).max(1000).default(0),
+})
+
+export type AssignmentCreateFormData = z.infer<typeof assignmentCreateSchema>
+
+// ACL Attribute Rule schemas
+export const attrRuleCreateSchema = z.object({
+  objectType: z.string().min(1, 'Object type is required'),
+  action: z.enum(['read', 'write'], { required_error: 'Action is required' }),
+  ruleType: z.enum(['allow', 'deny'], { required_error: 'Rule type is required' }),
+  attrGroups: z.array(z.string()).min(1, 'At least one attribute group is required'),
+})
+
+export type AttrRuleCreateFormData = z.infer<typeof attrRuleCreateSchema>
+

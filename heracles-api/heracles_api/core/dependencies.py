@@ -33,7 +33,6 @@ async def get_redis() -> Optional[Redis]:
     try:
         redis = Redis.from_url(
             settings.REDIS_URL,
-            password=settings.REDIS_PASSWORD,
             decode_responses=False,
         )
         return redis

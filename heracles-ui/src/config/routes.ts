@@ -24,6 +24,18 @@ export const ROUTES = {
   DEPARTMENT_CREATE: '/departments/new',
   SYSTEMS: '/systems',
   SETTINGS: '/settings',
+  // ACL Management
+  ACL_POLICIES: '/acl/policies',
+  ACL_POLICY_CREATE: '/acl/policies/new',
+  ACL_POLICY_DETAIL: '/acl/policies/:id',
+  ACL_ASSIGNMENTS: '/acl/assignments',
+  ACL_ASSIGNMENT_CREATE: '/acl/assignments/new',
+  ACL_AUDIT: '/acl/audit',
+  ACL_PERMISSIONS: '/acl/permissions',
+  ACL_ATTR_GROUPS: '/acl/attribute-groups',
+  ACL_MATRIX: '/acl/matrix',
+  // Profile / Self-service
+  PROFILE: '/profile',
 } as const
 
 // Plugin Routes
@@ -179,6 +191,14 @@ export function dhcpHostPath(serviceCn: string, hostCn: string): string {
  */
 export function departmentDetailPath(dn: string): string {
   return ROUTES.DEPARTMENT_DETAIL.replace(':dn', encodeURIComponent(dn))
+}
+
+/**
+ * Build the ACL policy detail route
+ * @param id - Policy UUID
+ */
+export function aclPolicyDetailPath(id: string): string {
+  return ROUTES.ACL_POLICY_DETAIL.replace(':id', encodeURIComponent(id))
 }
 
 // Query parameters for create dialogs

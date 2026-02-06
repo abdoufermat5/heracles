@@ -9,4 +9,5 @@ export { sshApi } from './ssh'
 export { mailApi } from './mail'
 export { dnsApi } from './dns'
 export { dhcpApi } from './dhcp'
+export { aclApi } from './acl'
 
