@@ -127,11 +127,15 @@ export function MailUserTab({ uid, displayName }: MailUserTabProps) {
     }
 
     try {
+      // Auto-add pending alias input if user typed but didn't press Enter/+
+      const finalAliases = activateAliasInput.trim() && !activateAliases.includes(activateAliasInput.trim())
+        ? [...activateAliases, activateAliasInput.trim()]
+        : activateAliases
       const data: MailAccountCreate = {
         mail: activateMail.trim(),
         quotaMb: activateQuota,
         mailServer: activateServer.trim() || undefined,
-        alternateAddresses: activateAliases.length > 0 ? activateAliases : undefined,
+        alternateAddresses: finalAliases.length > 0 ? finalAliases : undefined,
       }
       await activateMutation.mutateAsync({ uid, data })
       toast.success('Mail account enabled')
@@ -164,11 +168,16 @@ export function MailUserTab({ uid, displayName }: MailUserTabProps) {
 
   const handleAliasesSave = async () => {
     try {
+      // Auto-add pending input if user typed but didn't press Enter/+
+      const finalAliases = editAliasInput.trim() && !editAliases.includes(editAliasInput.trim())
+        ? [...editAliases, editAliasInput.trim()]
+        : editAliases
       await updateMutation.mutateAsync({
         uid,
-        data: { alternateAddresses: editAliases },
+        data: { alternateAddresses: finalAliases },
       })
       toast.success('Alternate addresses updated')
+      setEditAliasInput('')
       setEditingAliases(false)
     } catch (error) {
       toast.error(
@@ -179,11 +188,16 @@ export function MailUserTab({ uid, displayName }: MailUserTabProps) {
 
   const handleForwardsSave = async () => {
     try {
+      // Auto-add pending input if user typed but didn't press Enter/+
+      const finalForwards = editForwardInput.trim() && !editForwards.includes(editForwardInput.trim())
+        ? [...editForwards, editForwardInput.trim()]
+        : editForwards
       await updateMutation.mutateAsync({
         uid,
-        data: { forwardingAddresses: editForwards },
+        data: { forwardingAddresses: finalForwards },
       })
       toast.success('Forwarding addresses updated')
+      setEditForwardInput('')
       setEditingForwards(false)
     } catch (error) {
       toast.error(
