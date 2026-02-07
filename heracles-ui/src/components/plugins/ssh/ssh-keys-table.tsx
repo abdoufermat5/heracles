@@ -40,10 +40,27 @@ export function SshKeysTable({
 }: SshKeysTableProps) {
   const [copiedFingerprint, setCopiedFingerprint] = useState<string | null>(null)
 
-  const copyFingerprint = (fingerprint: string) => {
-    navigator.clipboard.writeText(fingerprint)
-    setCopiedFingerprint(fingerprint)
-    setTimeout(() => setCopiedFingerprint(null), 2000)
+  const copyFingerprint = async (fingerprint: string) => {
+    try {
+      // Try modern clipboard API first
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(fingerprint)
+      } else {
+        // Fallback for insecure contexts or browsers without clipboard API
+        const textarea = document.createElement('textarea')
+        textarea.value = fingerprint
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+      }
+      setCopiedFingerprint(fingerprint)
+      setTimeout(() => setCopiedFingerprint(null), 2000)
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error)
+    }
   }
 
   const columns = useMemo<ColumnDef<SSHKeyRead>[]>(

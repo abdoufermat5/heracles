@@ -3,9 +3,11 @@
  *
  * Searchable dropdown for picking user/group/role DNs when creating assignments.
  * Fetches from the respective APIs based on the selected subject type.
+ * 
+ * Department-aware: Only shows users/groups from the currently selected department.
  */
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Check, ChevronsUpDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -23,6 +25,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { useUsers, useGroups } from '@/hooks'
+import { useDepartmentStore } from '@/stores/department-store'
 import type { User, Group } from '@/types'
 
 interface SubjectDnPickerProps {
@@ -39,10 +42,26 @@ export function SubjectDnPicker({
   disabled = false,
 }: SubjectDnPickerProps) {
   const [open, setOpen] = useState(false)
+  
+  // Get current department context for filtering
+  const currentDepartment = useDepartmentStore((state) => state.currentBase)
 
-  // Fetch users/groups based on subject type
-  const { data: usersData } = useUsers({ page_size: 200 })
-  const { data: groupsData } = useGroups({ page_size: 200 })
+  // Clear selection when department changes
+  useEffect(() => {
+    if (value) {
+      onChange('')
+    }
+  }, [currentDepartment])
+
+  // Fetch users/groups based on subject type, scoped to current department
+  const { data: usersData } = useUsers({ 
+    page_size: 200,
+    base: currentDepartment || undefined,
+  })
+  const { data: groupsData } = useGroups({ 
+    page_size: 200,
+    base: currentDepartment || undefined,
+  })
 
   const items = useMemo(() => {
     if (subjectType === 'user') {

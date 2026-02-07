@@ -2,11 +2,12 @@ import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
-import { Save, ArrowLeft } from 'lucide-react'
+import { Save, ArrowLeft, Building2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Select,
   SelectContent,
@@ -29,11 +30,14 @@ import { useCreateAssignment, useAclPolicies } from '@/hooks'
 import { assignmentCreateSchema, type AssignmentCreateFormData } from '@/lib/schemas'
 import { AppError } from '@/lib/errors'
 import { ROUTES } from '@/config/constants'
+import { useDepartmentStore } from '@/stores/department-store'
 
 export function AclAssignmentCreatePage() {
   const navigate = useNavigate()
   const createMutation = useCreateAssignment()
   const { data: policiesData, isLoading: policiesLoading } = useAclPolicies({ page_size: 200 })
+  const currentDepartment = useDepartmentStore((state) => state.currentBase)
+  const currentPath = useDepartmentStore((state) => state.currentPath)
 
   const form = useForm<AssignmentCreateFormData>({
     resolver: zodResolver(assignmentCreateSchema),
@@ -74,6 +78,16 @@ export function AclAssignmentCreatePage() {
         }
         description="Assign a policy to a user, group, or role"
       />
+
+      {currentDepartment && (
+        <Alert className="mb-6">
+          <Building2 className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Department Context:</strong> Only showing users/groups from{' '}
+            <span className="font-mono text-sm">{currentPath}</span>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">

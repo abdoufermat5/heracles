@@ -223,10 +223,11 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        <SidebarSeparator />
+
         {/* Infrastructure */}
         {filteredInfrastructureItems.length > 0 && (
           <SidebarGroup>
-            <SidebarGroupLabel>Infrastructure</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
@@ -260,10 +261,11 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
+        <SidebarSeparator />
+
         {/* Security */}
         {filteredSecurityItems.length > 0 && (
           <SidebarGroup>
-            <SidebarGroupLabel>Security</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
@@ -297,9 +299,10 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
+        <SidebarSeparator />
+
         {/* Access Control */}
         <SidebarGroup>
-          <SidebarGroupLabel>Access Control</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>

@@ -20,14 +20,14 @@ from pydantic import BaseModel, Field
 class PermissionResponse(BaseModel):
     """A registered permission."""
     
-    bit_position: int = Field(..., description="Bit position in the permission bitmap")
+    bit_position: int = Field(..., alias="bitPosition", description="Bit position in the permission bitmap")
     name: str = Field(..., description="Permission name (scope:action)")
     scope: str = Field(..., description="Object scope (user, group, etc.)")
     action: str = Field(..., description="Action (read, write, create, delete, manage)")
     description: str = Field(..., description="Human-readable description")
     plugin: Optional[str] = Field(None, description="Plugin that defines this permission (null=core)")
     
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "populate_by_name": True}
 
 
 # ============================================================================
@@ -39,7 +39,7 @@ class AttributeGroupResponse(BaseModel):
     """A registered attribute group."""
     
     id: int = Field(..., description="Group ID")
-    object_type: str = Field(..., description="Object type (user, group, system)")
+    object_type: str = Field(..., alias="objectType", description="Object type (user, group, system)")
     group_name: str = Field(..., alias="groupName", description="Group name (identity, contact, security)")
     label: str = Field(..., description="Human-readable label")
     attributes: list[str] = Field(..., description="LDAP attribute names in this group")
