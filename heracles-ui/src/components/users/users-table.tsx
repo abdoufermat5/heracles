@@ -152,6 +152,10 @@ export function UsersTable({
       searchColumn="uid"
       enablePagination
       defaultPageSize={10}
+      enableSelection
+      enableColumnVisibility
+      enableExport
+      exportFilename="users"
     />
   )
 }

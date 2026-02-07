@@ -2,13 +2,21 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
-import { Save, ArrowLeft, Key, Trash2, UsersRound, Lock, Unlock, Shield } from 'lucide-react'
-import { useState } from 'react'
+import { Save, ArrowLeft, Key, Trash2, UsersRound, Lock, Unlock, Shield, MoreHorizontal } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Form,
   FormControl,
@@ -26,22 +34,33 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { PageHeader, LoadingPage, ErrorDisplay, LoadingSpinner, ConfirmDialog, PasswordRequirements } from '@/components/common'
+import { PageHeader, DetailPageSkeleton, ErrorDisplay, LoadingSpinner, ConfirmDialog, PasswordRequirements, DataTable, SortableHeader, type ColumnDef } from '@/components/common'
 import { PosixUserTab } from '@/components/plugins/posix'
 import { SSHUserTab } from '@/components/plugins/ssh'
 import { MailUserTab } from '@/components/plugins/mail'
 import { EntityPermissionsTab } from '@/components/acl'
 import { useUser, useUpdateUser, useDeleteUser, useSetUserPassword, useUserLockStatus, useLockUser, useUnlockUser } from '@/hooks'
-import { usePluginStore, PLUGIN_NAMES } from '@/stores'
+import { usePluginStore, PLUGIN_NAMES, useRecentStore } from '@/stores'
 import { userUpdateSchema, setPasswordSchema, type UserUpdateFormData, type SetPasswordFormData } from '@/lib/schemas'
 import { AppError } from '@/lib/errors'
+import { groupsApi } from '@/lib/api'
 import { ROUTES } from '@/config/constants'
+
+interface UserGroupRow {
+  dn: string
+  name: string
+  type: string
+  description: string
+}
 
 export function UserDetailPage() {
   const { uid } = useParams<{ uid: string }>()
   const navigate = useNavigate()
   const [showPasswordDialog, setShowPasswordDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showAddGroupDialog, setShowAddGroupDialog] = useState(false)
+  const [groupToAdd, setGroupToAdd] = useState('')
+  const addRecentItem = useRecentStore((state) => state.addItem)
 
   const { data: user, isLoading, error, refetch } = useUser(uid!)
   const { data: lockStatus } = useUserLockStatus(uid!)
@@ -50,6 +69,18 @@ export function UserDetailPage() {
   const setPasswordMutation = useSetUserPassword(uid!)
   const lockMutation = useLockUser(uid!)
   const unlockMutation = useUnlockUser(uid!)
+  const addGroupMutation = useMutation({
+    mutationFn: (cn: string) => groupsApi.addMember(cn, uid!),
+    onSuccess: (_, cn) => {
+      toast.success(`Added "${user?.uid}" to "${cn}"`)
+      setShowAddGroupDialog(false)
+      setGroupToAdd('')
+      refetch()
+    },
+    onError: (error) => {
+      AppError.toastError(error, 'Failed to add user to group')
+    },
+  })
 
   // Check plugin enabled states
   const plugins = usePluginStore((state) => state.plugins)
@@ -61,6 +92,17 @@ export function UserDetailPage() {
   const isPosixEnabled = isPluginEnabled(PLUGIN_NAMES.POSIX)
   const isSSHEnabled = isPluginEnabled(PLUGIN_NAMES.SSH)
   const isMailEnabled = isPluginEnabled(PLUGIN_NAMES.MAIL)
+
+  useEffect(() => {
+    if (!user) return
+    addRecentItem({
+      id: user.uid,
+      label: user.displayName ? `${user.displayName} (${user.uid})` : user.uid,
+      href: ROUTES.USER_DETAIL.replace(':uid', user.uid),
+      type: 'user',
+      description: user.mail || user.cn,
+    })
+  }, [addRecentItem, user])
 
   const form = useForm<UserUpdateFormData>({
     resolver: zodResolver(userUpdateSchema),
@@ -79,8 +121,59 @@ export function UserDetailPage() {
     defaultValues: { password: '', confirmPassword: '' },
   })
 
+  const groupRows = useMemo<UserGroupRow[]>(() => {
+    if (!user?.memberOf?.length) return []
+    return user.memberOf.map((groupDn) => {
+      const match = groupDn.match(/^cn=([^,]+)/i)
+      return {
+        dn: groupDn,
+        name: match ? match[1] : groupDn,
+        type: 'LDAP',
+        description: groupDn,
+      }
+    })
+  }, [user])
+
+  const groupColumns = useMemo<ColumnDef<UserGroupRow>[]>(
+    () => [
+      {
+        accessorKey: 'name',
+        header: ({ column }) => (
+          <SortableHeader column={column}>Group Name</SortableHeader>
+        ),
+        cell: ({ row }) => (
+          <Link
+            to={ROUTES.GROUP_DETAIL.replace(':cn', row.original.name)}
+            className="font-medium text-primary hover:underline"
+          >
+            {row.original.name}
+          </Link>
+        ),
+      },
+      {
+        accessorKey: 'type',
+        header: ({ column }) => (
+          <SortableHeader column={column}>Type</SortableHeader>
+        ),
+        cell: ({ row }) => (
+          <Badge variant="outline">{row.original.type}</Badge>
+        ),
+      },
+      {
+        accessorKey: 'description',
+        header: 'Description',
+        cell: ({ row }) => (
+          <span className="text-muted-foreground truncate block max-w-[300px]">
+            {row.original.description}
+          </span>
+        ),
+      },
+    ],
+    []
+  )
+
   if (isLoading) {
-    return <LoadingPage message="Loading user..." />
+    return <DetailPageSkeleton />
   }
 
   if (error || !user) {
@@ -144,7 +237,14 @@ export function UserDetailPage() {
     }
   }
 
+  const onAddGroup = async () => {
+    const cn = groupToAdd.trim()
+    if (!cn) return
+    await addGroupMutation.mutateAsync(cn)
+  }
+
   const isLocked = lockStatus?.locked ?? false
+  const parentDn = user.dn.split(',').slice(1).join(',')
 
   return (
     <div>
@@ -167,41 +267,39 @@ export function UserDetailPage() {
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back
             </Button>
-            {isLocked ? (
-              <Button 
-                variant="outline" 
-                onClick={onUnlockUser}
-                disabled={unlockMutation.isPending}
-              >
-                {unlockMutation.isPending ? (
-                  <LoadingSpinner size="sm" className="mr-2" />
-                ) : (
-                  <Unlock className="mr-2 h-4 w-4" />
-                )}
-                Unlock
-              </Button>
-            ) : (
-              <Button 
-                variant="outline" 
-                onClick={onLockUser}
-                disabled={lockMutation.isPending}
-              >
-                {lockMutation.isPending ? (
-                  <LoadingSpinner size="sm" className="mr-2" />
-                ) : (
-                  <Lock className="mr-2 h-4 w-4" />
-                )}
-                Lock
-              </Button>
-            )}
-            <Button variant="outline" onClick={() => setShowPasswordDialog(true)}>
-              <Key className="mr-2 h-4 w-4" />
-              Set Password
-            </Button>
-            <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}>
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <MoreHorizontal className="mr-2 h-4 w-4" />
+                  Actions
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={isLocked ? onUnlockUser : onLockUser}
+                  disabled={lockMutation.isPending || unlockMutation.isPending}
+                >
+                  {isLocked ? (
+                    <Unlock className="mr-2 h-4 w-4" />
+                  ) : (
+                    <Lock className="mr-2 h-4 w-4" />
+                  )}
+                  {isLocked ? 'Unlock user' : 'Lock user'}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowPasswordDialog(true)}>
+                  <Key className="mr-2 h-4 w-4" />
+                  Set password
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete user
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         }
       />
@@ -335,6 +433,30 @@ export function UserDetailPage() {
                     <span className="text-muted-foreground">DN:</span>
                     <p className="font-mono text-xs break-all">{user.dn}</p>
                   </div>
+                  {parentDn && (
+                    <div>
+                      <span className="text-muted-foreground">Parent OU:</span>
+                      <p className="font-mono text-xs break-all">{parentDn}</p>
+                    </div>
+                  )}
+                  {user.entryUUID && (
+                    <div>
+                      <span className="text-muted-foreground">Entry UUID:</span>
+                      <p className="font-mono text-xs break-all">{user.entryUUID}</p>
+                    </div>
+                  )}
+                  {user.createTimestamp && (
+                    <div>
+                      <span className="text-muted-foreground">Created:</span>
+                      <p className="text-xs">{new Date(user.createTimestamp).toLocaleString()}</p>
+                    </div>
+                  )}
+                  {user.modifyTimestamp && (
+                    <div>
+                      <span className="text-muted-foreground">Modified:</span>
+                      <p className="text-xs">{new Date(user.modifyTimestamp).toLocaleString()}</p>
+                    </div>
+                  )}
                   {user.objectClass && user.objectClass.length > 0 && (
                     <div>
                       <span className="text-muted-foreground">Object Classes:</span>
@@ -354,8 +476,8 @@ export function UserDetailPage() {
         </TabsContent>
 
         {isPosixEnabled && (
-          <TabsContent value="posix">
-            <div className="max-w-3xl">
+          <TabsContent value="posix" className="max-w-4xl">
+            <div className="max-w-4xl">
               <PosixUserTab 
                 uid={user.uid} 
                 displayName={user.displayName || `${user.givenName} ${user.sn}`} 
@@ -365,7 +487,7 @@ export function UserDetailPage() {
         )}
 
         {isSSHEnabled && (
-          <TabsContent value="ssh">
+          <TabsContent value="ssh" className="max-w-4xl">
             <div className="max-w-4xl">
               <SSHUserTab 
                 uid={user.uid} 
@@ -376,7 +498,7 @@ export function UserDetailPage() {
         )}
 
         {isMailEnabled && (
-          <TabsContent value="mail">
+          <TabsContent value="mail" className="max-w-4xl">
             <div className="max-w-4xl">
               <MailUserTab 
                 uid={user.uid} 
@@ -386,39 +508,41 @@ export function UserDetailPage() {
           </TabsContent>
         )}
 
-        <TabsContent value="groups">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+        <TabsContent value="groups" className="max-w-4xl">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <div className="flex items-center gap-2">
                 <UsersRound className="h-5 w-5" />
-                Group Memberships
-              </CardTitle>
-              <CardDescription>Groups this user belongs to</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {user.memberOf && user.memberOf.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {user.memberOf.map((groupDn) => {
-                    // Extract CN from DN (e.g., "cn=admins,ou=groups,..." -> "admins")
-                    const cnMatch = groupDn.match(/^cn=([^,]+)/)
-                    const groupName = cnMatch ? cnMatch[1] : groupDn
-                    return (
-                      <Link key={groupDn} to={ROUTES.GROUP_DETAIL.replace(':cn', groupName)}>
-                        <Badge variant="secondary" className="cursor-pointer hover:bg-secondary/80">
-                          {groupName}
-                        </Badge>
-                      </Link>
-                    )
-                  })}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">Not a member of any groups</p>
-              )}
-            </CardContent>
-          </Card>
+                <h3 className="text-base font-semibold">Group Memberships</h3>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Groups this user belongs to
+              </p>
+            </div>
+            <Button variant="outline" onClick={() => setShowAddGroupDialog(true)}>
+              <UsersRound className="mr-2 h-4 w-4" />
+              Add to Group
+            </Button>
+          </div>
+
+          <DataTable
+            columns={groupColumns}
+            data={groupRows}
+            getRowId={(row) => row.dn}
+            emptyMessage="No group memberships found"
+            emptyDescription="Add the user to a group to get started"
+            enableSearch
+            searchPlaceholder="Search groups..."
+            searchColumn="name"
+            enablePagination
+            defaultPageSize={10}
+            enableColumnVisibility
+            enableExport
+            exportFilename={`user-${user.uid}-groups`}
+          />
         </TabsContent>
 
-        <TabsContent value="permissions">
+        <TabsContent value="permissions" className="max-w-4xl">
           <EntityPermissionsTab
             subjectDn={user.dn}
             entityLabel={user.displayName || `${user.givenName} ${user.sn}`}
@@ -467,6 +591,43 @@ export function UserDetailPage() {
               </Button>
               <Button type="submit" disabled={setPasswordMutation.isPending}>
                 {setPasswordMutation.isPending ? 'Setting...' : 'Set Password'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add to Group Dialog */}
+      <Dialog open={showAddGroupDialog} onOpenChange={setShowAddGroupDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add to Group</DialogTitle>
+            <DialogDescription>
+              Enter the group name (CN) to add {user.uid} to.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault()
+              onAddGroup()
+            }}
+          >
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Group Name (CN)</Label>
+                <Input
+                  value={groupToAdd}
+                  onChange={(event) => setGroupToAdd(event.target.value)}
+                  placeholder="e.g. admins"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowAddGroupDialog(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={addGroupMutation.isPending || !groupToAdd.trim()}>
+                {addGroupMutation.isPending ? 'Adding...' : 'Add to Group'}
               </Button>
             </DialogFooter>
           </form>

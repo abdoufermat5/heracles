@@ -17,6 +17,9 @@ export interface User {
   loginShell?: string
   memberOf?: string[]
   objectClass?: string[]
+  createTimestamp?: string
+  modifyTimestamp?: string
+  entryUUID?: string
 }
 
 export interface UserListResponse {

@@ -2,13 +2,20 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
-import { Save, ArrowLeft, Trash2, Users, UserPlus, UserMinus, Shield } from 'lucide-react'
-import { useState } from 'react'
+import { Save, ArrowLeft, Trash2, Users, UserPlus, UserMinus, Shield, MoreHorizontal } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Form,
   FormControl,
@@ -26,11 +33,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { PageHeader, LoadingPage, ErrorDisplay, LoadingSpinner, ConfirmDialog } from '@/components/common'
+import { PageHeader, DetailPageSkeleton, ErrorDisplay, LoadingSpinner, ConfirmDialog } from '@/components/common'
 import { PosixGroupTab } from '@/components/plugins/posix'
 import { MailGroupTab } from '@/components/plugins/mail'
 import { EntityPermissionsTab } from '@/components/acl'
 import { useGroup, useUpdateGroup, useDeleteGroup, useAddGroupMember, useRemoveGroupMember } from '@/hooks'
+import { useRecentStore } from '@/stores'
 import { groupUpdateSchema, type GroupUpdateFormData } from '@/lib/schemas'
 import { AppError } from '@/lib/errors'
 import { ROUTES } from '@/config/constants'
@@ -42,12 +50,24 @@ export function GroupDetailPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [memberToRemove, setMemberToRemove] = useState<string | null>(null)
   const [newMemberUid, setNewMemberUid] = useState('')
+  const addRecentItem = useRecentStore((state) => state.addItem)
 
   const { data: group, isLoading, error, refetch } = useGroup(cn!)
   const updateMutation = useUpdateGroup(cn!)
   const deleteMutation = useDeleteGroup()
   const addMemberMutation = useAddGroupMember(cn!)
   const removeMemberMutation = useRemoveGroupMember(cn!)
+
+  useEffect(() => {
+    if (!group) return
+    addRecentItem({
+      id: group.cn,
+      label: group.cn,
+      href: ROUTES.GROUP_DETAIL.replace(':cn', group.cn),
+      type: 'group',
+      description: group.description,
+    })
+  }, [addRecentItem, group])
 
   const form = useForm<GroupUpdateFormData>({
     resolver: zodResolver(groupUpdateSchema),
@@ -57,7 +77,7 @@ export function GroupDetailPage() {
   })
 
   if (isLoading) {
-    return <LoadingPage message="Loading group..." />
+    return <DetailPageSkeleton />
   }
 
   if (error || !group) {
@@ -119,10 +139,28 @@ export function GroupDetailPage() {
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back
             </Button>
-            <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}>
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <MoreHorizontal className="mr-2 h-4 w-4" />
+                  Actions
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete group
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setShowAddMemberDialog(true)}>
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Add member
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         }
       />
@@ -217,7 +255,7 @@ export function GroupDetailPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="members">
+        <TabsContent value="members" className="max-w-4xl">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -273,19 +311,19 @@ export function GroupDetailPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="posix">
-          <div className="max-w-3xl">
+        <TabsContent value="posix" className="max-w-4xl">
+          <div className="max-w-4xl">
             <PosixGroupTab cn={group.cn} />
           </div>
         </TabsContent>
 
-        <TabsContent value="mail">
+        <TabsContent value="mail" className="max-w-4xl">
           <div className="max-w-4xl">
             <MailGroupTab cn={group.cn} displayName={group.cn} />
           </div>
         </TabsContent>
 
-        <TabsContent value="permissions">
+        <TabsContent value="permissions" className="max-w-4xl">
           <EntityPermissionsTab
             subjectDn={group.dn}
             entityLabel={group.cn}

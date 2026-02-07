@@ -1,3 +1,5 @@
 export { useAuthStore } from './auth-store'
 export { useDepartmentStore } from './department-store'
 export { usePluginStore, useInitializePlugins, PLUGIN_NAMES, type PluginName } from './plugin-store'
+export { useRecentStore } from './recent-store'
+export { useTablePreferencesStore } from './table-preferences-store'

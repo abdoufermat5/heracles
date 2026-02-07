@@ -165,6 +165,10 @@ export function DnsRecordsTable({
       searchColumn="name"
       enablePagination
       defaultPageSize={15}
+      enableSelection
+      enableColumnVisibility
+      enableExport
+      exportFilename="dns-records"
     />
   )
 }

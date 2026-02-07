@@ -232,6 +232,10 @@ export function SystemsTable({
       searchColumn="cn"
       enablePagination
       defaultPageSize={10}
+      enableSelection
+      enableColumnVisibility
+      enableExport
+      exportFilename="systems"
     />
   )
 }

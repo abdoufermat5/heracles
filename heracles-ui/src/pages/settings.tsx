@@ -1,5 +1,5 @@
 import { useSearchParams } from "react-router-dom";
-import { PageHeader, LoadingPage, ErrorDisplay } from "@/components/common";
+import { PageHeader, TabSkeleton, ErrorDisplay } from "@/components/common";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   CategorySettingsPanel,
@@ -49,7 +49,17 @@ export function SettingsPage() {
   };
 
   if (isLoading) {
-    return <LoadingPage message="Loading configuration..." />;
+    return (
+      <div className="h-full flex flex-col overflow-hidden">
+        <PageHeader
+          title="Settings"
+          description="Configure your Heracles instance and manage plugins"
+        />
+        <div className="p-6">
+          <TabSkeleton />
+        </div>
+      </div>
+    );
   }
 
   if (error) {
@@ -143,4 +153,3 @@ export function SettingsPage() {
     </div>
   );
 }
-

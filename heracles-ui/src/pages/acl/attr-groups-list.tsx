@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { PageHeader, LoadingPage, ErrorDisplay } from '@/components/common'
+import { PageHeader, ListPageSkeleton, ErrorDisplay } from '@/components/common'
 import { useAclAttributeGroups } from '@/hooks'
 
 const OBJECT_TYPE_LABELS: Record<string, string> = {
@@ -90,7 +90,7 @@ export function AclAttrGroupsListPage() {
 
   const objectTypeOrder = Object.keys(grouped).sort()
 
-  if (isLoading) return <LoadingPage message="Loading attribute groups..." />
+  if (isLoading) return <ListPageSkeleton />
   if (error) return <ErrorDisplay message={error.message} onRetry={() => refetch()} />
 
   return (

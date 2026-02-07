@@ -5,7 +5,7 @@
  * and excellent UX. Built on @tanstack/react-table.
  */
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   type ColumnDef,
   type SortingState,
@@ -34,6 +34,7 @@ import {
   Settings2,
   Loader2,
   Inbox,
+  Download,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -53,6 +54,7 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuLabel,
+  DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -63,6 +65,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { exportToCsv, exportToJson } from '@/lib/export'
+import { useTablePreferencesStore } from '@/stores'
 
 // ============================================================================
 // Types
@@ -109,6 +113,12 @@ export interface DataTableProps<TData, TValue> {
   rowClassName?: (row: Row<TData>) => string
   /** Header actions (render next to search) */
   headerActions?: React.ReactNode
+  /** Bulk actions (shown when rows selected) */
+  bulkActions?: (rows: TData[]) => React.ReactNode
+  /** Enable export buttons */
+  enableExport?: boolean
+  /** Export filename prefix */
+  exportFilename?: string
   /** Footer content */
   footer?: React.ReactNode
   /** Table className */
@@ -334,9 +344,15 @@ function PaginationControls({
 
 interface ColumnVisibilityMenuProps<TData> {
   table: Table<TData>
+  density?: 'compact' | 'comfortable'
+  onDensityChange?: (density: 'compact' | 'comfortable') => void
 }
 
-function ColumnVisibilityMenu<TData>({ table }: ColumnVisibilityMenuProps<TData>) {
+function ColumnVisibilityMenu<TData>({
+  table,
+  density,
+  onDensityChange,
+}: ColumnVisibilityMenuProps<TData>) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -366,6 +382,20 @@ function ColumnVisibilityMenu<TData>({ table }: ColumnVisibilityMenuProps<TData>
               </DropdownMenuCheckboxItem>
             )
           })}
+        {onDensityChange && density && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Density</DropdownMenuLabel>
+            <DropdownMenuCheckboxItem
+              checked={density === 'compact'}
+              onCheckedChange={(value) =>
+                onDensityChange(value ? 'compact' : 'comfortable')
+              }
+            >
+              Compact rows
+            </DropdownMenuCheckboxItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -395,9 +425,13 @@ export function DataTable<TData, TValue>({
   onRowClick,
   rowClassName,
   headerActions,
+  bulkActions,
+  enableExport = false,
+  exportFilename = 'export',
+  onSelectionChange,
   footer,
   className,
-  dense = false,
+  dense: denseProp,
   stickyHeader = false,
   maxHeight,
 }: DataTableProps<TData, TValue>) {
@@ -411,6 +445,8 @@ export function DataTable<TData, TValue>({
     pageIndex: 0,
     pageSize: defaultPageSize,
   })
+  const { density, setDensity } = useTablePreferencesStore()
+  const dense = denseProp ?? density === 'compact'
 
   // Build columns with selection if enabled
   const finalColumns = enableSelection
@@ -454,7 +490,45 @@ export function DataTable<TData, TValue>({
   }
 
   // Show header if search or column visibility is enabled
-  const showHeader = enableSearch || enableColumnVisibility || headerActions
+  const showHeader =
+    enableSearch || enableColumnVisibility || headerActions || enableExport || bulkActions
+
+  const selectedRows = table.getFilteredSelectedRowModel().rows
+  const selectedData = useMemo(
+    () => selectedRows.map((row) => row.original),
+    [selectedRows]
+  )
+
+  useEffect(() => {
+    if (onSelectionChange) {
+      onSelectionChange(selectedData)
+    }
+  }, [onSelectionChange, selectedData])
+
+  const exportRows = () => {
+    const rowsToExport = selectedRows.length > 0
+      ? selectedRows
+      : table.getFilteredRowModel().rows
+    const columnsToExport = table
+      .getVisibleLeafColumns()
+      .filter((column) =>
+        column.id !== 'select' &&
+        (column.columnDef.accessorKey || column.columnDef.accessorFn)
+      )
+
+    const data = rowsToExport.map((row) => {
+      const entry: Record<string, unknown> = {}
+      for (const column of columnsToExport) {
+        entry[column.id] = row.getValue(column.id)
+      }
+      return entry
+    })
+
+    return {
+      columns: columnsToExport.map((column) => column.id),
+      data,
+    }
+  }
 
   return (
     <div className={cn('space-y-4', className)}>
@@ -486,8 +560,47 @@ export function DataTable<TData, TValue>({
             )}
           </div>
           <div className="flex items-center gap-2">
+            {bulkActions && selectedData.length > 0 && bulkActions(selectedData)}
+            {enableExport && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-9">
+                    <Download className="mr-2 h-4 w-4" />
+                    Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>
+                    {selectedRows.length > 0 ? `${selectedRows.length} selected` : 'All results'}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => {
+                      const { data, columns } = exportRows()
+                      exportToCsv({ data, columns, filename: `${exportFilename}.csv` })
+                    }}
+                  >
+                    Export CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      const { data } = exportRows()
+                      exportToJson({ data, filename: `${exportFilename}.json` })
+                    }}
+                  >
+                    Export JSON
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             {headerActions}
-            {enableColumnVisibility && <ColumnVisibilityMenu table={table} />}
+            {enableColumnVisibility && (
+              <ColumnVisibilityMenu
+                table={table}
+                density={density}
+                onDensityChange={setDensity}
+              />
+            )}
           </div>
         </div>
       )}

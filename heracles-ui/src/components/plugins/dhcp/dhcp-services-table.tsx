@@ -178,8 +178,15 @@ export function DhcpServicesTable({
       data={services}
       isLoading={isLoading}
       emptyMessage={emptyMessage}
+      enableSearch
       searchPlaceholder="Search services..."
       searchColumn="cn"
+      enablePagination
+      defaultPageSize={10}
+      enableSelection
+      enableColumnVisibility
+      enableExport
+      exportFilename="dhcp-services"
     />
   )
 }

@@ -182,6 +182,12 @@ export function AssignmentsTable({
       searchPlaceholder="Search by policy or subject..."
       searchColumn="policyName"
       getRowId={(row) => row.id}
+      enablePagination
+      defaultPageSize={10}
+      enableSelection
+      enableColumnVisibility
+      enableExport
+      exportFilename="acl-assignments"
     />
   )
 }

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Users, UsersRound, Server, Activity, TrendingUp, UserPlus, ChevronDown, Terminal, Layers, Shield } from 'lucide-react'
+import { Users, UsersRound, Activity, TrendingUp, UserPlus, ChevronDown, Terminal, Layers, Shield, Building2 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -10,33 +10,42 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { PageHeader, LoadingPage, ErrorDisplay } from '@/components/common'
-import { useUsers, useGroups } from '@/hooks'
+import { PageHeader, CardSkeleton, ErrorDisplay } from '@/components/common'
+import { useHealth, useStats } from '@/hooks'
 import { useAuthStore, useDepartmentStore } from '@/stores'
 import { ROUTES, PLUGIN_ROUTES } from '@/config/constants'
 
 export function DashboardPage() {
   const { user } = useAuthStore()
   const { currentBase, currentPath } = useDepartmentStore()
+  const { data: statsData, isLoading: statsLoading, error: statsError } = useStats()
+  const { data: healthData, isLoading: healthLoading, error: healthError } = useHealth()
 
-  // Pass department context to hooks for contextual data
-  const { data: usersData, isLoading: usersLoading, error: usersError } = useUsers({
-    page_size: 1,
-    base: currentBase || undefined
-  })
-  const { data: groupsData, isLoading: groupsLoading, error: groupsError } = useGroups({
-    page_size: 1,
-    base: currentBase || undefined
-  })
-
-  if (usersLoading || groupsLoading) {
-    return <LoadingPage message="Loading dashboard..." />
+  if (statsLoading || healthLoading) {
+    return (
+      <div>
+        <PageHeader
+          title={`Welcome, ${user?.displayName || user?.cn || 'User'}`}
+          description="Here's an overview of your identity management system"
+        />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <CardSkeleton key={index} />
+          ))}
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <CardSkeleton key={index} contentLines={2} />
+          ))}
+        </div>
+      </div>
+    )
   }
 
-  if (usersError || groupsError) {
+  if (statsError || healthError) {
     return (
       <ErrorDisplay
-        message={(usersError || groupsError)?.message || 'Failed to load dashboard data'}
+        message={(statsError || healthError)?.message || 'Failed to load dashboard data'}
       />
     )
   }
@@ -44,12 +53,12 @@ export function DashboardPage() {
   // Determine context label
   const contextLabel = currentBase
     ? currentPath.split('/').filter(p => p).pop() || 'Department'
-    : 'All'
+    : 'Directory'
 
   const stats = [
     {
       title: 'Total Users',
-      value: usersData?.total || 0,
+      value: statsData?.users || 0,
       description: `Users in ${contextLabel}`,
       icon: Users,
       color: 'text-blue-600',
@@ -58,7 +67,7 @@ export function DashboardPage() {
     },
     {
       title: 'Total Groups',
-      value: groupsData?.total || 0,
+      value: statsData?.groups || 0,
       description: `Groups in ${contextLabel}`,
       icon: UsersRound,
       color: 'text-green-600',
@@ -66,23 +75,29 @@ export function DashboardPage() {
       href: ROUTES.GROUPS,
     },
     {
-      title: 'Systems',
-      value: 0,
-      description: 'Managed systems',
-      icon: Server,
+      title: 'Roles',
+      value: statsData?.roles || 0,
+      description: 'Organizational roles',
+      icon: Shield,
       color: 'text-purple-600',
       bgColor: 'bg-purple-100',
-      href: PLUGIN_ROUTES.SYSTEMS.LIST,
+      href: ROUTES.GROUPS,
     },
     {
-      title: 'Activity',
-      value: '-',
-      description: 'Recent changes',
-      icon: Activity,
+      title: 'Departments',
+      value: statsData?.departments || 0,
+      description: 'Organizational units',
+      icon: Building2,
       color: 'text-orange-600',
       bgColor: 'bg-orange-100',
-      href: '#',
+      href: ROUTES.DEPARTMENTS,
     },
+  ]
+
+  const healthServices = [
+    { key: 'ldap', label: 'LDAP Server', status: healthData?.services.ldap?.status },
+    { key: 'redis', label: 'Redis Cache', status: healthData?.services.redis?.status },
+    { key: 'database', label: 'PostgreSQL', status: healthData?.services.database?.status },
   ]
 
   return (
@@ -204,26 +219,32 @@ export function DashboardPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5" />
-              System Status
+              System Health
             </CardTitle>
-            <CardDescription>Services health overview</CardDescription>
+            <CardDescription>Live status of core dependencies</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm">LDAP Server</span>
-                <span className="flex items-center gap-1 text-sm text-green-600">
-                  <span className="h-2 w-2 rounded-full bg-green-600" />
-                  Online
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm">API Server</span>
-                <span className="flex items-center gap-1 text-sm text-green-600">
-                  <span className="h-2 w-2 rounded-full bg-green-600" />
-                  Online
-                </span>
-              </div>
+              {healthServices.map((service) => {
+                const isOk = service.status === 'ok'
+                return (
+                  <div key={service.key} className="flex items-center justify-between">
+                    <span className="text-sm">{service.label}</span>
+                    <span
+                      className={`flex items-center gap-1 text-sm ${
+                        isOk ? 'text-emerald-600' : 'text-destructive'
+                      }`}
+                    >
+                      <span
+                        className={`h-2 w-2 rounded-full ${
+                          isOk ? 'bg-emerald-600' : 'bg-destructive'
+                        }`}
+                      />
+                      {isOk ? 'Online' : 'Degraded'}
+                    </span>
+                  </div>
+                )
+              })}
             </div>
           </CardContent>
         </Card>

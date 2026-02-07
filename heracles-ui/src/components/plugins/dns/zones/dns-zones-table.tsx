@@ -161,6 +161,10 @@ export function DnsZonesTable({
       searchColumn="zoneName"
       enablePagination
       defaultPageSize={10}
+      enableSelection
+      enableColumnVisibility
+      enableExport
+      exportFilename="dns-zones"
     />
   )
 }

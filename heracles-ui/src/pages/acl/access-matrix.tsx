@@ -24,7 +24,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { PageHeader, LoadingPage, ErrorDisplay } from '@/components/common'
+import { PageHeader, TableSkeleton, ErrorDisplay } from '@/components/common'
 import { DataTable, SortableHeader, type ColumnDef } from '@/components/common/data-table'
 import { useAclAssignments, useAclPermissions, useAclPolicies } from '@/hooks'
 import type { AclAssignment, AclPermission, AclPolicy } from '@/types/acl'
@@ -311,7 +311,17 @@ export function AclAccessMatrixPage() {
     return cols
   }, [scopes])
 
-  if (isLoading) return <LoadingPage message="Building access matrix..." />
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <PageHeader
+          title="Access Matrix"
+          description="Visualize who can access what across the directory"
+        />
+        <TableSkeleton rows={8} columns={6} />
+      </div>
+    )
+  }
   if (error) return <ErrorDisplay message={error.message} />
 
   return (

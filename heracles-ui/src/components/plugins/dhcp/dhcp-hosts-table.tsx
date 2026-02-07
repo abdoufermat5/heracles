@@ -163,8 +163,15 @@ export function DhcpHostsTable({
       data={hosts}
       isLoading={isLoading}
       emptyMessage={emptyMessage}
+      enableSearch
       searchPlaceholder="Search hosts..."
       searchColumn="cn"
+      enablePagination
+      defaultPageSize={10}
+      enableSelection
+      enableColumnVisibility
+      enableExport
+      exportFilename="dhcp-hosts"
     />
   )
 }

@@ -153,6 +153,15 @@ export function SshKeysTable({
       emptyDescription="Add a public key to enable SSH authentication"
       emptyIcon={<Key className="h-8 w-8 text-muted-foreground" />}
       dense
+      enableSearch
+      searchPlaceholder="Search fingerprints..."
+      searchColumn="fingerprint"
+      enablePagination
+      defaultPageSize={10}
+      enableSelection
+      enableColumnVisibility
+      enableExport
+      exportFilename="ssh-keys"
     />
   )
 }

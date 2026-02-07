@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
+import { useState } from 'react'
 import {
   Sidebar,
   SidebarContent,
@@ -10,6 +11,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarSeparator,
 } from '@/components/ui/sidebar'
 import {
@@ -28,11 +32,11 @@ import {
   Settings,
   LogOut,
   ChevronUp,
+  ChevronDown,
   ShieldCheck,
   Globe,
   Network,
   Building2,
-  KeyRound,
   Shield,
   UserCheck,
   ScrollText,
@@ -99,13 +103,6 @@ const securityNavItems = [
     icon: ShieldCheck,
     pluginName: PLUGIN_NAMES.SUDO,
   },
-  {
-    title: 'SSH Keys',
-    url: '/ssh-keys',  // TODO: Add to routes when SSH management page is ready
-    icon: KeyRound,
-    disabled: true,
-    pluginName: PLUGIN_NAMES.SSH,
-  },
 ]
 
 // ACL Management
@@ -156,6 +153,9 @@ export function AppSidebar() {
   const { user, logout } = useAuthStore()
   const plugins = usePluginStore((state) => state.plugins)
   const isInitialized = usePluginStore((state) => state.isInitialized)
+  const [infrastructureOpen, setInfrastructureOpen] = useState(true)
+  const [securityOpen, setSecurityOpen] = useState(true)
+  const [accessControlOpen, setAccessControlOpen] = useState(false)
 
   // Helper to check if plugin is enabled
   const isPluginEnabled = (name: string) => {
@@ -229,75 +229,105 @@ export function AppSidebar() {
             <SidebarGroupLabel>Infrastructure</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {filteredInfrastructureItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={location.pathname === item.url || location.pathname.startsWith(item.url + '/')}
-                    >
-                      <Link to={item.url}>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={() => setInfrastructureOpen((open) => !open)}>
+                    <Server />
+                    <span>Infrastructure</span>
+                    <ChevronDown
+                      className={`ml-auto h-4 w-4 transition-transform ${infrastructureOpen ? 'rotate-180' : ''}`}
+                    />
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                {infrastructureOpen && (
+                  <SidebarMenuSub>
+                    {filteredInfrastructureItems.map((item) => (
+                      <SidebarMenuSubItem key={item.title}>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location.pathname === item.url || location.pathname.startsWith(item.url + '/')}
+                        >
+                          <Link to={item.url}>
+                            <item.icon />
+                            <span>{item.title}</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    ))}
+                  </SidebarMenuSub>
+                )}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         )}
 
-        {/* Security & Access */}
+        {/* Security */}
         {filteredSecurityItems.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel>Security</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {filteredSecurityItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={location.pathname === item.url || location.pathname.startsWith(item.url + '/')}
-                      disabled={'disabled' in item && item.disabled}
-                      className={'disabled' in item && item.disabled ? 'opacity-50 cursor-not-allowed' : ''}
-                    >
-                      {'disabled' in item && item.disabled ? (
-                        <span className="flex items-center gap-2">
-                          <item.icon />
-                          <span>{item.title}</span>
-                        </span>
-                      ) : (
-                        <Link to={item.url}>
-                          <item.icon />
-                          <span>{item.title}</span>
-                        </Link>
-                      )}
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={() => setSecurityOpen((open) => !open)}>
+                    <ShieldCheck />
+                    <span>Security</span>
+                    <ChevronDown
+                      className={`ml-auto h-4 w-4 transition-transform ${securityOpen ? 'rotate-180' : ''}`}
+                    />
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                {securityOpen && (
+                  <SidebarMenuSub>
+                    {filteredSecurityItems.map((item) => (
+                      <SidebarMenuSubItem key={item.title}>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location.pathname === item.url || location.pathname.startsWith(item.url + '/')}
+                        >
+                          <Link to={item.url}>
+                            <item.icon />
+                            <span>{item.title}</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    ))}
+                  </SidebarMenuSub>
+                )}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         )}
 
-        {/* ACL Management */}
+        {/* Access Control */}
         <SidebarGroup>
           <SidebarGroupLabel>Access Control</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {aclNavItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location.pathname === item.url || location.pathname.startsWith(item.url + '/')}
-                  >
-                    <Link to={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={() => setAccessControlOpen((open) => !open)}>
+                  <Shield />
+                  <span>Access Control</span>
+                  <ChevronDown
+                    className={`ml-auto h-4 w-4 transition-transform ${accessControlOpen ? 'rotate-180' : ''}`}
+                  />
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              {accessControlOpen && (
+                <SidebarMenuSub>
+                  {aclNavItems.map((item) => (
+                    <SidebarMenuSubItem key={item.title}>
+                      <SidebarMenuSubButton
+                        asChild
+                        isActive={location.pathname === item.url || location.pathname.startsWith(item.url + '/')}
+                      >
+                        <Link to={item.url}>
+                          <item.icon />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  ))}
+                </SidebarMenuSub>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

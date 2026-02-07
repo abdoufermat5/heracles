@@ -2,12 +2,18 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
-import { Save, ArrowLeft, Building2, Trash2 } from 'lucide-react'
+import { Save, ArrowLeft, Building2, Trash2, MoreHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 // Input import removed
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Form,
   FormControl,
@@ -24,17 +30,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { PageHeader, LoadingPage, LoadingSpinner, ErrorDisplay, ConfirmDialog } from '@/components/common'
+import { PageHeader, DetailPageSkeleton, LoadingSpinner, ErrorDisplay, ConfirmDialog } from '@/components/common'
 import { useDepartment, useUpdateDepartment, useDeleteDepartment } from '@/hooks'
 import { departmentUpdateSchema, type DepartmentUpdateFormData } from '@/lib/schemas'
-import { ROUTES } from '@/config/routes'
+import { ROUTES, departmentDetailPath } from '@/config/routes'
 import { useState, useEffect } from 'react'
+import { useRecentStore } from '@/stores'
 
 export function DepartmentDetailPage() {
   const { dn } = useParams<{ dn: string }>()
   const decodedDn = dn ? decodeURIComponent(dn) : ''
   const navigate = useNavigate()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const addRecentItem = useRecentStore((state) => state.addItem)
 
   const { data: department, isLoading, error, refetch } = useDepartment(decodedDn)
   const updateMutation = useUpdateDepartment(decodedDn)
@@ -59,6 +67,17 @@ export function DepartmentDetailPage() {
       })
     }
   }, [department, form])
+
+  useEffect(() => {
+    if (!department) return
+    addRecentItem({
+      id: department.dn,
+      label: department.ou,
+      href: departmentDetailPath(department.dn),
+      type: 'department',
+      description: department.path,
+    })
+  }, [addRecentItem, department])
 
   const onSubmit = async (data: DepartmentUpdateFormData) => {
     try {
@@ -89,7 +108,7 @@ export function DepartmentDetailPage() {
   }
 
   if (isLoading) {
-    return <LoadingPage message="Loading department..." />
+    return <DetailPageSkeleton />
   }
 
   if (error) {
@@ -111,13 +130,23 @@ export function DepartmentDetailPage() {
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back
             </Button>
-            <Button
-              variant="destructive"
-              onClick={() => setShowDeleteDialog(true)}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <MoreHorizontal className="mr-2 h-4 w-4" />
+                  Actions
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete department
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         }
       />

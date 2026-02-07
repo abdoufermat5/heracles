@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import {
   Search,
   Bell,
@@ -22,7 +22,6 @@ import {
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -36,12 +35,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -50,6 +43,7 @@ import {
 
 import { useAuthStore } from '@/stores'
 import { ROUTES, PLUGIN_ROUTES } from '@/config/constants'
+import { CommandPalette } from '@/components/layout/command-palette'
 
 // Breadcrumb configuration based on routes
 const routeBreadcrumbs: Record<string, { label: string; icon?: React.ElementType }> = {
@@ -63,16 +57,51 @@ const routeBreadcrumbs: Record<string, { label: string; icon?: React.ElementType
   '/posix/mixed-groups': { label: 'Mixed Groups', icon: UsersRound },
 }
 
-// Quick search items
-const searchItems = [
-  { label: 'Users', href: ROUTES.USERS, icon: Users, shortcut: 'U' },
-  { label: 'Groups', href: ROUTES.GROUPS, icon: UsersRound, shortcut: 'G' },
-  { label: 'Sudo Roles', href: PLUGIN_ROUTES.SUDO.ROLES, icon: ShieldCheck, shortcut: 'S' },
-  { label: 'Systems', href: PLUGIN_ROUTES.SYSTEMS.LIST, icon: Server, shortcut: 'Y' },
-  { label: 'Settings', href: ROUTES.SETTINGS, icon: Settings, shortcut: ',' },
-]
 
 function getBreadcrumbs(pathname: string) {
+  if (pathname.startsWith(PLUGIN_ROUTES.DHCP.SERVICES)) {
+    const parts = pathname.split('/').filter(Boolean)
+    const breadcrumbs: { label: string; href?: string }[] = [
+      { label: 'DHCP', href: PLUGIN_ROUTES.DHCP.SERVICES },
+    ]
+
+    if (parts.length >= 2) {
+      const serviceCn = decodeURIComponent(parts[1])
+      breadcrumbs.push({
+        label: serviceCn,
+        href: PLUGIN_ROUTES.DHCP.SERVICE_DETAIL.replace(':serviceCn', serviceCn),
+      })
+    }
+
+    if (parts.includes('subnets')) {
+      const subnetIndex = parts.indexOf('subnets') + 1
+      const subnetCn = parts[subnetIndex]
+      if (subnetCn) {
+        breadcrumbs.push({
+          label: decodeURIComponent(subnetCn),
+          href: PLUGIN_ROUTES.DHCP.SUBNET_DETAIL
+            .replace(':serviceCn', decodeURIComponent(parts[1]))
+            .replace(':subnetCn', decodeURIComponent(subnetCn)),
+        })
+      }
+    }
+
+    if (parts.includes('hosts')) {
+      const hostIndex = parts.indexOf('hosts') + 1
+      const hostCn = parts[hostIndex]
+      if (hostCn) {
+        breadcrumbs.push({
+          label: decodeURIComponent(hostCn),
+          href: PLUGIN_ROUTES.DHCP.HOST_DETAIL
+            .replace(':serviceCn', decodeURIComponent(parts[1]))
+            .replace(':hostCn', decodeURIComponent(hostCn)),
+        })
+      }
+    }
+
+    return breadcrumbs
+  }
+
   const parts = pathname.split('/').filter(Boolean)
   const breadcrumbs: { label: string; href?: string }[] = []
 
@@ -101,11 +130,9 @@ function getBreadcrumbs(pathname: string) {
 
 export function AppHeader() {
   const location = useLocation()
-  const navigate = useNavigate()
   const { user, logout } = useAuthStore()
   const [isDark, setIsDark] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
 
   const breadcrumbs = getBreadcrumbs(location.pathname)
 
@@ -135,19 +162,6 @@ export function AppHeader() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
-
-  // Handle search navigation
-  const handleSearchSelect = (href: string) => {
-    setSearchOpen(false)
-    setSearchQuery('')
-    navigate(href)
-  }
-
-  const filteredSearchItems = searchQuery
-    ? searchItems.filter((item) =>
-      item.label.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-    : searchItems
 
   const getInitials = (name?: string) => {
     if (!name) return 'U'
@@ -314,50 +328,7 @@ export function AppHeader() {
         </div>
       </header>
 
-      {/* Command palette / Search dialog */}
-      <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
-        <DialogContent className="overflow-hidden p-0 shadow-lg">
-          <DialogHeader className="sr-only">
-            <DialogTitle>Search</DialogTitle>
-          </DialogHeader>
-          <div className="flex items-center border-b px-3">
-            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-            <Input
-              placeholder="Search navigation..."
-              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              autoFocus
-            />
-          </div>
-          <div className="max-h-[300px] overflow-y-auto p-2">
-            {filteredSearchItems.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                No results found.
-              </p>
-            ) : (
-              <div className="space-y-1">
-                <p className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                  Navigation
-                </p>
-                {filteredSearchItems.map((item) => (
-                  <button
-                    key={item.href}
-                    onClick={() => handleSearchSelect(item.href)}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
-                  >
-                    <item.icon className="h-4 w-4 text-muted-foreground" />
-                    <span className="flex-1 text-left">{item.label}</span>
-                    <kbd className="hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                      {item.shortcut}
-                    </kbd>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
     </>
   )
 }

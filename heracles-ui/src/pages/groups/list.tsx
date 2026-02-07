@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { toast } from 'sonner'
-import { Plus, UsersRound, Terminal, Layers, Shield, MoreHorizontal, Trash2, Eye } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { Plus, UsersRound, Terminal, Layers, Shield } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -10,25 +9,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { PageHeader, LoadingPage, ErrorDisplay, ConfirmDialog, EmptyState } from '@/components/common'
+import { PageHeader, ErrorDisplay, ConfirmDialog, ListPageSkeleton } from '@/components/common'
 import { DepartmentBreadcrumbs } from '@/components/departments'
 import { LdapGroupsTable } from '@/components/groups'
+import { RolesTable } from '@/components/roles'
 import { PosixGroupsTable, MixedGroupsTable } from '@/components/plugins/posix/groups'
-import { useGroups, useDeleteGroup } from '@/hooks'
+import { useGroups, useDeleteGroup, useDeleteConfirmation } from '@/hooks'
 import { usePosixGroups, useDeletePosixGroup, useMixedGroups, useDeleteMixedGroup } from '@/hooks/use-posix'
 import { useRoles, useDeleteRole } from '@/hooks/use-roles'
 import { useDepartmentStore } from '@/stores'
-import { AppError } from '@/lib/errors'
 import { ROUTES } from '@/config/constants'
 import type { Group, Role } from '@/types'
 import type { PosixGroupListItem, MixedGroupListItem } from '@/types/posix'
@@ -36,7 +26,6 @@ import type { PosixGroupListItem, MixedGroupListItem } from '@/types/posix'
 type GroupType = 'ldap' | 'posix' | 'mixed' | 'roles'
 
 export function GroupsListPage() {
-  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
 
   // Get active tab from URL or default to 'ldap'
@@ -61,10 +50,6 @@ export function GroupsListPage() {
     }
   }, [searchParams])
 
-  const [deleteGroup, setDeleteGroup] = useState<Group | null>(null)
-  const [deletePosixGroup, setDeletePosixGroup] = useState<PosixGroupListItem | null>(null)
-  const [deleteMixedGroup, setDeleteMixedGroup] = useState<MixedGroupListItem | null>(null)
-  const [deleteRole, setDeleteRoleItem] = useState<Role | null>(null)
   const { currentBase, currentPath } = useDepartmentStore()
 
   // LDAP Groups (groupOfNames) - filtered by department context
@@ -91,55 +76,40 @@ export function GroupsListPage() {
   )
   const deleteRoleMutation = useDeleteRole()
 
-  const handleDeleteLdap = async () => {
-    if (!deleteGroup) return
-    try {
-      await deleteLdapMutation.mutateAsync(deleteGroup.cn)
-      toast.success(`Group "${deleteGroup.cn}" deleted successfully`)
-      setDeleteGroup(null)
-    } catch (error) {
-      AppError.toastError(error, 'Failed to delete group')
-    }
-  }
+  // Delete confirmation hooks - replaces 4x useState + handleDelete patterns
+  const ldapDelete = useDeleteConfirmation<Group>({
+    onDelete: async (group) => { await deleteLdapMutation.mutateAsync(group.cn) },
+    getItemName: (group) => group.cn,
+    entityType: 'LDAP Group',
+  })
 
-  const handleDeletePosix = async () => {
-    if (!deletePosixGroup) return
-    try {
+  const posixDelete = useDeleteConfirmation<PosixGroupListItem>({
+    onDelete: async (group) => {
       await deletePosixMutation.mutateAsync({
-        cn: deletePosixGroup.cn,
-        baseDn: currentBase || undefined
+        cn: group.cn,
+        baseDn: currentBase || undefined,
       })
-      toast.success(`POSIX group "${deletePosixGroup.cn}" deleted successfully`)
-      setDeletePosixGroup(null)
-    } catch (error) {
-      AppError.toastError(error, 'Failed to delete POSIX group')
-    }
-  }
+    },
+    getItemName: (group) => group.cn,
+    entityType: 'POSIX Group',
+  })
 
-  const handleDeleteMixed = async () => {
-    if (!deleteMixedGroup) return
-    try {
+  const mixedDelete = useDeleteConfirmation<MixedGroupListItem>({
+    onDelete: async (group) => {
       await deleteMixedMutation.mutateAsync({
-        cn: deleteMixedGroup.cn,
-        baseDn: currentBase || undefined
+        cn: group.cn,
+        baseDn: currentBase || undefined,
       })
-      toast.success(`Mixed group "${deleteMixedGroup.cn}" deleted successfully`)
-      setDeleteMixedGroup(null)
-    } catch (error) {
-      AppError.toastError(error, 'Failed to delete mixed group')
-    }
-  }
+    },
+    getItemName: (group) => group.cn,
+    entityType: 'Mixed Group',
+  })
 
-  const handleDeleteRole = async () => {
-    if (!deleteRole) return
-    try {
-      await deleteRoleMutation.mutateAsync(deleteRole.cn)
-      toast.success(`Role "${deleteRole.cn}" deleted successfully`)
-      setDeleteRoleItem(null)
-    } catch (error) {
-      AppError.toastError(error, 'Failed to delete role')
-    }
-  }
+  const roleDelete = useDeleteConfirmation<Role>({
+    onDelete: async (role) => { await deleteRoleMutation.mutateAsync(role.cn) },
+    getItemName: (role) => role.cn,
+    entityType: 'Role',
+  })
 
   const isLoading =
     activeTab === 'ldap' ? ldapLoading :
@@ -158,7 +128,7 @@ export function GroupsListPage() {
           refetchRoles
 
   if (isLoading) {
-    return <LoadingPage message="Loading groups..." />
+    return <ListPageSkeleton />
   }
 
   if (error) {
@@ -244,180 +214,46 @@ export function GroupsListPage() {
 
         {/* LDAP Groups Tab */}
         <TabsContent value="ldap">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <UsersRound className="h-5 w-5" />
-                LDAP Groups (groupOfNames)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <LdapGroupsTable
-                groups={ldapData?.groups ?? []}
-                onDelete={setDeleteGroup}
-                emptyMessage="No LDAP groups found"
-              />
-            </CardContent>
-          </Card>
+          <LdapGroupsTable
+            groups={ldapData?.groups ?? []}
+            onDelete={ldapDelete.requestDelete}
+            emptyMessage="No LDAP groups found"
+          />
         </TabsContent>
 
         {/* POSIX Groups Tab */}
         <TabsContent value="posix">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Terminal className="h-5 w-5" />
-                POSIX Groups (posixGroup)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <PosixGroupsTable
-                groups={posixData?.groups ?? []}
-                onDelete={setDeletePosixGroup}
-                emptyMessage="No POSIX groups found"
-              />
-            </CardContent>
-          </Card>
+          <PosixGroupsTable
+            groups={posixData?.groups ?? []}
+            onDelete={posixDelete.requestDelete}
+            emptyMessage="No POSIX groups found"
+          />
         </TabsContent>
 
         {/* Mixed Groups Tab */}
         <TabsContent value="mixed">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Layers className="h-5 w-5" />
-                Mixed Groups (groupOfNames + posixGroup)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <MixedGroupsTable
-                groups={mixedData?.groups ?? []}
-                onDelete={setDeleteMixedGroup}
-                emptyMessage="No mixed groups found"
-              />
-            </CardContent>
-          </Card>
+          <MixedGroupsTable
+            groups={mixedData?.groups ?? []}
+            onDelete={mixedDelete.requestDelete}
+            emptyMessage="No mixed groups found"
+          />
         </TabsContent>
 
         {/* Roles Tab */}
         <TabsContent value="roles">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
-                Organizational Roles (organizationalRole)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {rolesData?.roles && rolesData.roles.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Members</TableHead>
-                      <TableHead className="w-[100px]">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rolesData.roles.map((role) => (
-                      <TableRow key={role.dn}>
-                        <TableCell className="font-medium">{role.cn}</TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {role.description || '-'}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{role.memberCount} members</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem asChild>
-                                <Link to={`/roles/${role.cn}`}>
-                                  <Eye className="mr-2 h-4 w-4" />
-                                  View
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => setDeleteRoleItem(role)}
-                                className="text-destructive"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <EmptyState
-                  icon={Shield}
-                  title="No roles found"
-                  description="Create a role to assign users to organizational responsibilities."
-                  action={{
-                    label: 'Create Role',
-                    onClick: () => navigate('/roles/create'),
-                  }}
-                />
-              )}
-            </CardContent>
-          </Card>
+          <RolesTable
+            roles={rolesData?.roles ?? []}
+            onDelete={roleDelete.requestDelete}
+            emptyMessage="No roles found"
+          />
         </TabsContent>
       </Tabs>
 
-      {/* Delete dialogs */}
-      <ConfirmDialog
-        open={!!deleteGroup}
-        onOpenChange={(open) => !open && setDeleteGroup(null)}
-        title="Delete LDAP Group"
-        description={`Are you sure you want to delete group "${deleteGroup?.cn}"? This action cannot be undone.`}
-        confirmLabel="Delete"
-        variant="destructive"
-        onConfirm={handleDeleteLdap}
-        isLoading={deleteLdapMutation.isPending}
-      />
-
-      <ConfirmDialog
-        open={!!deletePosixGroup}
-        onOpenChange={(open) => !open && setDeletePosixGroup(null)}
-        title="Delete POSIX Group"
-        description={`Are you sure you want to delete POSIX group "${deletePosixGroup?.cn}"? This action cannot be undone.`}
-        confirmLabel="Delete"
-        variant="destructive"
-        onConfirm={handleDeletePosix}
-        isLoading={deletePosixMutation.isPending}
-      />
-
-      <ConfirmDialog
-        open={!!deleteMixedGroup}
-        onOpenChange={(open) => !open && setDeleteMixedGroup(null)}
-        title="Delete Mixed Group"
-        description={`Are you sure you want to delete mixed group "${deleteMixedGroup?.cn}"? This action cannot be undone.`}
-        confirmLabel="Delete"
-        variant="destructive"
-        onConfirm={handleDeleteMixed}
-        isLoading={deleteMixedMutation.isPending}
-      />
-
-      <ConfirmDialog
-        open={!!deleteRole}
-        onOpenChange={(open) => !open && setDeleteRoleItem(null)}
-        title="Delete Role"
-        description={`Are you sure you want to delete role "${deleteRole?.cn}"? This action cannot be undone.`}
-        confirmLabel="Delete"
-        variant="destructive"
-        onConfirm={handleDeleteRole}
-        isLoading={deleteRoleMutation.isPending}
-      />
+      {/* Delete dialogs - using hook dialogProps */}
+      <ConfirmDialog {...ldapDelete.dialogProps} />
+      <ConfirmDialog {...posixDelete.dialogProps} />
+      <ConfirmDialog {...mixedDelete.dialogProps} />
+      <ConfirmDialog {...roleDelete.dialogProps} />
     </div>
   )
 }
-

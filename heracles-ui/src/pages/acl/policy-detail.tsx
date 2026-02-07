@@ -2,14 +2,21 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
-import { Save, ArrowLeft, Trash2, Lock } from 'lucide-react'
-import { useState } from 'react'
+import { Save, ArrowLeft, Trash2, Lock, MoreHorizontal } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Form,
   FormControl,
@@ -18,17 +25,19 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
-import { PageHeader, LoadingPage, ErrorDisplay, ConfirmDialog } from '@/components/common'
+import { PageHeader, DetailPageSkeleton, ErrorDisplay, ConfirmDialog } from '@/components/common'
 import { PermissionGroupCheckboxes, AttrRulesEditor, AssignmentsTable } from '@/components/acl'
 import { useAclPolicy, useUpdatePolicy, useDeletePolicy, useAclAssignments } from '@/hooks'
 import { policyUpdateSchema, type PolicyUpdateFormData } from '@/lib/schemas'
 import { AppError } from '@/lib/errors'
 import { ROUTES } from '@/config/constants'
+import { useRecentStore } from '@/stores'
 
 export function AclPolicyDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const addRecentItem = useRecentStore((state) => state.addItem)
 
   const { data: policy, isLoading, error, refetch } = useAclPolicy(id!)
   const updateMutation = useUpdatePolicy(id!)
@@ -48,8 +57,19 @@ export function AclPolicyDetailPage() {
       : undefined,
   })
 
+  useEffect(() => {
+    if (!policy) return
+    addRecentItem({
+      id: policy.id,
+      label: policy.name,
+      href: ROUTES.ACL_POLICY_DETAIL.replace(':id', policy.id),
+      type: 'policy',
+      description: policy.description,
+    })
+  }, [addRecentItem, policy])
+
   if (isLoading) {
-    return <LoadingPage message="Loading policy..." />
+    return <DetailPageSkeleton />
   }
 
   if (error || !policy) {
@@ -86,9 +106,6 @@ export function AclPolicyDetailPage() {
       <PageHeader
         title={
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate(ROUTES.ACL_POLICIES)}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
             {policy.name}
             {isBuiltin && (
               <Badge variant="secondary" className="gap-1">
@@ -100,18 +117,36 @@ export function AclPolicyDetailPage() {
         }
         description={policy.description || undefined}
         actions={
-          !isBuiltin ? (
-            <div className="flex items-center gap-2">
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => setShowDeleteDialog(true)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </Button>
-            </div>
-          ) : undefined
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => navigate(ROUTES.ACL_POLICIES)}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
+            {!isBuiltin && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline">
+                    <MoreHorizontal className="mr-2 h-4 w-4" />
+                    Actions
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => setShowDeleteDialog(true)}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete policy
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate(ROUTES.ACL_POLICIES)}>
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Return to policies
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         }
       />
 
@@ -129,7 +164,7 @@ export function AclPolicyDetailPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="permissions">
+        <TabsContent value="permissions" className="max-w-4xl">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <Card>
@@ -210,7 +245,7 @@ export function AclPolicyDetailPage() {
           </Form>
         </TabsContent>
 
-        <TabsContent value="attributes">
+        <TabsContent value="attributes" className="max-w-4xl">
           <Card>
             <CardHeader>
               <CardTitle>Attribute-Level Access Control</CardTitle>
@@ -225,7 +260,7 @@ export function AclPolicyDetailPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="assignments">
+        <TabsContent value="assignments" className="max-w-4xl">
           <Card>
             <CardHeader>
               <CardTitle>Assignments Using This Policy</CardTitle>

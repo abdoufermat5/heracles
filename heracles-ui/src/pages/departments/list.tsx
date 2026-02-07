@@ -1,21 +1,18 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { toast } from 'sonner'
 import { Plus, Building2, FolderTree, List, Network } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { PageHeader, LoadingPage, ErrorDisplay, ConfirmDialog } from '@/components/common'
+import { PageHeader, ErrorDisplay, ConfirmDialog, ListPageSkeleton } from '@/components/common'
 import { DepartmentsTable, DepartmentTree } from '@/components/departments'
-import { useDepartments, useDeleteDepartment, useDepartmentTree } from '@/hooks'
+import { useDepartments, useDeleteDepartment, useDepartmentTree, useDeleteConfirmation } from '@/hooks'
 import { useDepartmentStore } from '@/stores'
 import { ROUTES } from '@/config/routes'
 import type { Department } from '@/types'
 
 export function DepartmentsListPage() {
   const navigate = useNavigate()
-  const [deleteDepartment, setDeleteDepartment] = useState<Department | null>(null)
   const [viewMode, setViewMode] = useState<'tree' | 'list'>('tree')
   const { currentBase, setCurrentBase } = useDepartmentStore()
 
@@ -24,27 +21,25 @@ export function DepartmentsListPage() {
   const { data, isLoading, error, refetch } = useDepartments()
   const deleteMutation = useDeleteDepartment()
 
-  const handleDelete = async () => {
-    if (!deleteDepartment) return
-    try {
-      // Check if department has children
-      if (deleteDepartment.childrenCount > 0) {
-        // Ask for recursive delete confirmation
+  const deleteConfirmation = useDeleteConfirmation<Department>({
+    onDelete: async (department) => {
+      if (department.childrenCount > 0) {
         await deleteMutation.mutateAsync({
-          dn: deleteDepartment.dn,
+          dn: department.dn,
           recursive: true,
         })
       } else {
-        await deleteMutation.mutateAsync({ dn: deleteDepartment.dn })
+        await deleteMutation.mutateAsync({ dn: department.dn })
       }
-      toast.success(`Department "${deleteDepartment.ou}" deleted successfully`)
-      setDeleteDepartment(null)
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : 'Failed to delete department'
-      )
-    }
-  }
+    },
+    getItemName: (department) => department.ou,
+    entityType: 'Department',
+    successMessage: (department) => `Department "${department.ou}" deleted successfully`,
+    getDescription: (department) =>
+      department.childrenCount > 0
+        ? `Department "${department.ou}" has ${department.childrenCount} children. This will delete the department and all its contents. This action cannot be undone.`
+        : `Are you sure you want to delete department "${department.ou}"? This action cannot be undone.`,
+  })
 
   const handleSelect = (department: Department) => {
     setCurrentBase(department.dn, department.path)
@@ -59,7 +54,7 @@ export function DepartmentsListPage() {
   const isPageLoading = isLoading || treeLoading
 
   if (isPageLoading) {
-    return <LoadingPage message="Loading departments..." />
+    return <ListPageSkeleton />
   }
 
   if (error) {
@@ -69,7 +64,12 @@ export function DepartmentsListPage() {
   return (
     <div>
       <PageHeader
-        title="Departments"
+        title={
+          <span className="flex items-center gap-2">
+            Departments
+            <Badge variant="secondary">{treeData?.total || data?.total || 0}</Badge>
+          </span>
+        }
         description="Manage organizational units and department hierarchy"
         actions={
           <Button asChild>
@@ -81,77 +81,58 @@ export function DepartmentsListPage() {
         }
       />
 
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
-              Departments
-              <Badge variant="secondary">{treeData?.total || data?.total || 0}</Badge>
-            </CardTitle>
-            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'tree' | 'list')}>
-              <TabsList className="h-8">
-                <TabsTrigger value="tree" className="h-7 px-3">
-                  <Network className="h-4 w-4 mr-1.5" />
-                  Tree
-                </TabsTrigger>
-                <TabsTrigger value="list" className="h-7 px-3">
-                  <List className="h-4 w-4 mr-1.5" />
-                  List
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {viewMode === 'tree' ? (
-            treeData?.tree && treeData.tree.length > 0 ? (
-              <div className="border rounded-lg p-2 bg-muted/30">
-                <DepartmentTree
-                  data={treeData.tree}
-                  selectedDn={currentBase || undefined}
-                  onSelect={handleTreeSelect}
-                  defaultExpandAll
-                />
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <FolderTree className="h-12 w-12 mb-4 opacity-30" />
-                <p className="text-sm">No departments found</p>
-                <p className="text-xs mt-1">Create your first department to get started</p>
-                <Button asChild className="mt-4" size="sm">
-                  <Link to={ROUTES.DEPARTMENT_CREATE}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    New Department
-                  </Link>
-                </Button>
-              </div>
-            )
-          ) : (
-            <DepartmentsTable
-              departments={data?.departments ?? []}
-              onDelete={setDeleteDepartment}
-              onSelect={handleSelect}
-              emptyMessage="No departments found"
-            />
-          )}
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Building2 className="h-4 w-4" />
+          Browse departments by tree or list view
+        </div>
+        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'tree' | 'list')}>
+          <TabsList className="h-8">
+            <TabsTrigger value="tree" className="h-7 px-3">
+              <Network className="h-4 w-4 mr-1.5" />
+              Tree
+            </TabsTrigger>
+            <TabsTrigger value="list" className="h-7 px-3">
+              <List className="h-4 w-4 mr-1.5" />
+              List
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
 
-      <ConfirmDialog
-        open={!!deleteDepartment}
-        onOpenChange={(open) => !open && setDeleteDepartment(null)}
-        title="Delete Department"
-        description={
-          deleteDepartment?.childrenCount && deleteDepartment.childrenCount > 0
-            ? `Department "${deleteDepartment?.ou}" has ${deleteDepartment?.childrenCount} children. This will delete the department and all its contents. This action cannot be undone.`
-            : `Are you sure you want to delete department "${deleteDepartment?.ou}"? This action cannot be undone.`
-        }
-        confirmLabel="Delete"
-        variant="destructive"
-        onConfirm={handleDelete}
-        isLoading={deleteMutation.isPending}
-      />
+      {viewMode === 'tree' ? (
+        treeData?.tree && treeData.tree.length > 0 ? (
+          <div className="border rounded-lg p-2 bg-muted/30">
+            <DepartmentTree
+              data={treeData.tree}
+              selectedDn={currentBase || undefined}
+              onSelect={handleTreeSelect}
+              defaultExpandAll
+            />
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <FolderTree className="h-12 w-12 mb-4 opacity-30" />
+            <p className="text-sm">No departments found</p>
+            <p className="text-xs mt-1">Create your first department to get started</p>
+            <Button asChild className="mt-4" size="sm">
+              <Link to={ROUTES.DEPARTMENT_CREATE}>
+                <Plus className="mr-2 h-4 w-4" />
+                New Department
+              </Link>
+            </Button>
+          </div>
+        )
+      ) : (
+        <DepartmentsTable
+          departments={data?.departments ?? []}
+          onDelete={deleteConfirmation.requestDelete}
+          onSelect={handleSelect}
+          emptyMessage="No departments found"
+        />
+      )}
+
+      <ConfirmDialog {...deleteConfirmation.dialogProps} />
     </div>
   )
 }

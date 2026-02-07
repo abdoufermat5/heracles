@@ -150,6 +150,12 @@ export function PoliciesTable({
       searchPlaceholder="Search policies..."
       searchColumn="name"
       getRowId={(row) => row.id}
+      enablePagination
+      defaultPageSize={10}
+      enableSelection
+      enableColumnVisibility
+      enableExport
+      exportFilename="acl-policies"
     />
   )
 }

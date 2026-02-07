@@ -185,6 +185,10 @@ export function ConfigHistoryPanel({
           pageSizes={[10, 20, 50]}
           dense
           getRowId={(row: ConfigHistoryEntry) => row.id}
+          enableSelection
+          enableColumnVisibility
+          enableExport
+          exportFilename="config-history"
         />
       </CardContent>
     </Card>

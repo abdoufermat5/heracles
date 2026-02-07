@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ArrowLeft, Shield, UserPlus, X, Save } from 'lucide-react'
@@ -15,10 +15,11 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
-import { PageHeader, LoadingPage, ErrorDisplay, LoadingSpinner, ConfirmDialog } from '@/components/common'
+import { PageHeader, DetailPageSkeleton, ErrorDisplay, LoadingSpinner, ConfirmDialog } from '@/components/common'
 import { useRole, useUpdateRole, useAddRoleMember, useRemoveRoleMember } from '@/hooks/use-roles'
 import { AppError } from '@/lib/errors'
 import { ROUTES } from '@/config/constants'
+import { useRecentStore } from '@/stores'
 
 export function RoleDetailPage() {
     const { cn } = useParams<{ cn: string }>()
@@ -28,15 +29,27 @@ export function RoleDetailPage() {
     const [addMemberOpen, setAddMemberOpen] = useState(false)
     const [newMemberUid, setNewMemberUid] = useState('')
     const [removeMember, setRemoveMember] = useState<string | null>(null)
+    const addRecentItem = useRecentStore((state) => state.addItem)
 
     const { data: role, isLoading, error, refetch } = useRole(cn || '')
     const updateMutation = useUpdateRole(cn || '')
     const addMemberMutation = useAddRoleMember(cn || '')
     const removeMemberMutation = useRemoveRoleMember(cn || '')
 
-    if (isLoading) {
-        return <LoadingPage message="Loading role..." />
-    }
+    useEffect(() => {
+        if (!role) return
+        addRecentItem({
+            id: role.cn,
+            label: role.cn,
+            href: ROUTES.ROLE_DETAIL.replace(':cn', role.cn),
+            type: 'role',
+            description: role.description,
+        })
+    }, [addRecentItem, role])
+
+      if (isLoading) {
+        return <DetailPageSkeleton />
+      }
 
     if (error || !role) {
         return <ErrorDisplay message={error?.message || 'Role not found'} onRetry={() => refetch()} />

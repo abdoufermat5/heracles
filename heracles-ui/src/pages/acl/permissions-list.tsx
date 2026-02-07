@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { PageHeader, LoadingPage, ErrorDisplay } from '@/components/common'
+import { PageHeader, ListPageSkeleton, ErrorDisplay } from '@/components/common'
 import { useAclPermissions } from '@/hooks'
 import type { AclPermission } from '@/types/acl'
 
@@ -82,7 +82,7 @@ export function AclPermissionsListPage() {
     return a.localeCompare(b)
   })
 
-  if (isLoading) return <LoadingPage message="Loading permissions..." />
+  if (isLoading) return <ListPageSkeleton />
   if (error) return <ErrorDisplay message={error.message} onRetry={() => refetch()} />
 
   return (

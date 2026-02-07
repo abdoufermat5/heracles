@@ -1,7 +1,7 @@
 import { UserCircle, ShieldCheck } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { PageHeader, LoadingPage, ErrorDisplay } from '@/components/common'
+import { PageHeader, DetailPageSkeleton, ErrorDisplay } from '@/components/common'
 import { PermissionBadges } from '@/components/acl'
 import { useMyPermissions } from '@/hooks'
 import { useAuthStore } from '@/stores'
@@ -11,7 +11,7 @@ export function ProfilePage() {
   const { data: permsData, isLoading, error, refetch } = useMyPermissions()
 
   if (isLoading) {
-    return <LoadingPage message="Loading profile..." />
+    return <DetailPageSkeleton />
   }
 
   if (error) {

@@ -184,6 +184,10 @@ export function SudoRolesTable({
       searchColumn="cn"
       enablePagination
       defaultPageSize={10}
+      enableSelection
+      enableColumnVisibility
+      enableExport
+      exportFilename="sudo-roles"
     />
   )
 }

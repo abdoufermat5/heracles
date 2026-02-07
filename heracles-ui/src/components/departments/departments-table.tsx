@@ -152,6 +152,10 @@ export function DepartmentsTable({
       searchColumn="ou"
       enablePagination
       defaultPageSize={10}
+      enableSelection
+      enableColumnVisibility
+      enableExport
+      exportFilename="departments"
     />
   )
 }

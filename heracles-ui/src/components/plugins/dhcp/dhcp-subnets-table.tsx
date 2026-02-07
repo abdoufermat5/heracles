@@ -134,8 +134,15 @@ export function DhcpSubnetsTable({
       data={subnets}
       isLoading={isLoading}
       emptyMessage={emptyMessage}
+      enableSearch
       searchPlaceholder="Search subnets..."
       searchColumn="cn"
+      enablePagination
+      defaultPageSize={10}
+      enableSelection
+      enableColumnVisibility
+      enableExport
+      exportFilename="dhcp-subnets"
     />
   )
 }
