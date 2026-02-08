@@ -29,7 +29,7 @@ La VM `mail1` fournit un serveur de messagerie d'entreprise complet :
 | **Nginx** | Serveur web frontal (HTTPS) | 1.22+ |
 | **OpenLDAP** | Annuaire des utilisateurs (sur l'hôte Docker) | 1.5.0 |
 
-**Authentification :** Bind LDAP direct — Dovecot se connecte à OpenLDAP avec l'`uid` et le mot de passe de l'utilisateur. Aucune dépendance à SSSD sur cette VM.
+**Authentification :** Bind LDAP direct — Dovecot se connecte à OpenLDAP avec l'`uid` et le mot de passe de l'utilisateur. Aucune dépendance à SSSD sur cette VM. La recherche LDAP s'effectue sur l'ensemble de l'arbre (`dc=heracles,dc=local`), ce qui permet aux utilisateurs créés dans des départements (sous-OUs) de s'authentifier.
 
 **Prérequis :** Les utilisateurs doivent avoir l'objectClass `hrcMailAccount` activé via l'API Heracles avant de pouvoir s'authentifier sur IMAP ou envoyer du courrier authentifié.
 
@@ -58,8 +58,9 @@ La VM `mail1` fournit un serveur de messagerie d'entreprise complet :
                                     │  Hôte Docker (192.168.56.1)           │
                                     │  OpenLDAP (:389)                      │
                                     │                                       │
-                                    │  ou=people  → hrcMailAccount          │
-                                    │  ou=groups  → hrcGroupMail            │
+                                    │  dc=heracles,dc=local (subtree)       │
+                                    │    hrcMailAccount (utilisateurs)      │
+                                    │    hrcGroupMail  (listes diffusion)   │
                                     └───────────────────────────────────────┘
 ```
 
@@ -71,7 +72,7 @@ La VM `mail1` fournit un serveur de messagerie d'entreprise complet :
 4. **Webmail (:443) :** Le navigateur accède à Roundcube via Nginx → Roundcube se connecte en IMAP/SMTP à Dovecot/Postfix en local → l'authentification passe par LDAP (via Dovecot)
 5. **Réponse automatique vacances :** Un cron synchronise `hrcVacationMessage` depuis LDAP → génère des scripts Sieve par utilisateur → Dovecot les applique à la livraison
 6. **Alias/redirection :** Postfix interroge LDAP pour `hrcMailAlternateAddress` et `hrcMailForwardingAddress` → redistribue en conséquence
-7. **Listes de diffusion :** Postfix interroge LDAP pour `hrcGroupMail` → développe les `memberUid` en `utilisateur@domaine` → livre à chaque membre
+7. **Listes de diffusion :** Postfix interroge LDAP pour `hrcGroupMail` → déréférence les DNs `member` (groupOfNames) pour extraire l'attribut `mail` de chaque membre → livre à chaque adresse
 
 ## Réseau et ports
 
@@ -97,6 +98,32 @@ Les enregistrements suivants sont créés automatiquement par le script `setup-d
 | `mail` | CNAME | mail1.heracles.local. |
 | `@` | MX | 10 mail1.heracles.local. |
 | `22` (zone reverse) | PTR | mail1.heracles.local. |
+
+### Réservation DHCP
+
+Une réservation DHCP est créée automatiquement par `setup-demo-users.sh` via l'API DHCP, garantissant que la VM `mail1` obtient toujours la même adresse IP :
+
+| Hôte | Adresse MAC | Adresse IP | Service DHCP |
+|------|-------------|------------|--------------|
+| `mail1` | `08:00:27:00:00:22` | 192.168.56.22 | demo-dhcp-service |
+
+```bash
+# Créer la réservation manuellement (si nécessaire)
+curl -X POST "http://localhost:8000/api/v1/dhcp/demo-dhcp-service/hosts" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "cn": "mail1",
+    "dhcpHWAddress": "ethernet 08:00:27:00:00:22",
+    "fixedAddress": "192.168.56.22",
+    "comments": "Mail server - Postfix + Dovecot + Roundcube"
+  }'
+
+# Synchroniser la configuration sur dhcp1
+vagrant ssh dhcp1 -c 'sudo /usr/local/bin/ldap-dhcp-sync.sh'
+```
+
+> **Note :** L'adresse MAC `08:00:27:00:00:22` est configurée dans le `Vagrantfile` et dans `demo.conf` (`MAIL1_MAC`). Elle doit correspondre entre les deux.
 
 ## Installation
 
@@ -350,17 +377,28 @@ Le serveur de messagerie utilise deux objectClasses LDAP personnalisés gérés 
 
 1. **Vérifier que hrcMailAccount est activé :**
    ```bash
+   # Recherche dans tout l'arbre (supporte les utilisateurs dans des départements)
    ldapsearch -x -H ldap://192.168.56.1 -D "cn=admin,dc=heracles,dc=local" \
-     -w admin_secret -b "ou=people,dc=heracles,dc=local" \
-     "(uid=testuser)" objectClass mail
+     -w admin_secret -b "dc=heracles,dc=local" \
+     "(&(uid=testuser)(objectClass=hrcMailAccount))" objectClass mail
    ```
    L'objectClass `hrcMailAccount` doit apparaître dans la liste.
 
+   > **Note :** Les utilisateurs peuvent se trouver à la racine (`ou=people,dc=heracles,dc=local`)
+   > ou dans un département (`ou=people,ou=Engineering,dc=heracles,dc=local`).
+   > La base de recherche `dc=heracles,dc=local` couvre les deux cas.
+
 2. **Tester le bind LDAP directement :**
    ```bash
+   # Pour un utilisateur à la racine :
    ldapwhoami -x -H ldap://192.168.56.1 \
      -D "uid=testuser,ou=people,dc=heracles,dc=local" \
      -w Testpassword123
+
+   # Pour un utilisateur dans un département :
+   ldapwhoami -x -H ldap://192.168.56.1 \
+     -D "uid=jdoe,ou=people,ou=Engineering,dc=heracles,dc=local" \
+     -w <mot_de_passe>
    ```
 
 3. **Vérifier les logs d'authentification Dovecot :**
@@ -402,7 +440,7 @@ openssl s_client -connect 192.168.56.22:993 -showcerts </dev/null 2>/dev/null | 
 1. **Vérifier les attributs LDAP de vacances :**
    ```bash
    ldapsearch -x -H ldap://192.168.56.1 -D "cn=admin,dc=heracles,dc=local" \
-     -w admin_secret -b "ou=people,dc=heracles,dc=local" \
+     -w admin_secret -b "dc=heracles,dc=local" \
      "(uid=testuser)" hrcMailDeliveryMode hrcVacationMessage
    ```
    `hrcMailDeliveryMode` doit contenir `V` et `hrcVacationMessage` ne doit pas être vide.
@@ -450,7 +488,7 @@ openssl s_client -connect 192.168.56.22:993 -showcerts </dev/null 2>/dev/null | 
 | `/etc/postfix/ldap-virtual-mailbox.cf` | Lookup LDAP : email → chemin de boîte |
 | `/etc/postfix/ldap-virtual-alias.cf` | Lookup LDAP : alias → email principal |
 | `/etc/postfix/ldap-virtual-forward.cf` | Lookup LDAP : email → adresses de redirection |
-| `/etc/postfix/ldap-group-mail.cf` | Lookup LDAP : email de groupe → expansion des membres |
+| `/etc/postfix/ldap-group-mail.cf` | Lookup LDAP : email de groupe → déréférencement DN des `member` (groupOfNames) |
 | `/etc/dovecot/dovecot.conf` | Configuration principale de Dovecot |
 | `/etc/dovecot/dovecot-ldap.conf.ext` | Auth LDAP Dovecot (bind direct) |
 | `/etc/dovecot/sieve/` | Scripts Sieve globaux |
