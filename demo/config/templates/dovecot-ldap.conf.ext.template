@@ -18,7 +18,9 @@ tls = no
 
 # --- DN lookup phase ---
 # We need a service account to search for the user's DN before binding.
-# This finds: uid=<username> → dn: uid=<username>,ou=people,dc=heracles,dc=local
+# Searches the full tree so users inside departments are also found.
+# e.g. uid=<user>,ou=people,dc=heracles,dc=local
+#   or uid=<user>,ou=people,ou=Engineering,dc=heracles,dc=local
 dn = @LDAP_BIND_DN@
 dnpass = @LDAP_BIND_PASSWORD@
 

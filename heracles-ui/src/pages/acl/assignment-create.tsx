@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -34,15 +34,17 @@ import { useDepartmentStore } from '@/stores/department-store'
 
 export function AclAssignmentCreatePage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const createMutation = useCreateAssignment()
   const { data: policiesData, isLoading: policiesLoading } = useAclPolicies({ page_size: 200 })
   const currentDepartment = useDepartmentStore((state) => state.currentBase)
   const currentPath = useDepartmentStore((state) => state.currentPath)
+  const policyIdParam = searchParams.get('policyId') ?? ''
 
   const form = useForm<AssignmentCreateFormData>({
     resolver: zodResolver(assignmentCreateSchema),
     defaultValues: {
-      policyId: '',
+      policyId: policyIdParam,
       subjectType: 'user',
       subjectDn: '',
       scopeDn: '',

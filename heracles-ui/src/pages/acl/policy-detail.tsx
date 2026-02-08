@@ -2,7 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
-import { Save, ArrowLeft, Trash2, Lock, MoreHorizontal } from 'lucide-react'
+import { Save, ArrowLeft, Trash2, Lock, MoreHorizontal, Plus } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -263,7 +263,16 @@ export function AclPolicyDetailPage() {
         <TabsContent value="assignments" className="max-w-4xl">
           <Card>
             <CardHeader>
-              <CardTitle>Assignments Using This Policy</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Assignments Using This Policy</CardTitle>
+                <Button
+                  size="sm"
+                  onClick={() => navigate(`${ROUTES.ACL_ASSIGNMENT_CREATE}?policyId=${policy.id}`)}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Assignment
+                </Button>
+              </div>
               <CardDescription>
                 Users, groups, and roles that have been assigned this policy
               </CardDescription>

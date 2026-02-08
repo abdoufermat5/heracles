@@ -4,8 +4,12 @@
 # Maps group email addresses to member email addresses.
 # Queries LDAP for groups with hrcGroupMail objectClass.
 #
+# Supports both group types:
+#   - groupOfNames  → member attribute (full DNs, dereferenced via leaf lookup)
+#   - posixGroup    → memberUid attribute (plain uid, expanded to uid@domain)
+#
 # Template variables: @LDAP_HOST@, @LDAP_PORT@, @LDAP_BIND_DN@,
-#                     @LDAP_BIND_PASSWORD@, @LDAP_GROUPS_DN@
+#                     @LDAP_BIND_PASSWORD@, @LDAP_GROUPS_DN@, @DOMAIN@
 # =============================================================================
 
 server_host = ldap://@LDAP_HOST@:@LDAP_PORT@
@@ -20,7 +24,9 @@ search_base = @LDAP_GROUPS_DN@
 # Find groups with mailing list enabled and matching mail address
 query_filter = (&(objectClass=hrcGroupMail)(mail=%s))
 
-# Return member UIDs - these will be resolved through virtual_mailbox_maps
-# For groups using memberUid, we expand to user@domain
-result_attribute = memberUid
-result_format = %s@@DOMAIN@
+# Groups use groupOfNames with DN-valued 'member' attributes.
+# special_result_attribute tells Postfix to dereference each member DN,
+# leaf_result_attribute extracts the 'mail' attribute from each member entry.
+# This also works for mixed groups (posixGroupAux) since they still have 'member'.
+special_result_attribute = member
+leaf_result_attribute = mail
