@@ -54,34 +54,13 @@
 ```
 ---
 
-## Plugins (v1.0 Scope)
-
-| Plugin | Description | Status |
-|--------|-------------|--------|
-| `core` | Base user/group management | ✅ Implemented |
-| `departments` | Hierarchical department management with context-aware UI | ✅ Implemented |
-| `posix` | Unix accounts (posixAccount, shadowAccount) | ✅ Implemented |
-| `sudo` | Sudo rules management | ✅ Implemented |
-| `ssh` | SSH public keys | ✅ Implemented |
-| `systems` | Servers, workstations, devices | ✅ Implemented |
-| `dns` | DNS zones and records  | ✅ Implemented |
-| `dhcp` | DHCP services, subnets, hosts, pools | ✅ Implemented |
-
----
-
 ## Demo Environment
 
-Un environnement de démonstration complet est disponible avec Vagrant/VirtualBox pour tester les plugins SSH, Sudo, POSIX et DNS sur des VMs Linux.
+Un environnement de démonstration complet est disponible avec Vagrant/[VirtualBox|libvirt] pour tester les plugins SSH, Sudo, POSIX et DNS sur des VMs Linux.
 
 ```bash
 # Depuis la racine du projet
-make dev-infra          # Infrastructure Docker
-make ldap-schemas       # Charger les schémas LDAP (DNS, sudo, etc.)
-make bootstrap          # Initialiser LDAP (OUs, admin user)
-make dns-bootstrap      # Créer les zones DNS de démo
-make demo-keys          # Générer les clés SSH
-make demo-up            # Démarrer les VMs Vagrant
-make demo-users         # Configurer les utilisateurs via API
+make demo
 
 # Test SSH avec authentification LDAP
 ssh -i demo/keys/testuser testuser@192.168.56.10 'sudo whoami'
@@ -111,20 +90,10 @@ git clone https://github.com/abdoufermat5/heracles.git
 cd heracles
 
 # Start LDAP, PostgreSQL, Redis
-make dev-infra
+make up-infra
 
 # Access phpLDAPadmin: http://localhost:8080
 # Login: cn=admin,dc=heracles,dc=local / admin_secret
-```
-
-### Run Tests
-
-```bash
-# Run all Rust tests (57 tests)
-make test-rust
-
-# Run with cargo directly
-cd heracles-core && cargo test --no-default-features
 ```
 
 ### Build heracles-core
@@ -151,7 +120,7 @@ cargo build --release
 
 ## Quick Start
 
-> **Note**: Heracles is currently in early development. This section will be updated when the first alpha is released.
+> **Note**: Heracles is currently in early development. This section will be updated when the first version is released.
 
 ### Prerequisites
 
@@ -160,40 +129,15 @@ cargo build --release
 - Python 3.11+
 - Node.js 20+
 
-### Development Setup
-
-```bash
-# Clone the repository
-git clone https://github.com/abdoufermat5/heracles.git
-cd heracles
-
-# Start infrastructure (LDAP, PostgreSQL, Redis)
-docker-compose up -d
-
-# Build Rust core
-cd heracles-core
-cargo build --release
-
-# Start API
-cd ../heracles-api
-poetry install
-poetry run uvicorn app.main:app --reload
-
-# Start UI
-cd ../heracles-ui
-npm install
-npm run dev
-```
-
 ---
 
 ## Contributing
 
 Please read our documentation before contributing:
 
-1. [Project Charter](docs/00-PROJECT-CHARTER.md) - Understand the vision
-2. [Coding Rules](docs/04-CODING-RULES.md) - Follow the standards
-3. [AI Agent Directives](docs/08-AI-AGENT-DIRECTIVES.md) - For AI-assisted development
+1. [Project Charter](guidelines/00-PROJECT-CHARTER.md) - Understand the vision
+2. [Coding Rules](guidelines/04-CODING-RULES.md) - Follow the standards
+3. [AI Agent Directives](guidelines/08-AI-AGENT-DIRECTIVES.md) - For AI-assisted development
 
 ---
 
