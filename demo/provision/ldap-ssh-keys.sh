@@ -34,8 +34,8 @@ fi
 
 # Fetch LDAP output and unfold continuation lines
 # LDAP line folding: long lines are split with newline + single space
-ldapsearch -x \
-    -H "ldap://${LDAP_HOST}:${LDAP_PORT}" \
+LDAPTLS_CACERT="${LDAP_CA_CERT}" LDAPTLS_REQCERT=hard ldapsearch -x \
+    -H "ldaps://${LDAP_HOST}:${LDAP_PORT}" \
     -D "${LDAP_BIND_DN}" \
     -w "${LDAP_BIND_PASSWORD}" \
     -b "${LDAP_USER_BASE}" \

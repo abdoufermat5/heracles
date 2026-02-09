@@ -83,10 +83,11 @@ async def login(
             additional_claims={"groups": groups},
         )
         
-        refresh_token, _ = await auth.create_refresh_token(
+        refresh_token, refresh_jti = await auth.create_refresh_token(
             user_dn=user.dn,
             uid=uid,
         )
+        refresh_ttl_seconds = await auth.get_refresh_token_expire_days() * 24 * 60 * 60
         
         # Create session
         await auth.create_session(
@@ -97,6 +98,8 @@ async def login(
             groups=group_dns,
             roles=role_dns,
             token_jti=access_jti,
+            refresh_jti=refresh_jti,
+            refresh_ttl_seconds=refresh_ttl_seconds,
         )
         
         logger.info("login_success", uid=uid, user_dn=user.dn)
@@ -104,11 +107,12 @@ async def login(
         # Set cookies
         access_cookie = await auth.get_cookie_settings("access")
         refresh_cookie = await auth.get_cookie_settings("refresh")
+        csrf_cookie = await auth.get_csrf_cookie_settings()
+        csrf_token = auth.create_csrf_token()
         
         response.set_cookie(value=access_token, **access_cookie)
         response.set_cookie(value=refresh_token, **refresh_cookie)
-        
-        logger.info("login_success", uid=uid, user_dn=user.dn)
+        response.set_cookie(value=csrf_token, **csrf_cookie)
         
         # Get expires_in from config
         expires_in_minutes = await auth.get_access_token_expire_minutes()
@@ -154,6 +158,14 @@ async def refresh_token(
 
         # Verify refresh token
         payload = auth.verify_token(token_to_verify, token_type="refresh")
+
+        access_jti = await auth.use_refresh_token(payload.jti)
+        if not access_jti:
+            await auth.invalidate_all_user_sessions(payload.uid)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Refresh token has been revoked",
+            )
         
         # Get fresh user data from LDAP
         user = await user_repo.find_by_dn(payload.sub)
@@ -176,16 +188,17 @@ async def refresh_token(
         role_dns = [r.dn for r in role_entries]
         
         # Create new tokens
-        access_token, access_jti = await auth.create_access_token(
+        access_token, new_access_jti = await auth.create_access_token(
             user_dn=user.dn,
             uid=uid,
             additional_claims={"groups": groups},
         )
         
-        refresh_token, _ = await auth.create_refresh_token(
+        refresh_token, refresh_jti = await auth.create_refresh_token(
             user_dn=user.dn,
             uid=uid,
         )
+        refresh_ttl_seconds = await auth.get_refresh_token_expire_days() * 24 * 60 * 60
         
         # Create new session
         await auth.create_session(
@@ -195,19 +208,24 @@ async def refresh_token(
             mail=mail,
             groups=group_dns,
             roles=role_dns,
-            token_jti=access_jti,
+            token_jti=new_access_jti,
+            refresh_jti=refresh_jti,
+            refresh_ttl_seconds=refresh_ttl_seconds,
         )
+
+        await auth.invalidate_session(access_jti)
         
         logger.info("token_refreshed", uid=uid)
         
         # Set new cookies
         access_cookie = await auth.get_cookie_settings("access")
         refresh_cookie = await auth.get_cookie_settings("refresh")
+        csrf_cookie = await auth.get_csrf_cookie_settings()
+        csrf_token = auth.create_csrf_token()
         
         response.set_cookie(value=access_token, **access_cookie)
         response.set_cookie(value=refresh_token, **refresh_cookie)
-        
-        logger.info("token_refreshed", uid=uid)
+        response.set_cookie(value=csrf_token, **csrf_cookie)
         
         # Get expires_in from config
         expires_in_minutes = await auth.get_access_token_expire_minutes()
@@ -237,10 +255,11 @@ async def logout(
     Invalidates the current session and clears cookies.
     """
     await auth.invalidate_session(current_user.token_jti)
-    
+
     # Clear cookies
     response.delete_cookie("access_token")
     response.delete_cookie("refresh_token")
+    response.delete_cookie("csrf_token")
     
     logger.info("logout_success", uid=current_user.uid)
 
@@ -257,10 +276,11 @@ async def logout_all_sessions(
     Invalidates all sessions for the current user and clears cookies.
     """
     count = await auth.invalidate_all_user_sessions(current_user.uid)
-    
+
     # Clear cookies
     response.delete_cookie("access_token")
     response.delete_cookie("refresh_token")
+    response.delete_cookie("csrf_token")
     
     logger.info("logout_all_success", uid=current_user.uid, sessions_invalidated=count)
 

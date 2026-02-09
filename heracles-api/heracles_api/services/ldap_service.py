@@ -354,9 +354,13 @@ class LdapService:
     def _hash_password(self, password: str, method: str = "argon2") -> str:
         """Hash password for LDAP storage using heracles-core.
         
-        Supported methods: argon2 (default), ssha, bcrypt, sha512, ssha512, sha256, ssha256, md5, smd5
+        Supported methods: argon2 (default), ssha512, ssha256
         """
-        return heracles_core.hash_password(password, method)
+        allowed = {"argon2", "ssha512", "ssha256"}
+        method_normalized = method.lower()
+        if method_normalized not in allowed:
+            raise LdapOperationError(f"Unsupported password hash method: {method}")
+        return heracles_core.hash_password(password, method_normalized)
 
     @staticmethod
     def _escape_filter(value: str) -> str:

@@ -13,8 +13,9 @@
 hosts = @LDAP_HOST@:@LDAP_PORT@
 ldap_version = 3
 
-# TLS for the LDAP connection itself (disabled for demo — plain LDAP on LAN)
-tls = no
+# TLS for the LDAP connection itself
+tls = yes
+tls_ca_cert_file = @LDAP_CA_CERT@
 
 # --- DN lookup phase ---
 # We need a service account to search for the user's DN before binding.

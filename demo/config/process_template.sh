@@ -48,6 +48,7 @@ process_template() {
     sed_cmd+="s|@LDAP_HOST@|${LDAP_HOST}|g;"
     sed_cmd+="s|@LDAP_PORT@|${LDAP_PORT}|g;"
     sed_cmd+="s|@LDAP_URI@|${LDAP_URI}|g;"
+    sed_cmd+="s|@LDAP_CA_CERT@|${LDAP_CA_CERT}|g;"
     sed_cmd+="s|@LDAP_BASE_DN@|${LDAP_BASE_DN}|g;"
     sed_cmd+="s|@LDAP_USERS_DN@|${LDAP_USERS_DN}|g;"
     sed_cmd+="s|@LDAP_GROUPS_DN@|${LDAP_GROUPS_DN}|g;"

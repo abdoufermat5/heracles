@@ -124,15 +124,20 @@ async def get_password_hash_algorithm() -> str:
     # Try database config first
     db_value = await get_config_value(
         "password",
-        "password_hash_algorithm",
+        "default_hash_method",
         default=None,
     )
     
+    allowed = {"ARGON2", "SSHA512", "SSHA256"}
+
     if db_value:
         # Remove quotes if stored as JSON string
         if isinstance(db_value, str):
-            return db_value.strip('"').upper()
-        return str(db_value).upper()
+            value = db_value.strip('"').upper()
+        else:
+            value = str(db_value).upper()
+        if value in allowed:
+            return value
     
     # Fall back to environment variable
     env_value = settings.PASSWORD_HASH_METHOD
@@ -141,11 +146,13 @@ async def get_password_hash_algorithm() -> str:
             "using_env_password_hash_algorithm",
             algorithm=env_value,
         )
-        return env_value.upper()
+        value = env_value.upper()
+        if value in allowed:
+            return value
     
     # Final fallback
     logger.warning(
         "password_hash_algorithm_fallback_to_default",
-        default="SSHA",
+        default="ARGON2",
     )
-    return "SSHA"
+    return "ARGON2"

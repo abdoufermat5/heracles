@@ -254,21 +254,33 @@ pub fn unescape_dn_value(value: &str) -> String {
 
     while let Some(c) = chars.next() {
         if c == '\\' {
-            if let Some(&next) = chars.peek() {
-                // Check for hex escape \XX
-                if next.is_ascii_hexdigit() {
-                    let hex1 = chars.next().unwrap();
-                    if let Some(hex2) = chars.next() {
-                        if let Ok(byte) =
-                            u8::from_str_radix(&format!("{}{}", hex1, hex2), 16)
-                        {
-                            result.push(byte as char);
+            let next = chars.next();
+            match next {
+                None => {
+                    result.push('\\');
+                    break;
+                }
+                Some(n1) => {
+                    if n1.is_ascii_hexdigit() {
+                        let n2 = chars.next();
+                        if let Some(n2) = n2 {
+                            if n2.is_ascii_hexdigit() {
+                                if let Ok(byte) =
+                                    u8::from_str_radix(&format!("{}{}", n1, n2), 16)
+                                {
+                                    result.push(byte as char);
+                                    continue;
+                                }
+                            }
+                            result.push(n1);
+                            result.push(n2);
                             continue;
                         }
+                        result.push(n1);
+                        break;
                     }
+                    result.push(n1);
                 }
-                // Regular escaped character
-                result.push(chars.next().unwrap());
             }
         } else {
             result.push(c);

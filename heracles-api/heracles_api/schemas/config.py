@@ -246,7 +246,7 @@ class PasswordPolicySettings(BaseModel):
     require_lowercase: bool = Field(True, alias="requireLowercase")
     require_numbers: bool = Field(True, alias="requireNumbers")
     require_special: bool = Field(False, alias="requireSpecial")
-    default_hash_method: str = Field("ssha", alias="defaultHashMethod")
+    default_hash_method: str = Field("argon2", alias="defaultHashMethod")
     expiration_days: int = Field(0, alias="expirationDays")  # 0 = never expires
     warning_days: int = Field(14, alias="warningDays")
     

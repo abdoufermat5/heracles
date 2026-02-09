@@ -10,11 +10,6 @@ export const APP_VERSION = '0.8.0-beta'
 export const DEFAULT_PAGE_SIZE = 20
 export const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
-// Session
-export const SESSION_STORAGE_KEY = 'heracles_session'
-export const TOKEN_STORAGE_KEY = 'heracles_token'
-export const REFRESH_TOKEN_KEY = 'heracles_refresh_token'
-
 // Routes - Re-exported from routes.ts for backward compatibility
 export {
   ROUTES,

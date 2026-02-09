@@ -38,17 +38,9 @@ from heracles_api.core.database import get_db_session
 security = HTTPBearer(auto_error=False)
 
 
-async def get_redis() -> Optional[Redis]:
-    """Get Redis connection."""
-    # TODO: Use connection pool
-    try:
-        redis = Redis.from_url(
-            settings.REDIS_URL,
-            decode_responses=False,
-        )
-        return redis
-    except Exception:
-        return None
+async def get_redis(request: Request) -> Optional[Redis]:
+    """Get shared Redis connection from app state."""
+    return getattr(request.app.state, "redis", None)
 
 
 async def get_ldap() -> LdapService:

@@ -27,18 +27,30 @@ echo "=============================================="
 # -----------------------------------------------------------------------------
 # Install ISC DHCP Server
 # -----------------------------------------------------------------------------
-echo "[1/6] Installing ISC DHCP Server..."
+echo "[1/7] Installing ISC DHCP Server..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq \
     isc-dhcp-server \
     ldap-utils \
+    ca-certificates \
     2>/dev/null
+
+# -----------------------------------------------------------------------------
+# Install dev CA certificate
+# -----------------------------------------------------------------------------
+echo "[2/7] Installing Heracles dev CA..."
+if [ -f "${DEV_CA_CERT_SOURCE}" ]; then
+    cp "${DEV_CA_CERT_SOURCE}" "${LDAP_CA_CERT}"
+    update-ca-certificates 2>/dev/null || true
+else
+    echo "⚠️  Dev CA not found at ${DEV_CA_CERT_SOURCE}"
+fi
 
 # -----------------------------------------------------------------------------
 # Configure network interface for DHCP
 # -----------------------------------------------------------------------------
-echo "[2/6] Configuring DHCP network interface..."
+echo "[3/7] Configuring DHCP network interface..."
 
 # Determine the interface for the private network (192.168.56.0/24)
 DHCP_INTERFACE=$(ip -o addr show | grep "192.168.56" | awk '{print $2}' | head -1)
@@ -65,7 +77,7 @@ EOF
 # -----------------------------------------------------------------------------
 # Create base DHCP configuration from template
 # -----------------------------------------------------------------------------
-echo "[3/6] Creating base DHCP configuration..."
+echo "[4/7] Creating base DHCP configuration..."
 
 # Process template
 bash "${CONFIG_DIR}/process_template.sh" \
@@ -78,7 +90,7 @@ cp /etc/dhcp/dhcpd.conf.base /etc/dhcp/dhcpd.conf
 # -----------------------------------------------------------------------------
 # Install LDAP DHCP sync script
 # -----------------------------------------------------------------------------
-echo "[4/6] Installing LDAP DHCP sync script..."
+echo "[5/7] Installing LDAP DHCP sync script..."
 
 # Process template
 bash "${CONFIG_DIR}/process_template.sh" \
@@ -126,7 +138,7 @@ systemctl start ldap-dhcp-sync.timer
 # -----------------------------------------------------------------------------
 # Create initial minimal configuration for startup
 # -----------------------------------------------------------------------------
-echo "[5/6] Creating initial DHCP configuration..."
+echo "[6/7] Creating initial DHCP configuration..."
 
 # Create a minimal valid config that will be replaced by sync
 cat > /etc/dhcp/dhcpd.conf << EOF
@@ -185,7 +197,7 @@ chown dhcpd:dhcpd /var/lib/dhcp/dhcpd.leases 2>/dev/null || true
 # -----------------------------------------------------------------------------
 # Start DHCP Server
 # -----------------------------------------------------------------------------
-echo "[6/6] Starting ISC DHCP Server..."
+echo "[7/7] Starting ISC DHCP Server..."
 
 # Validate configuration
 if dhcpd -t -cf /etc/dhcp/dhcpd.conf; then

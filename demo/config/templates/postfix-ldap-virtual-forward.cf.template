@@ -8,8 +8,10 @@
 #                     @LDAP_BIND_PASSWORD@, @MAIL_LDAP_SEARCH_BASE@
 # =============================================================================
 
-server_host = ldap://@LDAP_HOST@:@LDAP_PORT@
+server_host = ldaps://@LDAP_HOST@:@LDAP_PORT@
 version = 3
+tls_ca_cert_file = @LDAP_CA_CERT@
+tls_reqcert = hard
 
 bind = yes
 bind_dn = @LDAP_BIND_DN@

@@ -21,6 +21,7 @@ LDAP_BIND_PASSWORD="@LDAP_BIND_PASSWORD@"
 LDAP_DHCP_DN="@LDAP_DHCP_DN@"
 DHCP_SERVICE_CN="@DHCP_SERVICE_CN@"
 DOMAIN="@DOMAIN@"
+LDAP_CA_CERT="@LDAP_CA_CERT@"
 
 # File paths
 DHCPD_CONF="/etc/dhcp/dhcpd.conf"
@@ -34,6 +35,9 @@ log() {
 }
 
 log "Starting LDAP DHCP sync..."
+
+export LDAPTLS_CACERT="${LDAP_CA_CERT}"
+export LDAPTLS_REQCERT=hard
 
 # Check LDAP connectivity
 if ! ldapsearch -x -H "$LDAP_URI" -b "$LDAP_BASE_DN" -D "$LDAP_BIND_DN" -w "$LDAP_BIND_PASSWORD" "(objectClass=organization)" dn >/dev/null 2>&1; then

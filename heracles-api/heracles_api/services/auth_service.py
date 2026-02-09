@@ -58,6 +58,7 @@ class UserSession:
     created_at: datetime
     last_activity: datetime
     token_jti: str
+    refresh_jti: Optional[str] = None
 
 
 class AuthService:
@@ -70,7 +71,13 @@ class AuthService:
     """
     
     def __init__(self, redis: Optional[Redis] = None):
-        self.secret_key = settings.SECRET_KEY
+        secrets_list = [s.strip() for s in settings.JWT_SECRETS.split(",") if s.strip()]
+        if not secrets_list:
+            secrets_list = [settings.SECRET_KEY]
+        self._jwt_secrets = secrets_list
+        self._jwt_active_secret = secrets_list[0]
+        self._jwt_issuer = settings.JWT_ISSUER
+        self._jwt_audience = settings.JWT_AUDIENCE
         self.redis = redis
         self.session_timeout = settings.SESSION_TIMEOUT
         # Cache for config values (updated via get_config methods)
@@ -141,12 +148,14 @@ class AuthService:
             "exp": now + timedelta(minutes=expire_minutes),
             "jti": jti,
             "type": "access",
+            "iss": self._jwt_issuer,
+            "aud": self._jwt_audience,
         }
         
         if additional_claims:
             payload.update(additional_claims)
         
-        token = jwt.encode(payload, self.secret_key, algorithm=JWT_ALGORITHM)
+        token = jwt.encode(payload, self._jwt_active_secret, algorithm=JWT_ALGORITHM)
         logger.debug("access_token_created", uid=uid, jti=jti, expires_in_minutes=expire_minutes)
         
         return token, jti
@@ -179,9 +188,11 @@ class AuthService:
             "exp": now + timedelta(days=expire_days),
             "jti": jti,
             "type": "refresh",
+            "iss": self._jwt_issuer,
+            "aud": self._jwt_audience,
         }
         
-        token = jwt.encode(payload, self.secret_key, algorithm=JWT_ALGORITHM)
+        token = jwt.encode(payload, self._jwt_active_secret, algorithm=JWT_ALGORITHM)
         logger.debug("refresh_token_created", uid=uid, jti=jti, expires_in_days=expire_days)
         
         return token, jti
@@ -208,12 +219,29 @@ class AuthService:
         return {
             "key": "access_token" if is_access else "refresh_token",
             "httponly": True,
-            "secure": False,  # TODO: Set to True in production (requires HTTPS)
-            "samesite": "lax",
+            "secure": settings.COOKIE_SECURE,
+            "samesite": settings.COOKIE_SAMESITE,
             "domain": settings.COOKIE_DOMAIN,
             "max_age": max_age,
             "path": "/" if is_access else "/api/v1/auth/refresh",
         }
+
+    async def get_csrf_cookie_settings(self) -> Dict[str, Any]:
+        """Get CSRF cookie settings."""
+        expire_minutes = await self.get_access_token_expire_minutes()
+        return {
+            "key": "csrf_token",
+            "httponly": False,
+            "secure": settings.COOKIE_SECURE,
+            "samesite": settings.COOKIE_SAMESITE,
+            "domain": settings.COOKIE_DOMAIN,
+            "max_age": expire_minutes * 60,
+            "path": "/",
+        }
+
+    def create_csrf_token(self) -> str:
+        """Create a CSRF token for double-submit protection."""
+        return secrets.token_urlsafe(32)
     
     def verify_token(self, token: str, token_type: str = "access") -> TokenPayload:
         """
@@ -230,11 +258,21 @@ class AuthService:
             TokenError: If token is invalid or expired
         """
         try:
-            payload = jwt.decode(
-                token,
-                self.secret_key,
-                algorithms=[JWT_ALGORITHM],
-            )
+            payload = None
+            for secret in self._jwt_secrets:
+                try:
+                    payload = jwt.decode(
+                        token,
+                        secret,
+                        algorithms=[JWT_ALGORITHM],
+                        issuer=self._jwt_issuer,
+                        audience=self._jwt_audience,
+                    )
+                    break
+                except jwt.InvalidSignatureError:
+                    continue
+            if payload is None:
+                raise jwt.InvalidTokenError("Signature verification failed")
             
             if payload.get("type") != token_type:
                 raise TokenError(f"Invalid token type: expected {token_type}")
@@ -264,6 +302,8 @@ class AuthService:
         groups: list[str],
         roles: list[str],
         token_jti: str,
+        refresh_jti: Optional[str],
+        refresh_ttl_seconds: int,
     ) -> UserSession:
         """
         Create user session in Redis.
@@ -291,6 +331,7 @@ class AuthService:
             created_at=now,
             last_activity=now,
             token_jti=token_jti,
+            refresh_jti=refresh_jti,
         )
         
         if self.redis:
@@ -305,15 +346,31 @@ class AuthService:
                 "roles": "|".join(session.roles),
                 "created_at": session.created_at.isoformat(),
                 "last_activity": session.last_activity.isoformat(),
+                "refresh_jti": session.refresh_jti or "",
             }
             
             await self.redis.hset(session_key, mapping=session_data)
             await self.redis.expire(session_key, self.session_timeout)
             
-            # Also store a user -> session mapping for logout all
+            # Store refresh token jti mapping for single-use rotation
+            if refresh_jti:
+                refresh_key = f"refresh:{refresh_jti}"
+                await self.redis.set(refresh_key, token_jti, ex=refresh_ttl_seconds)
+
+            # Also store a user -> session mapping for logout all and limits
             user_sessions_key = f"user_sessions:{uid}"
-            await self.redis.sadd(user_sessions_key, token_jti)
+            created_ts = int(now.timestamp())
+            await self.redis.zadd(user_sessions_key, {token_jti: created_ts})
             await self.redis.expire(user_sessions_key, self.session_timeout)
+
+            max_sessions = await self.get_max_concurrent_sessions()
+            if max_sessions > 0:
+                current_count = await self.redis.zcard(user_sessions_key)
+                if current_count > max_sessions:
+                    oldest = await self.redis.zrange(user_sessions_key, 0, 0)
+                    if oldest:
+                        oldest_jti = oldest[0].decode() if isinstance(oldest[0], bytes) else oldest[0]
+                        await self.invalidate_session(oldest_jti)
             
             logger.info("session_created", uid=uid, jti=token_jti)
         
@@ -353,6 +410,7 @@ class AuthService:
             created_at=datetime.fromisoformat(data["created_at"]),
             last_activity=datetime.fromisoformat(data["last_activity"]),
             token_jti=token_jti,
+            refresh_jti=data.get("refresh_jti") or None,
         )
     
     async def update_session_activity(self, token_jti: str) -> None:
@@ -387,7 +445,11 @@ class AuthService:
             uid = data.get(b"uid", data.get("uid", b"")).decode() if isinstance(data.get(b"uid", data.get("uid", "")), bytes) else data.get("uid", "")
             if uid:
                 user_sessions_key = f"user_sessions:{uid}"
-                await self.redis.srem(user_sessions_key, token_jti)
+                await self.redis.zrem(user_sessions_key, token_jti)
+            refresh_jti = data.get(b"refresh_jti", data.get("refresh_jti", b""))
+            refresh_jti = refresh_jti.decode() if isinstance(refresh_jti, bytes) else refresh_jti
+            if refresh_jti:
+                await self.redis.delete(f"refresh:{refresh_jti}")
         
         result = await self.redis.delete(session_key)
         logger.info("session_invalidated", jti=token_jti)
@@ -408,12 +470,18 @@ class AuthService:
             return 0
         
         user_sessions_key = f"user_sessions:{uid}"
-        session_jtis = await self.redis.smembers(user_sessions_key)
+        session_jtis = await self.redis.zrange(user_sessions_key, 0, -1)
         
         count = 0
         for jti in session_jtis:
             jti_str = jti.decode() if isinstance(jti, bytes) else jti
             session_key = f"session:{jti_str}"
+            data = await self.redis.hgetall(session_key)
+            if data:
+                refresh_jti = data.get(b"refresh_jti", data.get("refresh_jti", b""))
+                refresh_jti = refresh_jti.decode() if isinstance(refresh_jti, bytes) else refresh_jti
+                if refresh_jti:
+                    await self.redis.delete(f"refresh:{refresh_jti}")
             await self.redis.delete(session_key)
             count += 1
         
@@ -433,6 +501,20 @@ class AuthService:
         
         session_key = f"session:{token_jti}"
         return not await self.redis.exists(session_key)
+
+    async def use_refresh_token(self, refresh_jti: str) -> Optional[str]:
+        """Consume a refresh token jti for rotation; returns access jti if valid."""
+        if not self.redis:
+            return None
+        refresh_key = f"refresh:{refresh_jti}"
+        async with self.redis.pipeline(transaction=True) as pipe:
+            pipe.get(refresh_key)
+            pipe.delete(refresh_key)
+            result = await pipe.execute()
+        access_jti = result[0]
+        if isinstance(access_jti, bytes):
+            access_jti = access_jti.decode()
+        return access_jti
 
 
 # Global auth service instance

@@ -13,7 +13,7 @@ Configuration is read from the 'security' category:
 
 import asyncio
 import time
-from typing import Callable, Optional, Dict, Any, Tuple
+from typing import Callable, Optional, Dict, Any, Tuple, Iterable
 from datetime import datetime, timedelta
 
 from fastapi import Request, Response
@@ -62,9 +62,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self,
         app,
         redis_client: Optional[Redis] = None,
+        trusted_proxies: Optional[Iterable[str]] = None,
     ):
         super().__init__(app)
         self.redis = redis_client
+        self.trusted_proxies = set(trusted_proxies or [])
         # In-memory fallback for rate limiting when Redis unavailable
         self._local_counters: Dict[str, Dict[str, Any]] = {}
     
@@ -129,10 +131,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     
     def _get_client_ip(self, request: Request) -> str:
         """Extract client IP from request, considering proxies."""
-        # Check X-Forwarded-For first (for reverse proxies)
+        # Trust X-Forwarded-For only when coming from known proxies
         forwarded_for = request.headers.get("X-Forwarded-For")
-        if forwarded_for:
-            # Get the first IP in the chain (original client)
+        if forwarded_for and request.client and request.client.host in self.trusted_proxies:
             return forwarded_for.split(",")[0].strip()
         
         # Fall back to direct connection IP
@@ -143,6 +144,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     
     async def _check_rate_limit_redis(
         self,
+        redis_client: Optional[Redis],
         client_ip: str,
         max_requests: int,
         window_seconds: int,
@@ -153,7 +155,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         Returns:
             Tuple of (allowed, remaining_requests, reset_time)
         """
-        if not self.redis:
+        if not redis_client:
             return self._check_rate_limit_local(client_ip, max_requests, window_seconds)
         
         try:
@@ -162,7 +164,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             window_start = now - window_seconds
             
             # Use Redis sorted set with timestamp as score
-            async with self.redis.pipeline(transaction=True) as pipe:
+            async with redis_client.pipeline(transaction=True) as pipe:
                 # Remove old entries outside the window
                 pipe.zremrangebyscore(key, "-inf", window_start)
                 # Add current request
@@ -290,7 +292,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         client_ip = self._get_client_ip(request)
         
         # Check rate limit
+        redis_client = self.redis or getattr(request.app.state, "redis", None)
+
         allowed, remaining, reset_time = await self._check_rate_limit_redis(
+            redis_client,
             client_ip,
             max_requests,
             window_seconds,

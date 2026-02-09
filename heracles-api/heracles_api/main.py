@@ -11,6 +11,8 @@ from typing import AsyncGenerator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import structlog
+from redis.asyncio import Redis
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from heracles_api.config import settings
 from heracles_api.api.v1 import router as api_v1_router
@@ -22,6 +24,8 @@ from heracles_api.plugins.loader import load_enabled_plugins, unload_all_plugins
 from heracles_api.middleware.rate_limit import RateLimitMiddleware
 from heracles_api.middleware.plugin_access import PluginAccessMiddleware
 from heracles_api.middleware.acl import AclMiddleware
+from heracles_api.middleware.https import HttpsRedirectMiddleware
+from heracles_api.middleware.csrf import CsrfMiddleware
 from heracles_api import __version__
 
 logger = structlog.get_logger(__name__)
@@ -80,6 +84,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("ldap_service_initialized")
     except Exception as e:
         logger.error("ldap_service_init_failed", error=str(e))
+
+    # Initialize Redis connection
+    try:
+        redis = Redis.from_url(
+            settings.REDIS_URL,
+            decode_responses=False,
+        )
+        app.state.redis = redis
+        logger.info("redis_initialized")
+    except Exception as e:
+        app.state.redis = None
+        logger.warning("redis_init_failed", error=str(e))
 
     # Load plugins
     try:
@@ -168,6 +184,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("shutting_down_heracles_api")
     unload_all_plugins()
     await close_ldap_service()
+    redis = getattr(app.state, "redis", None)
+    if redis:
+        await redis.aclose()
     await close_database()
 
 
@@ -181,18 +200,24 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Proxy headers (for TLS termination)
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=settings.TRUSTED_PROXY_HOSTS)
+
+# HTTPS enforcement
+app.add_middleware(HttpsRedirectMiddleware)
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*", "X-CSRF-Token"],
 )
 
 # Rate limiting middleware (reads config from database)
 # Note: Redis client is injected dynamically when available
-app.add_middleware(RateLimitMiddleware)
+app.add_middleware(RateLimitMiddleware, trusted_proxies=settings.TRUSTED_PROXY_HOSTS)
 
 # Plugin access middleware (blocks requests to disabled plugins)
 # Note: Uses session_factory from app.state (set during lifespan)
@@ -201,13 +226,19 @@ app.add_middleware(PluginAccessMiddleware)
 # ACL middleware (loads user ACL into request.state)
 app.add_middleware(AclMiddleware)
 
+# CSRF protection
+app.add_middleware(CsrfMiddleware)
+
 # Include API routers
 app.include_router(api_v1_router, prefix="/api/v1")
 
 
-@app.get("/health")
+@app.get("/api/health")
 async def health_check():
-    """Health check endpoint."""
+    """Lightweight liveness probe (no dependencies).
+
+    For a full service health check use ``GET /api/v1/health``.
+    """
     return {
         "status": "healthy",
         "version": __version__,

@@ -40,7 +40,7 @@ chpass_provider = ldap
 sudo_provider = ldap
 
 # LDAP server configuration
-ldap_uri = ldap://@LDAP_HOST@:@LDAP_PORT@
+ldap_uri = ldaps://@LDAP_HOST@:@LDAP_PORT@
 ldap_search_base = @LDAP_BASE_DN@
 
 # Bind credentials (for searching)
@@ -48,9 +48,10 @@ ldap_default_bind_dn = @LDAP_BIND_DN@
 ldap_default_authtok_type = password
 ldap_default_authtok = @LDAP_BIND_PASSWORD@
 
-# TLS/SSL settings (disabled for demo)
-ldap_tls_reqcert = never
+# TLS/SSL settings
+ldap_tls_reqcert = demand
 ldap_id_use_start_tls = false
+ldap_tls_cacert = @LDAP_CA_CERT@
 
 # Schema type (RFC2307 for posixGroup with memberUid)
 ldap_schema = rfc2307

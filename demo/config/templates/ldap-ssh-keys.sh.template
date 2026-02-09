@@ -22,6 +22,7 @@ LDAP_PORT="@LDAP_PORT@"
 LDAP_BASE_DN="@LDAP_BASE_DN@"
 LDAP_BIND_DN="@LDAP_BIND_DN@"
 LDAP_BIND_PASSWORD="@LDAP_BIND_PASSWORD@"
+LDAP_CA_CERT="@LDAP_CA_CERT@"
 
 # Function to unfold LDIF continuation lines (lines starting with space are continuations)
 ldap_unfold() {
@@ -39,8 +40,8 @@ ldap_unfold() {
 }
 
 # Search for user's SSH public keys
-ldapsearch -x \
-    -H "ldap://${LDAP_HOST}:${LDAP_PORT}" \
+LDAPTLS_CACERT="${LDAP_CA_CERT}" LDAPTLS_REQCERT=hard ldapsearch -x \
+    -H "ldaps://${LDAP_HOST}:${LDAP_PORT}" \
     -D "${LDAP_BIND_DN}" \
     -w "${LDAP_BIND_PASSWORD}" \
     -b "ou=people,${LDAP_BASE_DN}" \

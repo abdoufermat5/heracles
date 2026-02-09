@@ -8,7 +8,9 @@
 # Note: This is a backup config. Primary sudo auth is via SSSD.
 # =============================================================================
 
-uri ldap://@LDAP_HOST@:@LDAP_PORT@
+uri ldaps://@LDAP_HOST@:@LDAP_PORT@
+tls_cacertfile @LDAP_CA_CERT@
+tls_reqcert hard
 sudoers_base ou=sudoers,@LDAP_BASE_DN@
 binddn @LDAP_BIND_DN@
 bindpw @LDAP_BIND_PASSWORD@

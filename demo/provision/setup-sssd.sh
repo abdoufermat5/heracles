@@ -31,7 +31,7 @@ echo "=============================================="
 # -----------------------------------------------------------------------------
 # Install required packages
 # -----------------------------------------------------------------------------
-echo "[1/6] Installing SSSD and dependencies..."
+echo "[1/7] Installing SSSD and dependencies..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq \
@@ -47,9 +47,20 @@ apt-get install -y -qq \
     2>/dev/null
 
 # -----------------------------------------------------------------------------
+# Install dev CA certificate
+# -----------------------------------------------------------------------------
+echo "[2/7] Installing Heracles dev CA..."
+if [ -f "${DEV_CA_CERT_SOURCE}" ]; then
+    cp "${DEV_CA_CERT_SOURCE}" "${LDAP_CA_CERT}"
+    update-ca-certificates 2>/dev/null || true
+else
+    echo "⚠️  Dev CA not found at ${DEV_CA_CERT_SOURCE}"
+fi
+
+# -----------------------------------------------------------------------------
 # Configure SSSD from template
 # -----------------------------------------------------------------------------
-echo "[2/6] Configuring SSSD from template..."
+echo "[3/7] Configuring SSSD from template..."
 
 # Process template
 bash "${CONFIG_DIR}/process_template.sh" \
@@ -63,7 +74,7 @@ chown root:root /etc/sssd/sssd.conf
 # -----------------------------------------------------------------------------
 # Configure NSS (Name Service Switch)
 # -----------------------------------------------------------------------------
-echo "[3/6] Configuring NSS..."
+echo "[4/7] Configuring NSS..."
 
 # Backup original nsswitch.conf
 cp /etc/nsswitch.conf /etc/nsswitch.conf.bak
@@ -76,7 +87,7 @@ bash "${CONFIG_DIR}/process_template.sh" \
 # -----------------------------------------------------------------------------
 # Configure PAM for home directory creation
 # -----------------------------------------------------------------------------
-echo "[4/6] Configuring PAM for automatic home directory creation..."
+echo "[5/7] Configuring PAM for automatic home directory creation..."
 
 # Enable mkhomedir in PAM
 cat > /usr/share/pam-configs/mkhomedir << EOF
@@ -99,7 +110,7 @@ fi
 # -----------------------------------------------------------------------------
 # Configure sudoers to use SSSD
 # -----------------------------------------------------------------------------
-echo "[5/6] Configuring sudoers for SSSD..."
+echo "[6/7] Configuring sudoers for SSSD..."
 
 # Process template
 bash "${CONFIG_DIR}/process_template.sh" \
@@ -111,7 +122,7 @@ chmod 440 /etc/sudo-ldap.conf
 # -----------------------------------------------------------------------------
 # Start and enable SSSD
 # -----------------------------------------------------------------------------
-echo "[6/6] Starting SSSD service..."
+echo "[7/7] Starting SSSD service..."
 
 # Clear SSSD cache
 rm -rf /var/lib/sss/db/* 2>/dev/null || true
@@ -142,7 +153,7 @@ echo "  SSSD Setup Complete!"
 echo "=============================================="
 echo ""
 echo "Testing LDAP connectivity..."
-if ldapsearch -x -H "ldap://${LDAP_HOST}:${LDAP_PORT}" -b "${LDAP_BASE_DN}" -D "${LDAP_BIND_DN}" -w "${LDAP_BIND_PASSWORD}" "(objectClass=organization)" dn 2>/dev/null | grep -q "dn:"; then
+if LDAPTLS_CACERT="${LDAP_CA_CERT}" LDAPTLS_REQCERT=hard ldapsearch -x -H "ldaps://${LDAP_HOST}:${LDAP_PORT}" -b "${LDAP_BASE_DN}" -D "${LDAP_BIND_DN}" -w "${LDAP_BIND_PASSWORD}" "(objectClass=organization)" dn 2>/dev/null | grep -q "dn:"; then
     echo "✅ LDAP connection successful"
 else
     echo "⚠️  LDAP connection test failed (server may not be ready)"

@@ -20,10 +20,16 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "heracles-dev-secret-change-in-production"
     
     # CORS
-    CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000"]
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "https://heracles.local",
+        "https://ui.heracles.local",
+        "https://api.heracles.local",
+    ]
     
     # LDAP (defaults for docker-compose)
-    LDAP_URI: str = "ldap://localhost:389"
+    LDAP_URI: str = "ldaps://localhost:636"
     LDAP_BASE_DN: str = "dc=heracles,dc=local"
     LDAP_BIND_DN: str = "cn=admin,dc=heracles,dc=local"
     LDAP_BIND_PASSWORD: str = "admin_secret"
@@ -44,10 +50,21 @@ class Settings(BaseSettings):
     # Session
     SESSION_TIMEOUT: int = 3600  # 1 hour
     COOKIE_DOMAIN: Optional[str] = None  # Set to .heracles.local for sharing between api. and ui.
+    COOKIE_SECURE: bool = True
+    COOKIE_SAMESITE: str = "lax"
     
     # Password
-    PASSWORD_HASH_METHOD: str = "ssha"
+    PASSWORD_HASH_METHOD: str = "argon2"
     PASSWORD_MIN_LENGTH: int = 8
+
+    # JWT
+    JWT_ISSUER: str = "heracles"
+    JWT_AUDIENCE: str = "heracles-api"
+    JWT_SECRETS: str = "heracles-dev-secret-change-in-production"
+
+    # Proxy trust (for X-Forwarded-* handling)
+    # In production restrict to actual proxy IPs; "*" is acceptable in dev
+    TRUSTED_PROXY_HOSTS: List[str] = ["*"]
     
     # Logging
     LOG_LEVEL: str = "INFO"

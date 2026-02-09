@@ -53,8 +53,6 @@ async def health_check(
         except Exception as exc:
             overall_ok = False
             services["redis"] = {"status": "error", "message": str(exc)}
-        finally:
-            await redis.aclose()
 
     # Database health
     try:

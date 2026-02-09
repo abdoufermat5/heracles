@@ -12,16 +12,19 @@ services:
       LDAP_BASE_DN: "${LDAP_BASE_DN}"
       LDAP_ADMIN_PASSWORD: "${LDAP_ADMIN_PASSWORD}"
       LDAP_CONFIG_PASSWORD: "${LDAP_CONFIG_PASSWORD}"
-      LDAP_TLS: "false"
+      LDAP_TLS: "true"
+      LDAP_TLS_CRT_FILENAME: "ldap.crt"
+      LDAP_TLS_KEY_FILENAME: "ldap.key"
+      LDAP_TLS_CA_CRT_FILENAME: "ca.crt"
       LDAP_TLS_VERIFY_CLIENT: "never"
       LDAP_REPLICATION: "false"
       LDAP_REMOVE_CONFIG_AFTER_SETUP: "false"
     volumes:
       - ldap_data:/var/lib/ldap
       - ldap_config:/etc/ldap/slapd.d
-      # Note: Custom schemas are loaded manually via: make ldap-schemas
-      # This avoids permission issues with volume mounts
-      # Schema files are in: ./docker/ldap/schemas/
+      - ./pki/dev/ldap/ldap.heracles.local.crt:/container/service/slapd/assets/certs/ldap.crt
+      - ./pki/dev/ldap/ldap.heracles.local.key:/container/service/slapd/assets/certs/ldap.key
+      - ./pki/dev/ca/heracles-dev-ca.crt:/container/service/slapd/assets/certs/ca.crt
     ports:
       - "${LDAP_PORT:-389}:389"
       - "${LDAPS_PORT:-636}:636"
@@ -100,11 +103,11 @@ services:
     container_name: heracles-api
     environment:
       # LDAP
-      LDAP_URI: "ldap://ldap:389"
+      LDAP_URI: "ldaps://ldap.heracles.local:636"
       LDAP_BASE_DN: "${LDAP_BASE_DN}"
       LDAP_BIND_DN: "${LDAP_BIND_DN}"
       LDAP_BIND_PASSWORD: "${LDAP_ADMIN_PASSWORD}"
-      LDAP_USE_TLS: "${LDAP_USE_TLS}"
+      LDAP_USE_TLS: "false"
       LDAP_POOL_SIZE: "${LDAP_POOL_SIZE}"
       # PostgreSQL
       DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
@@ -118,12 +121,13 @@ services:
       SECRET_KEY: "${SECRET_KEY}"
       # Logging
       LOG_LEVEL: "${LOG_LEVEL}"
+      # TLS trust (LDAPS)
+      SSL_CERT_FILE: "/etc/ssl/certs/heracles-dev-ca.crt"
     volumes:
       - ./heracles-api:/app
       - ./heracles-core:/heracles-core:ro
       - ./heracles_plugins:/heracles_plugins
-    ports:
-      - "${API_PORT:-8000}:8000"
+      - ./pki/dev/ca/heracles-dev-ca.crt:/etc/ssl/certs/heracles-dev-ca.crt:ro
     depends_on:
       ldap:
         condition: service_healthy
@@ -151,13 +155,32 @@ services:
     volumes:
       - ./heracles-ui:/app
       - /app/node_modules
-    ports:
-      - "${UI_PORT:-3000}:3000"
     depends_on:
       - api
     networks:
       - heracles-net
     command: ["bun", "run", "dev", "--host", "0.0.0.0", "--port", "3000"]
+    profiles:
+      - full
+
+  # ===========================================
+  # TLS Reverse Proxy (Nginx)
+  # ===========================================
+  proxy:
+    image: nginx:alpine
+    container_name: heracles-proxy
+    volumes:
+      - ./docker/proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./pki/dev/server/heracles.local.crt:/etc/nginx/certs/heracles.local.crt:ro
+      - ./pki/dev/server/heracles.local.key:/etc/nginx/certs/heracles.local.key:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - ui
+      - api
+    networks:
+      - heracles-net
     profiles:
       - full
 

@@ -27,19 +27,32 @@ echo "=============================================="
 # -----------------------------------------------------------------------------
 # Install BIND9
 # -----------------------------------------------------------------------------
-echo "[1/5] Installing BIND9..."
+echo "[1/6] Installing BIND9..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq \
     bind9 \
     bind9-dnsutils \
     ldap-utils \
+    ca-certificates \
     2>/dev/null
 
 # -----------------------------------------------------------------------------
 # Configure BIND options from template
 # -----------------------------------------------------------------------------
-echo "[2/5] Configuring BIND9 options..."
+echo "[2/6] Installing Heracles dev CA..."
+
+if [ -f "${DEV_CA_CERT_SOURCE}" ]; then
+    cp "${DEV_CA_CERT_SOURCE}" "${LDAP_CA_CERT}"
+    update-ca-certificates 2>/dev/null || true
+else
+    echo "⚠️  Dev CA not found at ${DEV_CA_CERT_SOURCE}"
+fi
+
+# -----------------------------------------------------------------------------
+# Configure BIND options from template
+# -----------------------------------------------------------------------------
+echo "[3/6] Configuring BIND9 options..."
 
 # Process template
 bash "${CONFIG_DIR}/process_template.sh" \
@@ -49,7 +62,7 @@ bash "${CONFIG_DIR}/process_template.sh" \
 # -----------------------------------------------------------------------------
 # Configure local zones from template
 # -----------------------------------------------------------------------------
-echo "[3/5] Configuring local zones..."
+echo "[4/6] Configuring local zones..."
 
 # Process template
 bash "${CONFIG_DIR}/process_template.sh" \
@@ -103,7 +116,7 @@ chmod 644 /var/lib/bind/*.zone
 # -----------------------------------------------------------------------------
 # Install LDAP DNS sync script
 # -----------------------------------------------------------------------------
-echo "[4/5] Installing LDAP DNS sync script..."
+echo "[5/6] Installing LDAP DNS sync script..."
 
 # Process template
 bash "${CONFIG_DIR}/process_template.sh" \
@@ -149,7 +162,7 @@ systemctl start ldap-dns-sync.timer
 # -----------------------------------------------------------------------------
 # Start BIND9
 # -----------------------------------------------------------------------------
-echo "[5/5] Starting BIND9..."
+echo "[6/6] Starting BIND9..."
 
 # Validate configuration
 if named-checkconf; then

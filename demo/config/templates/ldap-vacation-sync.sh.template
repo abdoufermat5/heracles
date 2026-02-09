@@ -19,6 +19,7 @@ LDAP_HOST="@LDAP_HOST@"
 LDAP_PORT="@LDAP_PORT@"
 LDAP_BIND_DN="@LDAP_BIND_DN@"
 LDAP_BIND_PASSWORD="@LDAP_BIND_PASSWORD@"
+LDAP_CA_CERT="@LDAP_CA_CERT@"
 SEARCH_BASE="@MAIL_LDAP_SEARCH_BASE@"
 DOMAIN="@DOMAIN@"
 VMAIL_HOME="@VMAIL_HOME@"
@@ -35,7 +36,7 @@ log() {
 log "Starting vacation sync..."
 
 # Query LDAP for all users with hrcMailAccount and vacation mode (V flag in delivery mode)
-VACATION_USERS=$(ldapsearch -x -H "ldap://${LDAP_HOST}:${LDAP_PORT}" \
+VACATION_USERS=$(LDAPTLS_CACERT="${LDAP_CA_CERT}" LDAPTLS_REQCERT=hard ldapsearch -x -H "ldaps://${LDAP_HOST}:${LDAP_PORT}" \
     -D "${LDAP_BIND_DN}" -w "${LDAP_BIND_PASSWORD}" \
     -b "${SEARCH_BASE}" \
     "(&(objectClass=hrcMailAccount)(hrcMailDeliveryMode=*V*)(hrcVacationMessage=*))" \
@@ -45,7 +46,7 @@ VACATION_USERS=$(ldapsearch -x -H "ldap://${LDAP_HOST}:${LDAP_PORT}" \
 }
 
 # Also query all users with hrcMailAccount to clean up expired vacation scripts
-ALL_MAIL_USERS=$(ldapsearch -x -H "ldap://${LDAP_HOST}:${LDAP_PORT}" \
+ALL_MAIL_USERS=$(LDAPTLS_CACERT="${LDAP_CA_CERT}" LDAPTLS_REQCERT=hard ldapsearch -x -H "ldaps://${LDAP_HOST}:${LDAP_PORT}" \
     -D "${LDAP_BIND_DN}" -w "${LDAP_BIND_PASSWORD}" \
     -b "${SEARCH_BASE}" \
     "(objectClass=hrcMailAccount)" \

@@ -55,6 +55,7 @@ apt-get install -y -qq \
     dovecot-sieve \
     dovecot-managesieved \
     ldap-utils \
+    ca-certificates \
     openssl \
     mailutils \
     swaks \
@@ -91,26 +92,32 @@ chmod -R 770 "${VMAIL_HOME}"
 echo "✅ vmail user (uid=${VMAIL_UID}) and ${VMAIL_HOME} created"
 
 # =============================================================================
-# [3/11] Generate self-signed TLS certificate
+# [3/11] Install dev CA and TLS certificate
 # =============================================================================
-echo "[3/11] Generating self-signed TLS certificate..."
+echo "[3/11] Installing TLS certificate..."
 
 mkdir -p "$(dirname "${MAIL_TLS_CERT}")" "$(dirname "${MAIL_TLS_KEY}")"
 
-openssl req -new -x509 -nodes -days 3650 \
-    -subj "/C=FR/ST=Demo/L=Heracles/O=Heracles Demo/CN=${MAIL_SERVER}" \
-    -addext "subjectAltName=DNS:${MAIL_SERVER},DNS:mail.${MAIL_DOMAIN},DNS:smtp.${MAIL_DOMAIN},DNS:imap.${MAIL_DOMAIN}" \
-    -newkey rsa:4096 \
-    -keyout "${MAIL_TLS_KEY}" \
-    -out "${MAIL_TLS_CERT}" \
-    2>/dev/null
+if [ -f "${DEV_CA_CERT_SOURCE}" ]; then
+    cp "${DEV_CA_CERT_SOURCE}" "${LDAP_CA_CERT}"
+    update-ca-certificates 2>/dev/null || true
+else
+    echo "⚠️  Dev CA not found at ${DEV_CA_CERT_SOURCE}"
+fi
+
+if [ -f "${DEV_TLS_CERT_SOURCE}" ] && [ -f "${DEV_TLS_KEY_SOURCE}" ]; then
+    cp "${DEV_TLS_CERT_SOURCE}" "${MAIL_TLS_CERT}"
+    cp "${DEV_TLS_KEY_SOURCE}" "${MAIL_TLS_KEY}"
+else
+    echo "❌ Dev TLS cert/key not found in ${DEV_TLS_CERT_SOURCE} / ${DEV_TLS_KEY_SOURCE}"
+    exit 1
+fi
 
 chmod 600 "${MAIL_TLS_KEY}"
 chmod 644 "${MAIL_TLS_CERT}"
 
 echo "✅ TLS certificate: ${MAIL_TLS_CERT}"
 echo "   TLS key: ${MAIL_TLS_KEY}"
-echo "   SANs: ${MAIL_SERVER}, mail.${MAIL_DOMAIN}, smtp.${MAIL_DOMAIN}, imap.${MAIL_DOMAIN}"
 
 # =============================================================================
 # [4/11] Configure Postfix
@@ -435,7 +442,7 @@ echo ""
 
 # Test LDAP connectivity
 echo "Testing LDAP connectivity..."
-if ldapsearch -x -H "ldap://${LDAP_HOST}:${LDAP_PORT}" \
+if LDAPTLS_CACERT="${LDAP_CA_CERT}" LDAPTLS_REQCERT=hard ldapsearch -x -H "ldaps://${LDAP_HOST}:${LDAP_PORT}" \
     -b "${LDAP_BASE_DN}" \
     -D "${LDAP_BIND_DN}" -w "${LDAP_BIND_PASSWORD}" \
     "(objectClass=organization)" dn 2>/dev/null | grep -q "dn:"; then

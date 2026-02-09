@@ -11,6 +11,8 @@ demo: up
 	@echo "Setting up demo environment..."
 	@sleep 5
 	@./scripts/ldap-bootstrap.sh all
+	@echo "🗄️ Applying database migrations..."
+	@$(COMPOSE) exec api alembic upgrade head
 	@echo "🌱 Seeding default configuration..."
 	@$(COMPOSE) exec api python -m heracles_api.core.seed
 	@cd $(DEMO_DIR) && ./scripts/generate-keys.sh 2>/dev/null || true

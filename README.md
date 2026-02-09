@@ -69,6 +69,15 @@ ssh -i demo/keys/testuser testuser@192.168.56.10 'sudo whoami'
 dig @192.168.56.20 server1.heracles.local
 ```
 
+Préparer la PKI pour les VMs (après `scripts/dev-pki/generate.sh`) :
+
+```bash
+mkdir -p demo/config/ca demo/config/certs
+cp pki/dev/ca/heracles-dev-ca.crt demo/config/ca/
+cp pki/dev/server/heracles.local.crt demo/config/certs/
+cp pki/dev/server/heracles.local.key demo/config/certs/
+```
+
 Voir [demo/README.md](demo/README.md) pour la documentation complète.
 
 ---
@@ -89,12 +98,45 @@ Voir [demo/README.md](demo/README.md) pour la documentation complète.
 git clone https://github.com/abdoufermat5/heracles.git
 cd heracles
 
+# Generate dev TLS certificates
+./scripts/dev-pki/generate.sh
+
 # Start LDAP, PostgreSQL, Redis
 make up-infra
 
 # Access phpLDAPadmin: http://localhost:8080
 # Login: cn=admin,dc=heracles,dc=local / admin_secret
 ```
+
+### Dev TLS + Hosts
+
+Add host entries:
+
+```bash
+sudo sh -c 'cat >> /etc/hosts << EOF
+127.0.0.1 heracles.local
+127.0.0.1 ui.heracles.local
+127.0.0.1 api.heracles.local
+127.0.0.1 ldap.heracles.local
+EOF'
+```
+
+Trust the dev CA:
+
+```bash
+sudo cp pki/dev/ca/heracles-dev-ca.crt /usr/local/share/ca-certificates/
+sudo update-ca-certificates
+```
+
+Start the full stack (TLS proxy on :443):
+
+```bash
+make up
+```
+
+Open:
+- UI: https://ui.heracles.local
+- API: https://api.heracles.local/api/v1/health
 
 ### Build heracles-core
 

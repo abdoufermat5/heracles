@@ -185,6 +185,15 @@
           "display_order": 10
         },
         {
+          "key": "csrf_protection",
+          "value": true,
+          "default_value": true,
+          "label": "CSRF Protection",
+          "description": "Require CSRF token for unsafe requests",
+          "data_type": "boolean",
+          "display_order": 15
+        },
+        {
           "key": "allowed_origins",
           "value": ["*"],
           "default_value": ["*"],
@@ -277,13 +286,12 @@
         },
         {
           "key": "default_hash_method",
-          "value": "ssha",
-          "default_value": "ssha",
+          "value": "argon2",
+          "default_value": "argon2",
           "label": "Hash Method",
           "description": "Default password hashing algorithm",
           "data_type": "select",
           "options": [
-            { "value": "ssha", "label": "SSHA (Salted SHA-1)" },
             { "value": "ssha256", "label": "SSHA256" },
             { "value": "ssha512", "label": "SSHA512" },
             { "value": "argon2", "label": "Argon2" }

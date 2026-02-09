@@ -6,7 +6,7 @@ Environnement de test Vagrant pour valider les plugins SSH, Sudo, POSIX, Systems
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  HOST: Docker (LDAP:389, API:8000, PostgreSQL, Redis)       │
+│  HOST: Docker (LDAPS:636, API:8000, PostgreSQL, Redis)      │
 │                          │                                   │
 │                   192.168.56.1                               │
 │                          │                                   │
@@ -29,6 +29,12 @@ make dev-infra && make ldap-schemas && make bootstrap
 
 # 2. Charger les zones DNS de démo
 make dns-bootstrap
+
+# 2.1 Copier la PKI pour les VMs
+mkdir -p config/ca config/certs
+cp ../pki/dev/ca/heracles-dev-ca.crt config/ca/
+cp ../pki/dev/server/heracles.local.crt config/certs/
+cp ../pki/dev/server/heracles.local.key config/certs/
 
 # 3. Réseau VirtualBox
 VBoxManage hostonlyif create
@@ -109,10 +115,10 @@ Les services Docker (API, UI, LDAP, PostgreSQL, Redis, phpLDAPadmin) sont access
 
 | Service         | URL d'accès (depuis l'hôte ou les VMs)         |
 |----------------|-----------------------------------------------|
-| UI             | http://ui.heracles.local:3000                  |
-| API            | http://api.heracles.local:8000                 |
-| phpLDAPadmin   | http://phpldapadmin.heracles.local:8080        |
-| LDAP           | ldap://ldap.heracles.local:389                 |
+| UI             | https://ui.heracles.local                       |
+| API            | https://api.heracles.local/api/v1/health        |
+| phpLDAPadmin   | http://phpldapadmin.heracles.local:8080         |
+| LDAP           | ldaps://ldap.heracles.local:636                 |
 | PostgreSQL     | postgres.heracles.local:5432                   |
 | Redis          | redis.heracles.local:6379                      |
 

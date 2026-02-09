@@ -18,17 +18,31 @@ DEMO_DIR="$(dirname "$SCRIPT_DIR")"
 KEYS_DIR="$DEMO_DIR/keys"
 
 # API Configuration
-API_URL="${API_URL:-http://localhost:8000}"
+API_URL="${API_URL:-https://api.heracles.local}"
 API_USER="${API_USER:-hrc-admin}"
 API_PASSWORD="${API_PASSWORD:-hrc-admin-secret}"
+API_CA_CERT="${API_CA_CERT:-$DEMO_DIR/../pki/dev/ca/heracles-dev-ca.crt}"
 ACCESS_TOKEN=""
+curl_opts=(-sS)
 
 echo "========================================"
 echo "  Heracles Demo Setup"
 echo "========================================"
 echo "API URL: $API_URL"
 echo "Keys Dir: $KEYS_DIR"
+echo "CA Cert: $API_CA_CERT"
 echo ""
+
+# Enforce TLS validation for API calls.
+if [ -n "$API_CA_CERT" ]; then
+    if [ -f "$API_CA_CERT" ]; then
+        curl_opts+=(--cacert "$API_CA_CERT")
+    else
+        echo "[-] CA certificate not found: $API_CA_CERT"
+        echo "    Please generate dev PKI or set API_CA_CERT to a valid file."
+        exit 1
+    fi
+fi
 
 # Check if keys exist
 if [ ! -d "$KEYS_DIR" ] || [ ! -f "$KEYS_DIR/testuser.pub" ]; then
@@ -40,7 +54,7 @@ fi
 # Login and get access token
 get_token() {
     local response
-    response=$(curl -s -X POST "${API_URL}/api/v1/auth/login" \
+    response=$(curl "${curl_opts[@]}" -X POST "${API_URL}/api/v1/auth/login" \
         -H "Content-Type: application/json" \
         -d "{\"username\": \"${API_USER}\", \"password\": \"${API_PASSWORD}\"}")
     
@@ -59,12 +73,12 @@ api_call() {
     local data="$3"
     
     if [ -n "$data" ]; then
-        curl -s -X "$method" "${API_URL}${endpoint}" \
+        curl "${curl_opts[@]}" -X "$method" "${API_URL}${endpoint}" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${ACCESS_TOKEN}" \
             -d "$data"
     else
-        curl -s -X "$method" "${API_URL}${endpoint}" \
+        curl "${curl_opts[@]}" -X "$method" "${API_URL}${endpoint}" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${ACCESS_TOKEN}"
     fi
@@ -73,7 +87,7 @@ api_call() {
 # Wait for API to be ready
 echo "[*] Waiting for API..."
 for i in {1..30}; do
-    if curl -s "${API_URL}/api/health" > /dev/null 2>&1; then
+    if curl "${curl_opts[@]}" "${API_URL}/api/health" > /dev/null 2>&1; then
         echo "[+] API is ready"
         break
     fi

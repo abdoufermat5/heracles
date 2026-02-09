@@ -42,6 +42,14 @@ class ApiClient {
     }
   }
 
+  private getCsrfToken(): string | null {
+    if (typeof document === 'undefined') {
+      return null
+    }
+    const match = document.cookie.match(/(?:^|; )csrf_token=([^;]+)/)
+    return match ? decodeURIComponent(match[1]) : null
+  }
+
   async request<T>(
     endpoint: string,
     options: RequestInit = {},
@@ -50,6 +58,14 @@ class ApiClient {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       ...options.headers,
+    }
+
+    const method = (options.method || 'GET').toUpperCase()
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+      const csrfToken = this.getCsrfToken()
+      if (csrfToken) {
+        headers['X-CSRF-Token'] = csrfToken
+      }
     }
 
     // Create abort controller for timeout
