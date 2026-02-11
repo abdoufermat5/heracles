@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Type
 
 import structlog
 
-from .base import Plugin, PluginInfo, TabDefinition, TabService
+from .base import Plugin, PluginInfo, PluginFieldDefinition, PluginTemplateField, TabDefinition, TabService
 
 logger = structlog.get_logger(__name__)
 
@@ -207,6 +207,107 @@ class PluginRegistry:
                     for tab in plugin.tabs()
                 ],
             })
+        return result
+
+    # ------------------------------------------------------------------
+    # Import / Export / Template aggregation
+    # ------------------------------------------------------------------
+
+    def get_import_fields_for_type(
+        self, object_type: str
+    ) -> List[PluginFieldDefinition]:
+        """
+        Collect import fields from all active plugins that attach to *object_type*.
+
+        Each field is annotated with ``plugin_name`` so the import system
+        can infer which plugin to activate.
+        """
+        fields: List[PluginFieldDefinition] = []
+        seen: set[str] = set()
+
+        for plugin in self._plugins.values():
+            info = plugin.info()
+            for tab in plugin.tabs():
+                if tab.object_type != object_type:
+                    continue
+                service = self._services.get(tab.id)
+                if service is None:
+                    continue
+                for f in service.get_import_fields():
+                    if f.name not in seen:
+                        f.plugin_name = info.name
+                        fields.append(f)
+                        seen.add(f.name)
+        return fields
+
+    def get_export_fields_for_type(
+        self, object_type: str
+    ) -> List[PluginFieldDefinition]:
+        """Collect export fields from all active plugins for *object_type*."""
+        fields: List[PluginFieldDefinition] = []
+        seen: set[str] = set()
+
+        for plugin in self._plugins.values():
+            info = plugin.info()
+            for tab in plugin.tabs():
+                if tab.object_type != object_type:
+                    continue
+                service = self._services.get(tab.id)
+                if service is None:
+                    continue
+                for f in service.get_export_fields():
+                    if f.name not in seen:
+                        f.plugin_name = info.name
+                        fields.append(f)
+                        seen.add(f.name)
+        return fields
+
+    def get_template_fields_for_type(
+        self, object_type: str
+    ) -> Dict[str, Any]:
+        """
+        Return template-configurable fields grouped by plugin.
+
+        Returns::
+
+            {
+              "posix": {
+                "label": "Unix Account",
+                "object_classes": ["posixAccount", "shadowAccount"],
+                "fields": [ PluginTemplateField(...), ... ]
+              },
+              ...
+            }
+        """
+        result: Dict[str, Any] = {}
+
+        for plugin in self._plugins.values():
+            info = plugin.info()
+            for tab in plugin.tabs():
+                if tab.object_type != object_type:
+                    continue
+                service = self._services.get(tab.id)
+                if service is None:
+                    continue
+                tmpl_fields = service.get_template_fields()
+                if not tmpl_fields:
+                    continue
+                result[info.name] = {
+                    "label": tab.label,
+                    "icon": tab.icon,
+                    "object_classes": service.OBJECT_CLASSES,
+                    "fields": [
+                        {
+                            "key": f.key,
+                            "label": f.label,
+                            "fieldType": f.field_type,
+                            "defaultValue": f.default_value,
+                            "options": f.options,
+                            "description": f.description,
+                        }
+                        for f in tmpl_fields
+                    ],
+                }
         return result
 
 

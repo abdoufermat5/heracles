@@ -5,7 +5,7 @@ Plugin Endpoints
 Endpoints for plugin management and plugin-provided routes.
 """
 
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, status
 
@@ -84,6 +84,15 @@ async def get_tabs_for_object(object_type: str):
         )
     
     tabs = plugin_registry.get_tabs_for_object_type(object_type)
+
+    # Resolve plugin name for each tab
+    def _plugin_name_for_tab(tab_id: str) -> Optional[str]:
+        for plugin in plugin_registry.get_all_plugins():
+            for ptab in plugin.tabs():
+                if ptab.id == tab_id:
+                    return plugin.info().name
+        return None
+
     return {
         "tabs": [
             {
@@ -91,6 +100,7 @@ async def get_tabs_for_object(object_type: str):
                 "label": tab.label,
                 "icon": tab.icon,
                 "required": tab.required,
+                "pluginName": _plugin_name_for_tab(tab.id),
             }
             for tab in tabs
         ],

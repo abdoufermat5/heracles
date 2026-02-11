@@ -408,6 +408,57 @@ class PluginInfo:
 
 
 @dataclass
+class PluginFieldDefinition:
+    """Describes a single LDAP attribute contributed by a plugin.
+
+    Used by the import/export system to dynamically discover
+    fields beyond the core user/group schema.
+    """
+
+    name: str
+    """LDAP attribute name (e.g. 'uidNumber')."""
+
+    label: str
+    """Human-readable label for the UI."""
+
+    required: bool = False
+    """Whether this field is required when the plugin is activated."""
+
+    description: Optional[str] = None
+    """Short help text."""
+
+    plugin_name: Optional[str] = None
+    """Owning plugin name (set automatically by the registry)."""
+
+
+@dataclass
+class PluginTemplateField:
+    """Describes a template-configurable default for a plugin.
+
+    When a template declares ``plugin_activations: {"posix": {"loginShell": "/bin/bash"}}``,
+    the keys correspond to :attr:`key` of these fields.
+    """
+
+    key: str
+    """Configuration key (maps to plugin activate-data field)."""
+
+    label: str
+    """Human-readable label."""
+
+    field_type: str = "string"
+    """UI hint: string | integer | boolean | select."""
+
+    default_value: Any = None
+    """Suggested default."""
+
+    options: Optional[List[Dict[str, str]]] = None
+    """For select fields: [{value, label}, …]."""
+
+    description: Optional[str] = None
+    """Help text."""
+
+
+@dataclass
 class TabDefinition:
     """Defines a tab provided by a plugin."""
     
@@ -545,6 +596,46 @@ class TabService(ABC):
             ValidationError: If not active.
         """
         pass
+
+    # ------------------------------------------------------------------
+    # Import / Export / Template extension points
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def get_import_fields(cls) -> List["PluginFieldDefinition"]:
+        """
+        Return LDAP attributes this plugin can accept during import.
+
+        Override in concrete services to expose plugin-specific fields
+        to the CSV import system.  The default returns the plugin's
+        ``MANAGED_ATTRIBUTES`` with auto-generated labels.
+        """
+        return [
+            PluginFieldDefinition(name=attr, label=attr)
+            for attr in cls.MANAGED_ATTRIBUTES
+        ]
+
+    @classmethod
+    def get_export_fields(cls) -> List["PluginFieldDefinition"]:
+        """
+        Return LDAP attributes this plugin can provide during export.
+
+        Override for richer labels / descriptions.  Default mirrors
+        ``get_import_fields``.
+        """
+        return cls.get_import_fields()
+
+    @classmethod
+    def get_template_fields(cls) -> List["PluginTemplateField"]:
+        """
+        Return fields that a *template* may pre-configure for this plugin.
+
+        These are the keys accepted in
+        ``template.plugin_activations[plugin_name]``.
+
+        Override in concrete services.  Default returns empty list.
+        """
+        return []
 
 
 class Plugin(PluginConfigContract, ABC):
