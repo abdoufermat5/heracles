@@ -1,0 +1,33 @@
+---
+# =============================================================================
+# Heracles — Backup Playbook
+# =============================================================================
+# Creates a timestamped backup of LDAP, PostgreSQL, and configuration.
+#
+# Usage:
+#   ansible-playbook -i inventory/production.yml playbooks/backup.yml
+# =============================================================================
+
+- name: Backup Heracles
+  hosts: heracles
+  become: true
+  vars_files:
+    - ../group_vars/all.yml.example
+
+  tasks:
+    - name: Run backup tasks
+      ansible.builtin.include_tasks: backup-tasks.yml
+
+    - name: Clean old backups
+      ansible.builtin.find:
+        paths: "{{ heracles_backup_dir }}"
+        age: "{{ backup_retention_days }}d"
+        recurse: false
+      register: old_backups
+
+    - name: Remove old backups
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ old_backups.files }}"
+      when: old_backups.matched > 0

@@ -1,0 +1,215 @@
+# =============================================================================
+# Heracles — Production Docker Compose
+# =============================================================================
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Prerequisites:
+#   - .env file configured with production values
+#   - TLS certificates in pki/ directory
+#   - LDAP bootstrapped (make bootstrap && make schemas)
+# =============================================================================
+
+services:
+  # ===========================================================================
+  # OpenLDAP Server
+  # ===========================================================================
+  ldap:
+    image: osixia/openldap:1.5.0
+    container_name: heracles-ldap
+    hostname: ldap.heracles.local
+    restart: unless-stopped
+    environment:
+      LDAP_ORGANISATION: "${LDAP_ORGANISATION}"
+      LDAP_DOMAIN: "${LDAP_DOMAIN}"
+      LDAP_BASE_DN: "${LDAP_BASE_DN}"
+      LDAP_ADMIN_PASSWORD: "${LDAP_ADMIN_PASSWORD}"
+      LDAP_CONFIG_PASSWORD: "${LDAP_CONFIG_PASSWORD}"
+      LDAP_TLS: "true"
+      LDAP_TLS_CRT_FILENAME: "ldap.crt"
+      LDAP_TLS_KEY_FILENAME: "ldap.key"
+      LDAP_TLS_CA_CRT_FILENAME: "ca.crt"
+      LDAP_TLS_VERIFY_CLIENT: "never"
+      LDAP_REPLICATION: "false"
+      LDAP_REMOVE_CONFIG_AFTER_SETUP: "false"
+    volumes:
+      - ldap_data:/var/lib/ldap
+      - ldap_config:/etc/ldap/slapd.d
+      - ${TLS_LDAP_CERT:-./pki/dev/ldap/ldap.heracles.local.crt}:/container/service/slapd/assets/certs/ldap.crt:ro
+      - ${TLS_LDAP_KEY:-./pki/dev/ldap/ldap.heracles.local.key}:/container/service/slapd/assets/certs/ldap.key:ro
+      - ${TLS_CA_CERT:-./pki/dev/ca/heracles-dev-ca.crt}:/container/service/slapd/assets/certs/ca.crt:ro
+    ports:
+      - "${LDAP_PORT:-389}:389"
+      - "${LDAPS_PORT:-636}:636"
+    networks:
+      - heracles-net
+    healthcheck:
+      test: ["CMD", "ldapsearch", "-x", "-H", "ldap://localhost", "-b", "${LDAP_BASE_DN}", "-D", "${LDAP_BIND_DN}", "-w", "${LDAP_ADMIN_PASSWORD}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # ===========================================================================
+  # PostgreSQL
+  # ===========================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: heracles-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB}"
+      POSTGRES_USER: "${POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - heracles-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # ===========================================================================
+  # Redis
+  # ===========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: heracles-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD}"
+    volumes:
+      - redis_data:/data
+    networks:
+      - heracles-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # ===========================================================================
+  # Heracles API (Production — gunicorn + uvicorn workers)
+  # ===========================================================================
+  api:
+    image: ${API_IMAGE:-ghcr.io/abdoufermat5/heracles-api:latest}
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+      target: production
+    container_name: heracles-api
+    restart: unless-stopped
+    environment:
+      LDAP_URI: "ldaps://ldap.heracles.local:636"
+      LDAP_BASE_DN: "${LDAP_BASE_DN}"
+      LDAP_BIND_DN: "${LDAP_BIND_DN}"
+      LDAP_BIND_PASSWORD: "${LDAP_ADMIN_PASSWORD}"
+      LDAP_USE_TLS: "false"
+      LDAP_POOL_SIZE: "${LDAP_POOL_SIZE:-10}"
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/0"
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
+      API_HOST: "0.0.0.0"
+      API_PORT: "8000"
+      DEBUG: "false"
+      SECRET_KEY: "${SECRET_KEY}"
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+      GUNICORN_WORKERS: "${GUNICORN_WORKERS:-4}"
+      GUNICORN_TIMEOUT: "${GUNICORN_TIMEOUT:-120}"
+      SSL_CERT_FILE: "/etc/ssl/certs/heracles-ca.crt"
+      COOKIE_SECURE: "true"
+      COOKIE_SAMESITE: "lax"
+      ALLOW_TEST_EMAIL_DOMAINS: "false"
+    volumes:
+      - ${TLS_CA_CERT:-./pki/dev/ca/heracles-dev-ca.crt}:/etc/ssl/certs/heracles-ca.crt:ro
+    depends_on:
+      ldap:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - heracles-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  # ===========================================================================
+  # Heracles UI (Production — nginx static serving)
+  # ===========================================================================
+  ui:
+    image: ${UI_IMAGE:-ghcr.io/abdoufermat5/heracles-ui:latest}
+    build:
+      context: .
+      dockerfile: docker/ui/Dockerfile
+    container_name: heracles-ui
+    restart: unless-stopped
+    networks:
+      - heracles-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  # ===========================================================================
+  # TLS Reverse Proxy (Nginx)
+  # ===========================================================================
+  proxy:
+    image: nginx:alpine
+    container_name: heracles-proxy
+    restart: unless-stopped
+    volumes:
+      - ./docker/proxy/nginx.prod.conf:/etc/nginx/conf.d/default.conf:ro
+      - ${TLS_SERVER_CERT:-./pki/dev/server/heracles.local.crt}:/etc/nginx/certs/heracles.local.crt:ro
+      - ${TLS_SERVER_KEY:-./pki/dev/server/heracles.local.key}:/etc/nginx/certs/heracles.local.key:ro
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    depends_on:
+      api:
+        condition: service_healthy
+      ui:
+        condition: service_healthy
+    networks:
+      - heracles-net
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+networks:
+  heracles-net:
+    driver: bridge
+
+volumes:
+  ldap_data:
+  ldap_config:
+  postgres_data:
+  redis_data:

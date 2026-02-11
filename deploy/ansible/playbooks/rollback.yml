@@ -1,0 +1,73 @@
+---
+# =============================================================================
+# Heracles — Rollback Playbook
+# =============================================================================
+# Rolls back to the previous version using a backup.
+#
+# Usage:
+#   ansible-playbook -i inventory/production.yml playbooks/rollback.yml \
+#     -e backup_name=20250101T120000
+# =============================================================================
+
+- name: Rollback Heracles
+  hosts: heracles
+  become: true
+  vars_files:
+    - ../group_vars/all.yml.example
+
+  tasks:
+    - name: List available backups
+      ansible.builtin.find:
+        paths: "{{ heracles_backup_dir }}"
+        file_type: directory
+      register: backups
+      when: backup_name is not defined
+
+    - name: Show available backups
+      ansible.builtin.debug:
+        msg: "Available backups: {{ backups.files | map(attribute='path') | map('basename') | list }}"
+      when: backup_name is not defined
+
+    - name: Fail if no backup specified
+      ansible.builtin.fail:
+        msg: "Specify backup: -e backup_name=<timestamp>"
+      when: backup_name is not defined
+
+    - name: Stop services
+      community.docker.docker_compose_v2:
+        project_src: "{{ heracles_install_dir }}"
+        state: absent
+
+    - name: Restore PostgreSQL
+      ansible.builtin.shell: |
+        docker compose -f {{ heracles_install_dir }}/docker-compose.yml up -d postgres
+        sleep 5
+        gunzip -c {{ heracles_backup_dir }}/{{ backup_name }}/postgres.sql.gz | \
+        docker compose -f {{ heracles_install_dir }}/docker-compose.yml \
+          exec -T postgres psql -U {{ postgres_user }} {{ postgres_db }}
+
+    - name: Restore .env from backup
+      ansible.builtin.copy:
+        src: "{{ heracles_backup_dir }}/{{ backup_name }}/env.backup"
+        dest: "{{ heracles_install_dir }}/.env"
+        remote_src: true
+        mode: "0600"
+
+    - name: Start services
+      community.docker.docker_compose_v2:
+        project_src: "{{ heracles_install_dir }}"
+        state: present
+
+    - name: Wait for API
+      ansible.builtin.uri:
+        url: "http://localhost:8000/api/v1/health"
+        method: GET
+        status_code: 200
+      register: health
+      retries: 30
+      delay: 5
+      until: health.status == 200
+
+    - name: Rollback complete
+      ansible.builtin.debug:
+        msg: "Heracles rolled back using backup {{ backup_name }}"

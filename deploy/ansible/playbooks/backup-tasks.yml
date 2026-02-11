@@ -1,0 +1,39 @@
+---
+# Shared backup tasks (included by backup.yml and upgrade.yml)
+
+- name: Set backup timestamp
+  ansible.builtin.set_fact:
+    backup_ts: "{{ ansible_date_time.iso8601_basic_short }}"
+
+- name: Create backup directory
+  ansible.builtin.file:
+    path: "{{ heracles_backup_dir }}/{{ backup_ts }}"
+    state: directory
+    mode: "0750"
+
+- name: Backup PostgreSQL
+  ansible.builtin.shell: |
+    docker compose -f {{ heracles_install_dir }}/docker-compose.yml \
+      exec -T postgres pg_dump -U {{ postgres_user }} {{ postgres_db }} \
+      | gzip > {{ heracles_backup_dir }}/{{ backup_ts }}/postgres.sql.gz
+  args:
+    creates: "{{ heracles_backup_dir }}/{{ backup_ts }}/postgres.sql.gz"
+
+- name: Backup LDAP (slapcat)
+  ansible.builtin.shell: |
+    docker compose -f {{ heracles_install_dir }}/docker-compose.yml \
+      exec -T ldap slapcat \
+      | gzip > {{ heracles_backup_dir }}/{{ backup_ts }}/ldap.ldif.gz
+  args:
+    creates: "{{ heracles_backup_dir }}/{{ backup_ts }}/ldap.ldif.gz"
+
+- name: Backup .env
+  ansible.builtin.copy:
+    src: "{{ heracles_install_dir }}/.env"
+    dest: "{{ heracles_backup_dir }}/{{ backup_ts }}/env.backup"
+    remote_src: true
+    mode: "0600"
+
+- name: Log backup summary
+  ansible.builtin.debug:
+    msg: "Backup created at {{ heracles_backup_dir }}/{{ backup_ts }}"

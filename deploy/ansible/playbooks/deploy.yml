@@ -1,0 +1,150 @@
+---
+# =============================================================================
+# Heracles — Full Deployment Playbook
+# =============================================================================
+# Deploys Heracles from scratch on a fresh server.
+#
+# Usage:
+#   ansible-playbook -i inventory/production.yml playbooks/deploy.yml
+#   ansible-playbook -i inventory/production.yml playbooks/deploy.yml --tags docker
+# =============================================================================
+
+- name: Deploy Heracles Identity Management System
+  hosts: heracles
+  become: true
+  vars_files:
+    - ../group_vars/all.yml.example  # Override with group_vars/all.yml
+
+  tasks:
+    # ── System Dependencies ────────────────────────────────────────────────
+    - name: Install system packages
+      tags: [system]
+      ansible.builtin.apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - python3-pip
+          - python3-docker
+        state: present
+        update_cache: true
+
+    # ── Docker Installation ────────────────────────────────────────────────
+    - name: Add Docker GPG key
+      tags: [docker]
+      ansible.builtin.apt_key:
+        url: https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg
+        state: present
+
+    - name: Add Docker repository
+      tags: [docker]
+      ansible.builtin.apt_repository:
+        repo: >-
+          deb https://download.docker.com/linux/{{ ansible_distribution | lower }}
+          {{ ansible_distribution_release }} stable
+        state: present
+
+    - name: Install Docker Engine
+      tags: [docker]
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+
+    - name: Start and enable Docker
+      tags: [docker]
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: true
+
+    # ── Heracles Directories ───────────────────────────────────────────────
+    - name: Create Heracles directories
+      tags: [setup]
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0750"
+      loop:
+        - "{{ heracles_install_dir }}"
+        - "{{ heracles_data_dir }}"
+        - "{{ heracles_data_dir }}/ldap"
+        - "{{ heracles_data_dir }}/postgres"
+        - "{{ heracles_data_dir }}/redis"
+        - "{{ heracles_log_dir }}"
+        - "{{ heracles_backup_dir }}"
+
+    # ── Configuration ──────────────────────────────────────────────────────
+    - name: Generate .env file
+      tags: [config]
+      ansible.builtin.template:
+        src: ../templates/env.j2
+        dest: "{{ heracles_install_dir }}/.env"
+        mode: "0600"
+
+    - name: Copy docker-compose.prod.yml
+      tags: [config]
+      ansible.builtin.copy:
+        src: ../../../docker-compose.prod.yml
+        dest: "{{ heracles_install_dir }}/docker-compose.yml"
+        mode: "0644"
+
+    - name: Copy nginx production config
+      tags: [config]
+      ansible.builtin.copy:
+        src: ../../../docker/proxy/nginx.prod.conf
+        dest: "{{ heracles_install_dir }}/nginx.conf"
+        mode: "0644"
+
+    # ── TLS Certificates ──────────────────────────────────────────────────
+    - name: Copy TLS certificates
+      tags: [tls]
+      when: tls_enabled | default(false)
+      ansible.builtin.copy:
+        src: "{{ item.src }}"
+        dest: "{{ heracles_install_dir }}/pki/{{ item.dest }}"
+        mode: "0600"
+      loop:
+        - { src: "{{ tls_cert_path }}", dest: "server.crt" }
+        - { src: "{{ tls_key_path }}", dest: "server.key" }
+
+    # ── Pull and Start ─────────────────────────────────────────────────────
+    - name: Pull Docker images
+      tags: [deploy]
+      community.docker.docker_compose_v2:
+        project_src: "{{ heracles_install_dir }}"
+        pull: always
+        state: present
+
+    - name: Start Heracles services
+      tags: [deploy]
+      community.docker.docker_compose_v2:
+        project_src: "{{ heracles_install_dir }}"
+        state: present
+
+    - name: Wait for API to be healthy
+      tags: [deploy]
+      ansible.builtin.uri:
+        url: "http://localhost:8000/api/v1/health"
+        method: GET
+        status_code: 200
+      register: health
+      retries: 30
+      delay: 5
+      until: health.status == 200
+
+    - name: Display deployment summary
+      tags: [deploy]
+      ansible.builtin.debug:
+        msg: |
+          ╔══════════════════════════════════════════════════════╗
+          ║  Heracles v{{ heracles_version }} deployed successfully!  ║
+          ╠══════════════════════════════════════════════════════╣
+          ║  UI:  https://{{ ansible_host }}                     ║
+          ║  API: https://{{ ansible_host }}/api/v1              ║
+          ╚══════════════════════════════════════════════════════╝

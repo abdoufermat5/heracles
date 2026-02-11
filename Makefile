@@ -32,6 +32,7 @@ LDAP_ADMIN_PW ?= admin_secret
 
 # Include modules
 include mk/docker.mk
+include mk/setup.mk
 include mk/demo.mk
 include mk/versioning.mk
 include mk/help.mk

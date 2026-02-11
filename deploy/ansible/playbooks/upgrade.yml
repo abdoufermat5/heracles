@@ -1,0 +1,52 @@
+---
+# =============================================================================
+# Heracles — Upgrade Playbook
+# =============================================================================
+# Upgrades Heracles to a new version with zero-downtime.
+#
+# Usage:
+#   ansible-playbook -i inventory/production.yml playbooks/upgrade.yml \
+#     -e heracles_version=1.1.0
+# =============================================================================
+
+- name: Upgrade Heracles
+  hosts: heracles
+  become: true
+  vars_files:
+    - ../group_vars/all.yml.example
+
+  tasks:
+    - name: Create backup before upgrade
+      ansible.builtin.include_tasks: backup-tasks.yml
+
+    - name: Update .env with new version
+      ansible.builtin.lineinfile:
+        path: "{{ heracles_install_dir }}/.env"
+        regexp: "^HERACLES_VERSION="
+        line: "HERACLES_VERSION={{ heracles_version }}"
+
+    - name: Pull new images
+      community.docker.docker_compose_v2:
+        project_src: "{{ heracles_install_dir }}"
+        pull: always
+        state: present
+
+    - name: Restart services with new images
+      community.docker.docker_compose_v2:
+        project_src: "{{ heracles_install_dir }}"
+        state: present
+        recreate: always
+
+    - name: Wait for API health check
+      ansible.builtin.uri:
+        url: "http://localhost:8000/api/v1/health"
+        method: GET
+        status_code: 200
+      register: health
+      retries: 30
+      delay: 5
+      until: health.status == 200
+
+    - name: Upgrade complete
+      ansible.builtin.debug:
+        msg: "Heracles upgraded to v{{ heracles_version }} successfully"

@@ -1,0 +1,16 @@
+---
+# Heracles Production Inventory
+# ===============================
+# Edit this file with your target hosts.
+
+all:
+  children:
+    heracles:
+      hosts:
+        heracles-server:
+          ansible_host: 192.168.1.100     # CHANGE: your server IP
+          ansible_user: deploy             # CHANGE: SSH user
+          # ansible_ssh_private_key_file: ~/.ssh/heracles_deploy
+
+  vars:
+    ansible_python_interpreter: /usr/bin/python3

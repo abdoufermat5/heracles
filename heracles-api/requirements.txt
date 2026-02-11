@@ -1,9 +1,10 @@
-# Heracles API Dependencies
-# =========================
+# Heracles API Dependencies — Production
+# ========================================
 
 # Web Framework
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
+gunicorn==21.2.0
 python-multipart==0.0.6
 
 # Data Validation
@@ -32,14 +33,3 @@ orjson==3.9.10
 
 # Logging
 structlog==24.1.0
-
-# Testing
-pytest==7.4.4
-pytest-asyncio==0.23.3
-pytest-cov==4.1.0
-httpx==0.26.0
-
-# Development
-black==24.1.0
-ruff==0.1.13
-mypy==1.8.0

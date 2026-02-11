@@ -1,0 +1,55 @@
+---
+# =============================================================================
+# Heracles Deployment Variables
+# =============================================================================
+# Copy to group_vars/all.yml and configure before deployment.
+# =============================================================================
+
+# Heracles version to deploy
+heracles_version: "0.8.1-rc"
+
+# Docker image registry (default: GitHub Container Registry)
+heracles_registry: "ghcr.io/abdoufermat5"
+heracles_api_image: "{{ heracles_registry }}/heracles-api:{{ heracles_version }}"
+heracles_ui_image: "{{ heracles_registry }}/heracles-ui:{{ heracles_version }}"
+
+# Installation directory on target host
+heracles_install_dir: /opt/heracles
+heracles_data_dir: /var/lib/heracles
+heracles_log_dir: /var/log/heracles
+heracles_backup_dir: /var/backups/heracles
+
+# ── LDAP ──────────────────────────────────────────────────────────────────
+ldap_organisation: "MyOrganisation"           # CHANGE
+ldap_domain: "example.com"                    # CHANGE
+ldap_base_dn: "dc=example,dc=com"            # CHANGE (must match domain)
+# Passwords — use ansible-vault to encrypt!
+ldap_admin_password: "CHANGE_ME"              # CHANGE
+ldap_config_password: "CHANGE_ME"             # CHANGE
+
+# ── Admin ─────────────────────────────────────────────────────────────────
+heracles_admin_user: "hrc-admin"
+heracles_admin_password: "CHANGE_ME"          # CHANGE
+
+# ── PostgreSQL ────────────────────────────────────────────────────────────
+postgres_db: heracles
+postgres_user: heracles
+postgres_password: "CHANGE_ME"                # CHANGE
+
+# ── Redis ─────────────────────────────────────────────────────────────────
+redis_password: "CHANGE_ME"                   # CHANGE
+
+# ── Security ──────────────────────────────────────────────────────────────
+# Generate with: openssl rand -hex 32
+secret_key: "CHANGE_ME"                       # CHANGE
+
+# ── TLS ───────────────────────────────────────────────────────────────────
+# Set to true and provide cert paths for HTTPS
+tls_enabled: false
+tls_cert_path: ""
+tls_key_path: ""
+tls_ca_path: ""
+
+# ── Backup ────────────────────────────────────────────────────────────────
+backup_retention_days: 30
+backup_cron: "0 2 * * *"   # Daily at 2 AM
