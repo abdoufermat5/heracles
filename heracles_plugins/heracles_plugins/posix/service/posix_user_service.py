@@ -238,7 +238,7 @@ class PosixService(TabService):
     async def activate(
         self,
         dn: str,
-        data: PosixAccountCreate,
+        data: Any = None,
         uid: Optional[str] = None,
         group_service: Optional["PosixGroupService"] = None,
         base_dn: Optional[str] = None,
@@ -248,11 +248,58 @@ class PosixService(TabService):
         
         Args:
             dn: User's DN
-            data: POSIX account data
-            uid: User's uid (for home directory generation and personal group)
-            group_service: PosixGroupService instance (for auto-creating personal groups)
-            base_dn: Base DN for creating personal groups in department context
+            data: POSIX account data (PosixAccountCreate, dict, or None for defaults)
+            uid: User's uid (for home directory generation and personal group).
+                 Auto-extracted from DN if not provided.
+            group_service: PosixGroupService instance (for auto-creating personal groups).
+                           Auto-resolved from plugin registry if not provided.
+            base_dn: Base DN for creating personal groups in department context.
+                     Auto-extracted from user DN if not provided.
         """
+        import re
+
+        # Normalise data to PosixAccountCreate
+        if data is None:
+            data = PosixAccountCreate()
+        elif isinstance(data, dict):
+            # Resolve {{uid}} placeholders in template values
+            if uid is None:
+                m = re.search(r"uid=([^,]+)", dn)
+                if m:
+                    uid = m.group(1)
+            if uid:
+                data = {
+                    k: (v.replace("{{uid}}", uid) if isinstance(v, str) else v)
+                    for k, v in data.items()
+                }
+            # Default to create_personal when no gidNumber or mode specified
+            if "primaryGroupMode" not in data and "gidNumber" not in data:
+                data["primaryGroupMode"] = PrimaryGroupMode.CREATE_PERSONAL.value
+            data = PosixAccountCreate(**data)
+        elif not isinstance(data, PosixAccountCreate):
+            raise PosixValidationError("Invalid activation data type")
+
+        # Auto-resolve uid from DN when not supplied
+        if uid is None:
+            match = re.search(r"uid=([^,]+)", dn)
+            if match:
+                uid = match.group(1)
+
+        # Auto-resolve group_service from plugin registry when not supplied
+        if group_service is None:
+            try:
+                from heracles_api.plugins.registry import plugin_registry
+                group_service = plugin_registry.get_service("posix-group")
+            except Exception:
+                pass  # Will fail later if CREATE_PERSONAL mode is used
+
+        # Auto-resolve base_dn from user DN when not supplied
+        if base_dn is None:
+            dn_lower = dn.lower()
+            ou_people_idx = dn_lower.find(",ou=people,")
+            if ou_people_idx != -1:
+                base_dn = dn[ou_people_idx + len(",ou=people,"):]
+
         if await self.is_active(dn):
             raise PosixValidationError("POSIX is already active on this user")
         
