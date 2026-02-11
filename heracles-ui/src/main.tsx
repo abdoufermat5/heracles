@@ -7,6 +7,9 @@ import './index.css'
 import App from './App'
 import { AppError } from '@/lib/errors'
 
+// Register plugin tab components for dynamic rendering
+import '@/lib/plugin-tab-registrations'
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

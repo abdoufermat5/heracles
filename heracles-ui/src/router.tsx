@@ -37,6 +37,11 @@ import {
   AclAuditLogPage,
 } from '@/pages/acl'
 import { ProfilePage } from '@/pages/profile'
+import { AuditPage } from '@/pages/audit'
+import { TemplatesListPage } from '@/pages/templates'
+import { TemplateDetailPage } from '@/pages/templates/detail'
+import { ImportPage } from '@/pages/import'
+import { ExportPage } from '@/pages/export'
 import { ROUTES, PLUGIN_ROUTES } from '@/config/constants'
 
 export function AppRouter() {
@@ -116,6 +121,13 @@ export function AppRouter() {
 
         {/* Profile */}
         <Route path={ROUTES.PROFILE} element={<ProfilePage />} />
+
+        {/* Administration */}
+        <Route path={ROUTES.AUDIT} element={<AuditPage />} />
+        <Route path={ROUTES.TEMPLATES} element={<TemplatesListPage />} />
+        <Route path={ROUTES.TEMPLATE_DETAIL} element={<TemplateDetailPage />} />
+        <Route path={ROUTES.IMPORT} element={<ImportPage />} />
+        <Route path={ROUTES.EXPORT} element={<ExportPage />} />
 
         {/* Settings */}
         <Route path={ROUTES.SETTINGS} element={<SettingsPage />} />

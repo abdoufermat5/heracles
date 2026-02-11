@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -35,12 +35,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { PageHeader, DetailPageSkeleton, ErrorDisplay, LoadingSpinner, ConfirmDialog, PasswordRequirements, DataTable, SortableHeader, type ColumnDef } from '@/components/common'
-import { PosixUserTab } from '@/components/plugins/posix'
-import { SSHUserTab } from '@/components/plugins/ssh'
-import { MailUserTab } from '@/components/plugins/mail'
 import { EntityPermissionsTab } from '@/components/acl'
-import { useUser, useUpdateUser, useDeleteUser, useSetUserPassword, useUserLockStatus, useLockUser, useUnlockUser } from '@/hooks'
-import { usePluginStore, PLUGIN_NAMES, useRecentStore } from '@/stores'
+import { useUser, useUpdateUser, useDeleteUser, useSetUserPassword, useUserLockStatus, useLockUser, useUnlockUser, usePluginTabs } from '@/hooks'
+import { usePluginStore, useRecentStore } from '@/stores'
+import { getPluginTabComponent, hasPluginTab } from '@/lib/plugin-tab-registry'
 import { userUpdateSchema, setPasswordSchema, type UserUpdateFormData, type SetPasswordFormData } from '@/lib/schemas'
 import { AppError } from '@/lib/errors'
 import { groupsApi } from '@/lib/api'
@@ -89,9 +87,15 @@ export function UserDetailPage() {
     const plugin = plugins.find((p) => p.name === name)
     return plugin?.enabled ?? true
   }
-  const isPosixEnabled = isPluginEnabled(PLUGIN_NAMES.POSIX)
-  const isSSHEnabled = isPluginEnabled(PLUGIN_NAMES.SSH)
-  const isMailEnabled = isPluginEnabled(PLUGIN_NAMES.MAIL)
+
+  // Dynamic plugin tabs from backend
+  const { data: pluginTabsData } = usePluginTabs('user')
+  const pluginTabs = (pluginTabsData?.tabs ?? []).filter((tab) => {
+    // Only show tabs that have a registered component AND whose plugin is enabled
+    if (!hasPluginTab(tab.id)) return false
+    if (tab.pluginName && !isPluginEnabled(tab.pluginName)) return false
+    return true
+  })
 
   useEffect(() => {
     if (!user) return
@@ -307,9 +311,9 @@ export function UserDetailPage() {
       <Tabs defaultValue="general" className="space-y-6">
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
-          {isPosixEnabled && <TabsTrigger value="posix">Unix Account</TabsTrigger>}
-          {isSSHEnabled && <TabsTrigger value="ssh">SSH Keys</TabsTrigger>}
-          {isMailEnabled && <TabsTrigger value="mail">Mail</TabsTrigger>}
+          {pluginTabs.map((tab) => (
+            <TabsTrigger key={tab.id} value={tab.id}>{tab.label}</TabsTrigger>
+          ))}
           <TabsTrigger value="groups">Groups</TabsTrigger>
           <TabsTrigger value="permissions">
             <Shield className="mr-1 h-3.5 w-3.5" />
@@ -475,38 +479,20 @@ export function UserDetailPage() {
           </div>
         </TabsContent>
 
-        {isPosixEnabled && (
-          <TabsContent value="posix" className="max-w-4xl">
-            <div className="max-w-4xl">
-              <PosixUserTab 
-                uid={user.uid} 
-                displayName={user.displayName || `${user.givenName} ${user.sn}`} 
-              />
-            </div>
-          </TabsContent>
-        )}
-
-        {isSSHEnabled && (
-          <TabsContent value="ssh" className="max-w-4xl">
-            <div className="max-w-4xl">
-              <SSHUserTab 
-                uid={user.uid} 
-                displayName={user.displayName || `${user.givenName} ${user.sn}`} 
-              />
-            </div>
-          </TabsContent>
-        )}
-
-        {isMailEnabled && (
-          <TabsContent value="mail" className="max-w-4xl">
-            <div className="max-w-4xl">
-              <MailUserTab 
-                uid={user.uid} 
-                displayName={user.displayName || `${user.givenName} ${user.sn}`} 
-              />
-            </div>
-          </TabsContent>
-        )}
+        {pluginTabs.map((tab) => {
+          const TabComponent = getPluginTabComponent(tab.id)
+          if (!TabComponent) return null
+          return (
+            <TabsContent key={tab.id} value={tab.id} className="max-w-4xl">
+              <div className="max-w-4xl">
+                <TabComponent
+                  uid={user.uid}
+                  displayName={user.displayName || `${user.givenName} ${user.sn}`}
+                />
+              </div>
+            </TabsContent>
+          )
+        })}
 
         <TabsContent value="groups" className="max-w-4xl">
           <div className="flex items-center justify-between mb-4">

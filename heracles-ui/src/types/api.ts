@@ -85,6 +85,7 @@ export interface UserCreateData {
   loginShell?: string
   password: string
   departmentDn?: string
+  templateId?: string
 }
 
 export interface UserUpdateData {

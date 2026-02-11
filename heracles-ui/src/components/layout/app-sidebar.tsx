@@ -44,6 +44,10 @@ import {
   Key,
   Layers,
   Grid3X3,
+  ClipboardList,
+  FileText,
+  Upload,
+  Download,
 } from 'lucide-react'
 import { useAuthStore, usePluginStore, PLUGIN_NAMES } from '@/stores'
 import { ROUTES, PLUGIN_ROUTES } from '@/config/constants'
@@ -342,6 +346,50 @@ export function AppSidebar() {
           <SidebarGroupLabel>Administration</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location.pathname === ROUTES.AUDIT || location.pathname.startsWith(ROUTES.AUDIT + '/')}
+                >
+                  <Link to={ROUTES.AUDIT}>
+                    <ClipboardList />
+                    <span>Audit Log</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location.pathname === ROUTES.TEMPLATES || location.pathname.startsWith(ROUTES.TEMPLATES + '/')}
+                >
+                  <Link to={ROUTES.TEMPLATES}>
+                    <FileText />
+                    <span>Templates</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location.pathname === ROUTES.IMPORT}
+                >
+                  <Link to={ROUTES.IMPORT}>
+                    <Upload />
+                    <span>Import</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location.pathname === ROUTES.EXPORT}
+                >
+                  <Link to={ROUTES.EXPORT}>
+                    <Download />
+                    <span>Export</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild

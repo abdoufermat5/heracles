@@ -55,9 +55,13 @@ class ApiClient {
     options: RequestInit = {},
     timeout: number = this.defaultTimeout
   ): Promise<T> {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      ...options.headers,
+    const headers: Record<string, string> = {
+      ...options.headers as Record<string, string>,
+    }
+
+    // Only set Content-Type for non-FormData bodies
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json'
     }
 
     const method = (options.method || 'GET').toUpperCase()
@@ -173,6 +177,13 @@ class ApiClient {
 
   async delete<T>(endpoint: string): Promise<T> {
     return this.request<T>(endpoint, { method: 'DELETE' })
+  }
+
+  async upload<T>(endpoint: string, formData: FormData): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: 'POST',
+      body: formData,
+    })
   }
 }
 

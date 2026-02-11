@@ -511,10 +511,12 @@ export function DataTable<TData, TValue>({
       : table.getFilteredRowModel().rows
     const columnsToExport = table
       .getVisibleLeafColumns()
-      .filter((column) =>
-        column.id !== 'select' &&
-        (column.columnDef.accessorKey || column.columnDef.accessorFn)
-      )
+      .filter((column) => {
+        if (column.id === 'select') return false
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const def = column.columnDef as any
+        return def.accessorKey || def.accessorFn
+      })
 
     const data = rowsToExport.map((row) => {
       const entry: Record<string, unknown> = {}

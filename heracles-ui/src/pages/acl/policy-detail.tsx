@@ -64,7 +64,7 @@ export function AclPolicyDetailPage() {
       label: policy.name,
       href: ROUTES.ACL_POLICY_DETAIL.replace(':id', policy.id),
       type: 'policy',
-      description: policy.description,
+      description: policy.description ?? undefined,
     })
   }, [addRecentItem, policy])
 

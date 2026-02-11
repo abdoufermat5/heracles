@@ -2,10 +2,17 @@ import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
-import { Save, ArrowLeft } from 'lucide-react'
+import { Save, ArrowLeft, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Form,
   FormControl,
@@ -16,16 +23,20 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { PageHeader, LoadingSpinner, PasswordRequirements } from '@/components/common'
-import { useCreateUser } from '@/hooks'
+import { useCreateUser, useTemplates } from '@/hooks'
 import { userCreateSchema, type UserCreateFormData } from '@/lib/schemas'
 import { AppError } from '@/lib/errors'
 import { ROUTES } from '@/config/constants'
 import { useDepartmentStore } from '@/stores'
+import { useState } from 'react'
 
 export function UserCreatePage() {
   const navigate = useNavigate()
   const createMutation = useCreateUser()
   const { currentBase } = useDepartmentStore()
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
+  const { data: templateList } = useTemplates(currentBase || undefined)
+  const templates = templateList?.templates ?? []
 
   const form = useForm<UserCreateFormData>({
     resolver: zodResolver(userCreateSchema),
@@ -52,7 +63,8 @@ export function UserCreatePage() {
       await createMutation.mutateAsync({
         ...userData,
         cn,
-        departmentDn: currentBase || undefined
+        departmentDn: currentBase || undefined,
+        templateId: selectedTemplateId || undefined,
       })
       toast.success(`User "${data.uid}" created successfully`)
       navigate(ROUTES.USERS)
@@ -76,6 +88,39 @@ export function UserCreatePage() {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          {templates.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Template
+                </CardTitle>
+                <CardDescription>
+                  Apply a template to pre-configure defaults and activate plugins
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Select
+                  value={selectedTemplateId}
+                  onValueChange={setSelectedTemplateId}
+                >
+                  <SelectTrigger className="w-full md:w-[320px]">
+                    <SelectValue placeholder="No template (manual setup)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">No template</SelectItem>
+                    {templates.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name}
+                        {t.description ? ` — ${t.description}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle>Basic Information</CardTitle>

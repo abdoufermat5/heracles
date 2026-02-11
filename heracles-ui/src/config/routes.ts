@@ -36,6 +36,13 @@ export const ROUTES = {
   ACL_MATRIX: '/acl/matrix',
   // Profile / Self-service
   PROFILE: '/profile',
+  // Administration
+  AUDIT: '/audit',
+  TEMPLATES: '/templates',
+  TEMPLATE_CREATE: '/templates/new',
+  TEMPLATE_DETAIL: '/templates/:id',
+  IMPORT: '/import',
+  EXPORT: '/export',
 } as const
 
 // Plugin Routes

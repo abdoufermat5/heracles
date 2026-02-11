@@ -13,7 +13,7 @@ import {
 import { PageHeader, CardSkeleton, ErrorDisplay } from '@/components/common'
 import { useHealth, useStats } from '@/hooks'
 import { useAuthStore, useDepartmentStore } from '@/stores'
-import { ROUTES, PLUGIN_ROUTES } from '@/config/constants'
+import { ROUTES } from '@/config/constants'
 
 export function DashboardPage() {
   const { user } = useAuthStore()
