@@ -20,9 +20,43 @@ from typing import Any, Optional
 
 import structlog
 
+import heracles_core
 from heracles_api.services.audit_service import get_audit_service
 
 logger = structlog.get_logger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Password hashing helper
+# ---------------------------------------------------------------------------
+
+# Known LDAP password scheme prefixes (case-insensitive check)
+_KNOWN_HASH_PREFIXES = (
+    "{ARGON2}", "{SSHA}", "{SSHA256}", "{SSHA512}",
+    "{SHA}", "{SHA256}", "{SHA512}", "{SMD5}", "{MD5}",
+    "{BCRYPT}", "{CRYPT}", "{LOCKED}",
+)
+
+
+def _is_already_hashed(value: str) -> bool:
+    """Return True if the password value already has an LDAP hash scheme prefix."""
+    upper = value.upper()
+    return any(upper.startswith(prefix) for prefix in _KNOWN_HASH_PREFIXES)
+
+
+async def _hash_password_if_needed(password: str, ldap_service: Any) -> str:
+    """Hash a password using the configured algorithm, unless it is already hashed.
+
+    This is the single enforcement point that ensures **no** import code-path
+    can write a cleartext password to LDAP.
+    """
+    if _is_already_hashed(password):
+        return password
+
+    from heracles_api.core.password_policy import get_password_hash_algorithm
+
+    algorithm = await get_password_hash_algorithm()
+    return ldap_service._hash_password(password, algorithm)
 
 
 # ---------------------------------------------------------------------------
@@ -331,7 +365,9 @@ async def import_users_from_csv(
                 if not rdn_attribute:
                     raise ValueError("rdn_attribute is required for custom object type")
                 if default_password and "userPassword" not in attrs:
-                    attrs["userPassword"] = default_password
+                    attrs["userPassword"] = await _hash_password_if_needed(
+                        default_password, ldap_service,
+                    )
                 await _create_generic_entry(
                     ldap_service, attrs, department_dn,
                     object_classes=object_classes,
@@ -344,7 +380,9 @@ async def import_users_from_csv(
 
                 if object_type == "user":
                     if default_password and "userPassword" not in attrs:
-                        attrs["userPassword"] = default_password
+                        attrs["userPassword"] = await _hash_password_if_needed(
+                            default_password, ldap_service,
+                        )
                     await _create_user_entry(ldap_service, attrs, department_dn)
                     entity_id = mapped.get("uid", "")
 
@@ -513,13 +551,23 @@ async def _create_user_entry(
     attrs: dict[str, str],
     department_dn: Optional[str],
 ) -> None:
-    """Create a user entry in LDAP."""
+    """Create a user entry in LDAP.
+
+    Safety-net: if ``userPassword`` is present and not yet hashed,
+    it will be hashed before writing to LDAP.
+    """
     from heracles_api.config import settings
     from heracles_api.core.ldap_config import get_full_users_dn
 
     uid = attrs.get("uid", "")
     base = department_dn or get_full_users_dn(settings.LDAP_BASE_DN)
     dn = f"uid={uid},{base}"
+
+    # --- Safety-net: hash any plaintext password before writing to LDAP ---
+    if "userPassword" in attrs:
+        attrs["userPassword"] = await _hash_password_if_needed(
+            attrs["userPassword"], ldap_service,
+        )
 
     object_classes = ["inetOrgPerson", "organizationalPerson", "person"]
 
@@ -718,6 +766,16 @@ async def import_from_ldif(
             continue
 
         try:
+            # --- Hash any plaintext userPassword in LDIF entries ---
+            if "userPassword" in entry:
+                pw_values = entry["userPassword"]
+                hashed_values = []
+                for pw in (pw_values if isinstance(pw_values, list) else [pw_values]):
+                    hashed_values.append(
+                        await _hash_password_if_needed(str(pw), ldap_service)
+                    )
+                entry["userPassword"] = hashed_values
+
             # Check if entry already exists
             existing = await ldap_service.get_by_dn(dn)
 
