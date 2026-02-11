@@ -33,6 +33,8 @@ export interface FormSelectProps<
     description?: string
     disabled?: boolean
     className?: string
+    /** When set, prepends a "None" option that maps to empty string. */
+    noneOption?: string
 }
 
 /**
@@ -63,7 +65,9 @@ export function FormSelect<
     description,
     disabled,
     className,
+    noneOption,
 }: FormSelectProps<TFieldValues, TName>) {
+    const SENTINEL = '__none__'
     return (
         <FormField
             control={control}
@@ -72,8 +76,11 @@ export function FormSelect<
                 <FormItem className={className}>
                     <FormLabel>{label}</FormLabel>
                     <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
+                        onValueChange={(val) =>
+                            field.onChange(noneOption && val === SENTINEL ? '' : val)
+                        }
+                        value={noneOption ? (field.value || SENTINEL) : field.value}
+                        defaultValue={noneOption ? (field.value || SENTINEL) : field.value}
                         disabled={disabled}
                     >
                         <FormControl>
@@ -82,6 +89,9 @@ export function FormSelect<
                             </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                            {noneOption && (
+                                <SelectItem value={SENTINEL}>{noneOption}</SelectItem>
+                            )}
                             {options.map((option) => (
                                 <SelectItem
                                     key={option.value}

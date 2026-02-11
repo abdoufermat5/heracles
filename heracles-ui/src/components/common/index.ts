@@ -42,7 +42,20 @@ export { DeleteDialog } from './dialogs'
 export { HostSelector } from './host-selector'
 
 // Forms
-export { TrustModeSection } from './forms'
+export {
+  TrustModeSection,
+  FormInput,
+  FormTextarea,
+  FormSelect,
+  FormSwitch,
+  FormPhotoUpload,
+  type FormInputProps,
+  type FormTextareaProps,
+  type FormSelectProps,
+  type SelectOption,
+  type FormSwitchProps,
+  type FormPhotoUploadProps,
+} from './forms'
 
 // Display
 export { ArrayBadges } from './array-badges'
