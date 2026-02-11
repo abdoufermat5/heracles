@@ -1,0 +1,130 @@
+# =============================================================================
+# Heracles Release Pipeline
+# =============================================================================
+# Triggered on version tags. Builds multi-arch Docker images, pushes to GHCR,
+# and creates a GitHub Release.
+# =============================================================================
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  REGISTRY: ghcr.io
+  API_IMAGE: ghcr.io/${{ github.repository_owner }}/heracles-api
+  UI_IMAGE: ghcr.io/${{ github.repository_owner }}/heracles-ui
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Build & Push Docker Images
+  # ---------------------------------------------------------------------------
+  build-images:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - component: api
+            dockerfile: docker/api/Dockerfile
+            image_env: API_IMAGE
+          - component: ui
+            dockerfile: docker/ui/Dockerfile
+            image_env: UI_IMAGE
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU (multi-arch)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env[matrix.image_env] }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ---------------------------------------------------------------------------
+  # Create GitHub Release
+  # ---------------------------------------------------------------------------
+  github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build-images
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          # Collect changelog entries from all components
+          {
+            echo "## Heracles v${{ steps.version.outputs.version }}"
+            echo ""
+            echo "### Docker Images"
+            echo '```bash'
+            echo "docker pull ${{ env.API_IMAGE }}:${{ steps.version.outputs.version }}"
+            echo "docker pull ${{ env.UI_IMAGE }}:${{ steps.version.outputs.version }}"
+            echo '```'
+            echo ""
+            for changelog in heracles-api/CHANGELOG.md heracles-ui/CHANGELOG.md heracles-core/CHANGELOG.md heracles_plugins/CHANGELOG.md; do
+              if [ -f "$changelog" ]; then
+                component=$(dirname "$changelog" | sed 's|/|-|g')
+                echo "### $component"
+                # Extract the latest version section
+                sed -n '/^## \[/,/^## \[/p' "$changelog" | head -50
+                echo ""
+              fi
+            done
+          } > /tmp/release-notes.md
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: /tmp/release-notes.md
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, 'rc') || contains(steps.version.outputs.version, 'beta') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

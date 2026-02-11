@@ -1,0 +1,243 @@
+# =============================================================================
+# Heracles CI Pipeline
+# =============================================================================
+# Runs on every push/PR to main. Tests all components and reports coverage.
+# =============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.11"
+  RUST_VERSION: "stable"
+  BUN_VERSION: "1"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Rust Core Tests
+  # ---------------------------------------------------------------------------
+  rust-tests:
+    name: Rust Core Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: heracles-core
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            heracles-core/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('heracles-core/Cargo.lock') }}
+
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+      - name: Clippy lints
+        run: cargo clippy -- -D warnings
+
+      - name: Run tests
+        run: cargo test --verbose
+
+  # ---------------------------------------------------------------------------
+  # Python Lint
+  # ---------------------------------------------------------------------------
+  python-lint:
+    name: Python Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install linters
+        run: pip install ruff==0.1.13 mypy==1.8.0
+
+      - name: Ruff check (API)
+        run: ruff check heracles-api/
+
+      - name: Ruff check (Plugins)
+        run: ruff check heracles_plugins/
+
+  # ---------------------------------------------------------------------------
+  # Python API Tests
+  # ---------------------------------------------------------------------------
+  python-tests:
+    name: Python API Tests
+    runs-on: ubuntu-latest
+    needs: python-lint
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: heracles_test
+          POSTGRES_USER: heracles
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U heracles"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://heracles:test_password@localhost:5432/heracles_test
+      REDIS_URL: redis://localhost:6379/0
+      REDIS_PASSWORD: ""
+      SECRET_KEY: test-secret-key-for-ci
+      TESTING: "true"
+      DEBUG: "true"
+      LDAP_URI: ldap://localhost:389
+      LDAP_BASE_DN: dc=heracles,dc=local
+      LDAP_BIND_DN: cn=admin,dc=heracles,dc=local
+      LDAP_BIND_PASSWORD: admin
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Rust (for heracles-core build)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('heracles-api/requirements.txt') }}
+
+      - name: Install dependencies
+        run: |
+          pip install -r heracles-api/requirements.txt
+          pip install maturin
+          cd heracles-core && maturin build --release && pip install target/wheels/*.whl && cd ..
+          pip install -e heracles_plugins/
+
+      - name: Run API tests with coverage
+        run: |
+          cd heracles-api
+          PYTHONPATH=/home/runner/work/heracles/heracles pytest -v --cov=heracles_api --cov-report=xml --cov-report=term-missing
+
+      - name: Run Plugin tests
+        run: |
+          cd heracles_plugins
+          PYTHONPATH=/home/runner/work/heracles/heracles pytest -v --cov=heracles_plugins --cov-report=xml --cov-report=term-missing
+
+      - name: Upload coverage
+        if: github.event_name == 'push'
+        uses: codecov/codecov-action@v4
+        with:
+          files: heracles-api/coverage.xml,heracles_plugins/coverage.xml
+          fail_ci_if_error: false
+
+  # ---------------------------------------------------------------------------
+  # TypeScript Lint & Build
+  # ---------------------------------------------------------------------------
+  ui-build:
+    name: UI Lint & Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: heracles-ui
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: ESLint
+        run: bun run lint
+
+      - name: TypeScript type-check & build
+        run: bun run build
+
+  # ---------------------------------------------------------------------------
+  # Security Audit
+  # ---------------------------------------------------------------------------
+  security-audit:
+    name: Dependency Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Python dependency audit
+        run: |
+          pip install pip-audit
+          pip-audit -r heracles-api/requirements.txt || true
+
+      - name: Rust dependency audit
+        run: |
+          cargo install cargo-audit
+          cd heracles-core && cargo audit || true
+
+  # ---------------------------------------------------------------------------
+  # Docker Build Test
+  # ---------------------------------------------------------------------------
+  docker-build:
+    name: Docker Build Test
+    runs-on: ubuntu-latest
+    needs: [rust-tests, python-tests, ui-build]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build API image (test only)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/api/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build UI image (test only)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/ui/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
