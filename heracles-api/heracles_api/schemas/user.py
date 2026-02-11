@@ -32,6 +32,11 @@ class UserCreate(UserBase):
         alias="departmentDn",
         description="Department DN (user will be created under ou=people within this department)"
     )
+    template_id: Optional[str] = Field(
+        None,
+        alias="templateId",
+        description="Optional template ID — applies defaults and activates plugins after creation",
+    )
 
 
 class UserUpdate(BaseModel):

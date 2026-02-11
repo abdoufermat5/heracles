@@ -26,6 +26,8 @@ from heracles_api.middleware.plugin_access import PluginAccessMiddleware
 from heracles_api.middleware.acl import AclMiddleware
 from heracles_api.middleware.https import HttpsRedirectMiddleware
 from heracles_api.middleware.csrf import CsrfMiddleware
+from heracles_api.services.audit_service import init_audit_service
+from heracles_api.services.template_service import init_template_service
 from heracles_api import __version__
 
 logger = structlog.get_logger(__name__)
@@ -73,6 +75,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             
             # Store session factory on app state for middleware access
             app.state.session_factory = session_factory
+
+            # Initialize audit service
+            init_audit_service(session_factory)
+            logger.info("audit_service_initialized")
+
+            # Initialize template service
+            init_template_service(session_factory)
+            logger.info("template_service_initialized")
         except Exception as e:
             logger.warning("config_service_init_failed", error=str(e))
     else:
@@ -225,6 +235,10 @@ app.add_middleware(PluginAccessMiddleware)
 
 # ACL middleware (loads user ACL into request.state)
 app.add_middleware(AclMiddleware)
+
+# Audit logging (runs after response — logs all POST/PUT/PATCH/DELETE)
+from heracles_api.middleware.audit import AuditMiddleware
+app.add_middleware(AuditMiddleware)
 
 # CSRF protection
 app.add_middleware(CsrfMiddleware)

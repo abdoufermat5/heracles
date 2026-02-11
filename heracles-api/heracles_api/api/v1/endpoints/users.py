@@ -175,6 +175,44 @@ async def create_user(
 
         logger.info("user_created", uid=user.uid, department_dn=user.department_dn, by=current_user.uid)
 
+        # Apply template plugin activations if a template was specified
+        if user.template_id:
+            try:
+                import uuid as _uuid
+                from heracles_api.services.template_service import get_template_service
+                from heracles_api.plugins.registry import plugin_registry
+                from heracles_api.services import get_ldap_service
+
+                tmpl_service = get_template_service()
+                tmpl = await tmpl_service.get_template(_uuid.UUID(user.template_id))
+                if tmpl and tmpl.pluginActivations:
+                    ldap = get_ldap_service()
+                    for plugin_name, plugin_config in tmpl.pluginActivations.items():
+                        try:
+                            tab_service = plugin_registry.get_service_for_plugin(plugin_name, "user")
+                            if tab_service:
+                                attrs = plugin_config if isinstance(plugin_config, dict) else {}
+                                await tab_service.activate(ldap, entry.dn, attrs)
+                                logger.info(
+                                    "template_plugin_activated",
+                                    plugin=plugin_name,
+                                    uid=user.uid,
+                                )
+                        except Exception as e:
+                            logger.warning(
+                                "template_plugin_activation_failed",
+                                plugin=plugin_name,
+                                uid=user.uid,
+                                error=str(e),
+                            )
+            except Exception as e:
+                logger.warning(
+                    "template_apply_failed",
+                    template_id=user.template_id,
+                    uid=user.uid,
+                    error=str(e),
+                )
+
         return _entry_to_response(entry, [])
         
     except LdapOperationError as e:

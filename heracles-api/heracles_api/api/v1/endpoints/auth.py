@@ -7,7 +7,7 @@ Handles user authentication (login, logout, password reset).
 
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, HTTPException, status, Response, Cookie, Depends
+from fastapi import APIRouter, HTTPException, status, Response, Cookie, Depends, Request
 
 from heracles_api.core.dependencies import (
     CurrentUser,
@@ -40,6 +40,7 @@ router = APIRouter()
 
 @router.post("/login", response_model=TokenResponse)
 async def login(
+    http_request: Request,
     request: LoginRequest,
     ldap: LdapDep,
     auth: AuthDep,
@@ -52,12 +53,37 @@ async def login(
     
     Sets HttpOnly cookies for session management.
     """
+    # Helper for client IP
+    def _client_ip() -> str | None:
+        fwd = http_request.headers.get("x-forwarded-for")
+        if fwd:
+            return fwd.split(",")[0].strip()
+        if http_request.client:
+            return http_request.client.host
+        return None
+
     try:
         # Authenticate with LDAP
         user = await user_repo.authenticate(request.username, request.password)
         
         if user is None:
             logger.warning("login_failed", username=request.username)
+            # Audit failed login
+            try:
+                from heracles_api.services.audit_service import get_audit_service
+                audit = get_audit_service()
+                await audit.log_action(
+                    actor_dn=f"uid={request.username},ou=people,{settings.LDAP_BASE_DN}",
+                    actor_name=request.username,
+                    action="login",
+                    entity_type="session",
+                    status="failure",
+                    error_message="Invalid username or password",
+                    ip_address=_client_ip(),
+                    user_agent=http_request.headers.get("user-agent"),
+                )
+            except Exception:
+                pass
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid username or password",
@@ -103,6 +129,23 @@ async def login(
         )
         
         logger.info("login_success", uid=uid, user_dn=user.dn)
+
+        # Audit successful login
+        try:
+            from heracles_api.services.audit_service import get_audit_service
+            audit = get_audit_service()
+            await audit.log_action(
+                actor_dn=user.dn,
+                actor_name=uid,
+                action="login",
+                entity_type="session",
+                entity_name=display_name,
+                ip_address=_client_ip(),
+                user_agent=http_request.headers.get("user-agent"),
+                status="success",
+            )
+        except Exception:
+            pass
         
         # Set cookies
         access_cookie = await auth.get_cookie_settings("access")

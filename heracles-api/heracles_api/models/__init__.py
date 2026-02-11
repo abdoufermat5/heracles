@@ -15,12 +15,14 @@ from heracles_api.models.acl import (
     AclPolicy,
     AclPolicyAttrRule,
 )
+from heracles_api.models.audit import AuditLog
 from heracles_api.models.config import (
     ConfigCategory,
     ConfigHistory,
     ConfigSetting,
     PluginConfig,
 )
+from heracles_api.models.template import UserTemplate
 
 __all__ = [
     "Base",
@@ -30,8 +32,10 @@ __all__ = [
     "AclPermission",
     "AclPolicy",
     "AclPolicyAttrRule",
+    "AuditLog",
     "ConfigCategory",
     "ConfigHistory",
     "ConfigSetting",
     "PluginConfig",
+    "UserTemplate",
 ]
