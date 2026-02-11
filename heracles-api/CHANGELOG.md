@@ -7,9 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1-rc] - 2026-02-11
+
 ### Added
+- **Phase 4 Complete**: Audit, templates, import/export, production hardening
+- Unified audit log system (`/api/v1/audit/logs`) with full filtering and pagination
+- User templates CRUD (`/api/v1/templates`) with variable interpolation and preview
+- CSV import with preview/validation (`/api/v1/import-export/import`)
+- CSV and LDIF export (`/api/v1/import-export/export`)
+- Multi-stage Docker build (image size: ~200MB, down from ~1.5GB)
+- Gunicorn production server with uvicorn workers
+- Database migrations for audit_logs and user_templates tables
+- Fire-and-forget audit logging with sensitive data masking
 - `/api/v1/version` endpoint exposing component versions
 - `minimum_api_version` field in `PluginInfo` for compatibility checking
+
+### Changed
+- Split requirements.txt into production and dev dependencies
+- Production Docker image runs as non-root user
+- Added healthcheck to API Dockerfile
+
+### Security
+- Sensitive field masking in audit logs (passwords, tokens, secrets)
+- Gunicorn worker recycling (max 1000 requests) to prevent memory leaks
 
 ## [0.8.0-beta] - 2026-02-04
 

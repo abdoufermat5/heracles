@@ -6,10 +6,10 @@
 
 | Component | Version | Tech |
 |-----------|---------|------|
-| heracles-core | 0.1.0 | Rust 1.75+ |
-| heracles-api | 0.8.0-beta | Python 3.11+ / FastAPI |
-| heracles-ui | 0.8.0-beta | React 18+ / TypeScript 5+ |
-| heracles-plugins | 0.8.0-beta | 7 plugins @ v1.0.0 |
+| heracles-core | 0.8.1-rc | Rust 1.75+ |
+| heracles-api | 0.8.1-rc | Python 3.11+ / FastAPI |
+| heracles-ui | 0.8.1-rc | React 18+ / TypeScript 5+ |
+| heracles-plugins | 0.8.1-rc | 7 plugins @ v1.0.0 |
 
 **Plugins:** posix, sudo, ssh, systems, dns, dhcp, mail (all operational)
 

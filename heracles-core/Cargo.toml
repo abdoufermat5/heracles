@@ -1,6 +1,6 @@
 [package]
 name = "heracles-core"
-version = "0.1.0"
+version = "0.8.1-rc"
 edition = "2021"
 authors = ["Heracles Team"]
 description = "Core library for Heracles LDAP identity management - LDAP operations, password hashing, schema validation"

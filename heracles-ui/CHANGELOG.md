@@ -7,8 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1-rc] - 2026-02-11
+
 ### Added
+- **Phase 4 Complete**: Audit, templates, import/export pages
+- Unified Audit Log page with entity type/action/status filters and CSV export
+- Templates management page (list, create, delete with JSON editor)
+- Import page with drag-and-drop CSV upload, preview table, and validation
+- Export page with CSV/LDIF format selection and department filtering
+- Administration sidebar section (Audit, Templates, Import, Export)
+- FormData upload support in API client
 - API compatibility check on startup with non-blocking warning
+
+### Changed
+- Sidebar reorganized with new Administration section
+- Routes configuration extended with audit, templates, import, export paths
 
 ## [0.8.0-beta] - 2026-02-04
 

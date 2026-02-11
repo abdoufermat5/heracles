@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "heracles_plugins"
-version = "0.8.0-beta"
+version = "0.8.1-rc"
 description = "Official plugins for Heracles Identity Management"
 readme = "README.md"
 license = {text = "GPL-2.0"}
