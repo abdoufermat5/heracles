@@ -29,6 +29,17 @@ router = APIRouter()
 
 def _entry_to_response(entry, groups: list[str] = None) -> UserResponse:
     """Convert LDAP entry to UserResponse."""
+    # Handle jpegPhoto binary → base64
+    photo_raw = entry.get_first("jpegPhoto")
+    if photo_raw:
+        import base64
+        if isinstance(photo_raw, bytes):
+            photo_b64 = base64.b64encode(photo_raw).decode("ascii")
+        else:
+            photo_b64 = str(photo_raw)
+    else:
+        photo_b64 = None
+
     return UserResponse(
         dn=entry.dn,
         uid=entry.get_first("uid", ""),
@@ -39,6 +50,30 @@ def _entry_to_response(entry, groups: list[str] = None) -> UserResponse:
         telephoneNumber=entry.get_first("telephoneNumber"),
         title=entry.get_first("title"),
         description=entry.get_first("description"),
+        # Personal
+        displayName=entry.get_first("displayName"),
+        labeledURI=entry.get_first("labeledURI"),
+        preferredLanguage=entry.get_first("preferredLanguage"),
+        jpegPhoto=photo_b64,
+        # Contact
+        mobile=entry.get_first("mobile"),
+        facsimileTelephoneNumber=entry.get_first("facsimileTelephoneNumber"),
+        # Address
+        street=entry.get_first("street"),
+        postalAddress=entry.get_first("postalAddress"),
+        l=entry.get_first("l"),
+        st=entry.get_first("st"),
+        postalCode=entry.get_first("postalCode"),
+        c=entry.get_first("c"),
+        roomNumber=entry.get_first("roomNumber"),
+        # Organization
+        o=entry.get_first("o"),
+        organizationalUnit=entry.get_first("ou"),
+        departmentNumber=entry.get_first("departmentNumber"),
+        employeeNumber=entry.get_first("employeeNumber"),
+        employeeType=entry.get_first("employeeType"),
+        manager=entry.get_first("manager"),
+        # Membership
         memberOf=groups or [],
     )
 
@@ -181,23 +216,27 @@ async def create_user(
                 import uuid as _uuid
                 from heracles_api.services.template_service import get_template_service
                 from heracles_api.plugins.registry import plugin_registry
-                from heracles_api.services import get_ldap_service
 
                 tmpl_service = get_template_service()
                 tmpl = await tmpl_service.get_template(_uuid.UUID(user.template_id))
                 if tmpl and tmpl.pluginActivations:
-                    ldap = get_ldap_service()
                     for plugin_name, plugin_config in tmpl.pluginActivations.items():
+                        tab_service = plugin_registry.get_service_for_plugin(plugin_name, "user")
+                        if not tab_service:
+                            logger.warning(
+                                "template_plugin_not_available",
+                                plugin=plugin_name,
+                                uid=user.uid,
+                            )
+                            continue
                         try:
-                            tab_service = plugin_registry.get_service_for_plugin(plugin_name, "user")
-                            if tab_service:
-                                attrs = plugin_config if isinstance(plugin_config, dict) else {}
-                                await tab_service.activate(ldap, entry.dn, attrs)
-                                logger.info(
-                                    "template_plugin_activated",
-                                    plugin=plugin_name,
-                                    uid=user.uid,
-                                )
+                            attrs = plugin_config if isinstance(plugin_config, dict) else {}
+                            await tab_service.activate(entry.dn, attrs)
+                            logger.info(
+                                "template_plugin_activated",
+                                plugin=plugin_name,
+                                uid=user.uid,
+                            )
                         except Exception as e:
                             logger.warning(
                                 "template_plugin_activation_failed",
@@ -464,3 +503,100 @@ async def get_user_lock_status(
     is_locked = await user_repo.is_locked(uid)
     
     return {"uid": uid, "locked": is_locked}
+
+
+# ---------------------------------------------------------------------------
+# Photo endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.put("/{uid}/photo", status_code=status.HTTP_204_NO_CONTENT)
+async def upload_user_photo(
+    uid: str,
+    current_user: CurrentUser,
+    guard: AclGuardDep,
+    user_repo: UserRepoDep,
+    photo: str = None,
+):
+    """
+    Upload or update user photo (jpegPhoto attribute).
+
+    Accepts a JSON body with base64-encoded JPEG data.
+    Max size: 512 KB after decoding.
+
+    Requires: user:write
+    """
+    import base64
+
+    entry = await user_repo.find_by_uid(uid)
+    if not entry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User '{uid}' not found",
+        )
+
+    guard.require(entry.dn, "user:write")
+
+    if not photo:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Photo data is required",
+        )
+
+    try:
+        raw = base64.b64decode(photo)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid base64 data",
+        )
+
+    if len(raw) > 512 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Photo exceeds 512 KB size limit",
+        )
+
+    try:
+        from heracles_api.services import get_ldap_service
+        ldap = get_ldap_service()
+        await ldap.modify(entry.dn, {"jpegPhoto": ("replace", [raw])})
+        logger.info("user_photo_updated", uid=uid, by=current_user.uid)
+    except LdapOperationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update photo: {e}",
+        )
+
+
+@router.delete("/{uid}/photo", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user_photo(
+    uid: str,
+    current_user: CurrentUser,
+    guard: AclGuardDep,
+    user_repo: UserRepoDep,
+):
+    """
+    Delete user photo.
+
+    Requires: user:write
+    """
+    entry = await user_repo.find_by_uid(uid)
+    if not entry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User '{uid}' not found",
+        )
+
+    guard.require(entry.dn, "user:write")
+
+    try:
+        from heracles_api.services import get_ldap_service
+        ldap = get_ldap_service()
+        await ldap.modify(entry.dn, {"jpegPhoto": ("delete", [])})
+        logger.info("user_photo_deleted", uid=uid, by=current_user.uid)
+    except LdapOperationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete photo: {e}",
+        )

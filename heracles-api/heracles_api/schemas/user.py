@@ -21,6 +21,28 @@ class UserBase(BaseModel):
     telephone_number: Optional[str] = Field(None, max_length=32, alias="telephoneNumber")
     title: Optional[str] = Field(None, max_length=64)
     description: Optional[str] = Field(None, max_length=256)
+    # Personal
+    display_name: Optional[str] = Field(None, max_length=128, alias="displayName")
+    labeled_uri: Optional[str] = Field(None, max_length=256, alias="labeledURI", description="Homepage URL")
+    preferred_language: Optional[str] = Field(None, max_length=16, alias="preferredLanguage")
+    # Contact
+    mobile: Optional[str] = Field(None, max_length=32, description="Mobile phone number")
+    facsimile_telephone_number: Optional[str] = Field(None, max_length=32, alias="facsimileTelephoneNumber", description="Fax number")
+    # Address
+    street: Optional[str] = Field(None, max_length=256)
+    postal_address: Optional[str] = Field(None, max_length=256, alias="postalAddress")
+    l: Optional[str] = Field(None, max_length=128, alias="l", description="City / Locality")
+    st: Optional[str] = Field(None, max_length=128, alias="st", description="State / Province")
+    postal_code: Optional[str] = Field(None, max_length=16, alias="postalCode")
+    c: Optional[str] = Field(None, max_length=2, alias="c", description="Country (2-letter code)")
+    room_number: Optional[str] = Field(None, max_length=64, alias="roomNumber")
+    # Organization
+    o: Optional[str] = Field(None, max_length=128, alias="o", description="Organization")
+    ou_field: Optional[str] = Field(None, max_length=128, alias="organizationalUnit", description="Organizational Unit label")
+    department_number: Optional[str] = Field(None, max_length=64, alias="departmentNumber")
+    employee_number: Optional[str] = Field(None, max_length=64, alias="employeeNumber")
+    employee_type: Optional[str] = Field(None, max_length=64, alias="employeeType")
+    manager: Optional[str] = Field(None, max_length=256, description="Manager DN")
 
 
 class UserCreate(UserBase):
@@ -48,6 +70,28 @@ class UserUpdate(BaseModel):
     telephone_number: Optional[str] = Field(None, max_length=32, alias="telephoneNumber")
     title: Optional[str] = Field(None, max_length=64)
     description: Optional[str] = Field(None, max_length=256)
+    # Personal
+    display_name: Optional[str] = Field(None, max_length=128, alias="displayName")
+    labeled_uri: Optional[str] = Field(None, max_length=256, alias="labeledURI")
+    preferred_language: Optional[str] = Field(None, max_length=16, alias="preferredLanguage")
+    # Contact
+    mobile: Optional[str] = Field(None, max_length=32)
+    facsimile_telephone_number: Optional[str] = Field(None, max_length=32, alias="facsimileTelephoneNumber")
+    # Address
+    street: Optional[str] = Field(None, max_length=256)
+    postal_address: Optional[str] = Field(None, max_length=256, alias="postalAddress")
+    l: Optional[str] = Field(None, max_length=128, alias="l")
+    st: Optional[str] = Field(None, max_length=128, alias="st")
+    postal_code: Optional[str] = Field(None, max_length=16, alias="postalCode")
+    c: Optional[str] = Field(None, max_length=2, alias="c")
+    room_number: Optional[str] = Field(None, max_length=64, alias="roomNumber")
+    # Organization
+    o: Optional[str] = Field(None, max_length=128, alias="o")
+    ou_field: Optional[str] = Field(None, max_length=128, alias="organizationalUnit")
+    department_number: Optional[str] = Field(None, max_length=64, alias="departmentNumber")
+    employee_number: Optional[str] = Field(None, max_length=64, alias="employeeNumber")
+    employee_type: Optional[str] = Field(None, max_length=64, alias="employeeType")
+    manager: Optional[str] = Field(None, max_length=256)
 
 
 class UserResponse(BaseModel):
@@ -61,6 +105,30 @@ class UserResponse(BaseModel):
     telephone_number: Optional[str] = Field(None, alias="telephoneNumber")
     title: Optional[str] = None
     description: Optional[str] = None
+    # Personal
+    display_name: Optional[str] = Field(None, alias="displayName")
+    labeled_uri: Optional[str] = Field(None, alias="labeledURI")
+    preferred_language: Optional[str] = Field(None, alias="preferredLanguage")
+    jpeg_photo: Optional[str] = Field(None, alias="jpegPhoto", description="Base64-encoded photo")
+    # Contact
+    mobile: Optional[str] = None
+    facsimile_telephone_number: Optional[str] = Field(None, alias="facsimileTelephoneNumber")
+    # Address
+    street: Optional[str] = None
+    postal_address: Optional[str] = Field(None, alias="postalAddress")
+    l: Optional[str] = Field(None, alias="l")
+    st: Optional[str] = Field(None, alias="st")
+    postal_code: Optional[str] = Field(None, alias="postalCode")
+    c: Optional[str] = Field(None, alias="c")
+    room_number: Optional[str] = Field(None, alias="roomNumber")
+    # Organization
+    o: Optional[str] = Field(None, alias="o")
+    ou_field: Optional[str] = Field(None, alias="organizationalUnit")
+    department_number: Optional[str] = Field(None, alias="departmentNumber")
+    employee_number: Optional[str] = Field(None, alias="employeeNumber")
+    employee_type: Optional[str] = Field(None, alias="employeeType")
+    manager: Optional[str] = None
+    # Membership
     member_of: List[str] = Field(default_factory=list, alias="memberOf")
     
     class Config:

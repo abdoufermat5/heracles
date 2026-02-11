@@ -39,8 +39,17 @@ class UserRepository:
     
     OBJECT_CLASSES = ["inetOrgPerson", "organizationalPerson", "person"]
     USER_ATTRIBUTES = [
-        "uid", "cn", "sn", "givenName", "mail", 
+        "uid", "cn", "sn", "givenName", "mail",
         "telephoneNumber", "title", "description",
+        # Personal
+        "displayName", "labeledURI", "preferredLanguage", "jpegPhoto",
+        # Contact
+        "mobile", "facsimileTelephoneNumber",
+        # Address
+        "street", "postalAddress", "l", "st", "postalCode", "c", "roomNumber",
+        # Organization
+        "o", "ou", "departmentNumber", "employeeNumber", "employeeType", "manager",
+        # Metadata
         "createTimestamp", "modifyTimestamp",
     ]
     # Include userPassword for lock status checks
@@ -90,6 +99,16 @@ class UserRepository:
     
     def _entry_to_dict(self, entry: LdapEntry) -> dict:
         """Convert LDAP entry to dictionary."""
+        photo_raw = entry.get_first("jpegPhoto")
+        if photo_raw:
+            import base64
+            if isinstance(photo_raw, bytes):
+                photo_b64 = base64.b64encode(photo_raw).decode("ascii")
+            else:
+                photo_b64 = str(photo_raw)
+        else:
+            photo_b64 = None
+
         return {
             "dn": entry.dn,
             "uid": entry.get_first("uid", ""),
@@ -100,6 +119,29 @@ class UserRepository:
             "telephoneNumber": entry.get_first("telephoneNumber"),
             "title": entry.get_first("title"),
             "description": entry.get_first("description"),
+            # Personal
+            "displayName": entry.get_first("displayName"),
+            "labeledURI": entry.get_first("labeledURI"),
+            "preferredLanguage": entry.get_first("preferredLanguage"),
+            "jpegPhoto": photo_b64,
+            # Contact
+            "mobile": entry.get_first("mobile"),
+            "facsimileTelephoneNumber": entry.get_first("facsimileTelephoneNumber"),
+            # Address
+            "street": entry.get_first("street"),
+            "postalAddress": entry.get_first("postalAddress"),
+            "l": entry.get_first("l"),
+            "st": entry.get_first("st"),
+            "postalCode": entry.get_first("postalCode"),
+            "c": entry.get_first("c"),
+            "roomNumber": entry.get_first("roomNumber"),
+            # Organization
+            "o": entry.get_first("o"),
+            "organizationalUnit": entry.get_first("ou"),
+            "departmentNumber": entry.get_first("departmentNumber"),
+            "employeeNumber": entry.get_first("employeeNumber"),
+            "employeeType": entry.get_first("employeeType"),
+            "manager": entry.get_first("manager"),
         }
     
     async def find_by_uid(self, uid: str) -> Optional[LdapEntry]:
@@ -232,6 +274,46 @@ class UserRepository:
             attrs["title"] = user.title
         if user.description:
             attrs["description"] = user.description
+        # Personal
+        if user.display_name:
+            attrs["displayName"] = user.display_name
+        if user.labeled_uri:
+            attrs["labeledURI"] = user.labeled_uri
+        if user.preferred_language:
+            attrs["preferredLanguage"] = user.preferred_language
+        # Contact
+        if user.mobile:
+            attrs["mobile"] = user.mobile
+        if user.facsimile_telephone_number:
+            attrs["facsimileTelephoneNumber"] = user.facsimile_telephone_number
+        # Address
+        if user.street:
+            attrs["street"] = user.street
+        if user.postal_address:
+            attrs["postalAddress"] = user.postal_address
+        if user.l:
+            attrs["l"] = user.l
+        if user.st:
+            attrs["st"] = user.st
+        if user.postal_code:
+            attrs["postalCode"] = user.postal_code
+        if user.c:
+            attrs["c"] = user.c
+        if user.room_number:
+            attrs["roomNumber"] = user.room_number
+        # Organization
+        if user.o:
+            attrs["o"] = user.o
+        if user.ou_field:
+            attrs["ou"] = user.ou_field
+        if user.department_number:
+            attrs["departmentNumber"] = user.department_number
+        if user.employee_number:
+            attrs["employeeNumber"] = user.employee_number
+        if user.employee_type:
+            attrs["employeeType"] = user.employee_type
+        if user.manager:
+            attrs["manager"] = user.manager
         
         await self.ldap.add(
             dn=user_dn,
@@ -271,6 +353,28 @@ class UserRepository:
             "telephoneNumber": "telephoneNumber",
             "title": "title",
             "description": "description",
+            # Personal
+            "displayName": "displayName",
+            "labeledURI": "labeledURI",
+            "preferredLanguage": "preferredLanguage",
+            # Contact
+            "mobile": "mobile",
+            "facsimileTelephoneNumber": "facsimileTelephoneNumber",
+            # Address
+            "street": "street",
+            "postalAddress": "postalAddress",
+            "l": "l",
+            "st": "st",
+            "postalCode": "postalCode",
+            "c": "c",
+            "roomNumber": "roomNumber",
+            # Organization
+            "o": "o",
+            "organizationalUnit": "ou",
+            "departmentNumber": "departmentNumber",
+            "employeeNumber": "employeeNumber",
+            "employeeType": "employeeType",
+            "manager": "manager",
         }
         
         for field, ldap_attr in attr_mapping.items():
