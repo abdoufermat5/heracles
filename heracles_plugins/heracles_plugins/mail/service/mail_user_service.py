@@ -492,7 +492,15 @@ class MailUserService(TabService):
             return None
 
     async def activate(self, dn: str, data: Any = None) -> MailAccountRead:
-        """Activate mail on a user."""
+        """Activate mail on a user.
+
+        Accepts a ``MailAccountCreate``, a raw dict (e.g. from a template
+        plugin-activation config), or ``None``.
+
+        Template configs use keys like ``mailDomain``, ``mailQuota``,
+        ``mailServer`` — these are translated to the proper create-schema
+        fields automatically.
+        """
         match = re.search(r"uid=([^,]+)", dn)
         if not match:
             raise ValueError("Invalid user DN")
@@ -500,10 +508,54 @@ class MailUserService(TabService):
         uid = match.group(1)
 
         if data is None:
-            raise ValueError("Mail activation data required")
+            data = {}
 
         if isinstance(data, dict):
-            activate_data = MailAccountCreate(**data)
+            # Translate template-style keys to MailAccountCreate fields
+            create_dict: Dict[str, Any] = {}
+
+            # Resolve mail address:
+            #  1. Explicit "mail" in template config → use it
+            #  2. Read from the user's existing LDAP entry (set via the user form)
+            #  3. Auto-generate from uid + mailDomain (template key)
+            #  4. Last resort: uid@default_domain
+            if "mail" in data:
+                create_dict["mail"] = data["mail"]
+            else:
+                # Try to read the user's existing mail from their LDAP entry
+                existing_mail = None
+                try:
+                    entry = await self._ldap.get_by_dn(dn, attributes=["mail"])
+                    if entry:
+                        raw = entry.get("mail")
+                        if isinstance(raw, list) and raw:
+                            existing_mail = raw[0]
+                        elif isinstance(raw, str) and raw:
+                            existing_mail = raw
+                except Exception:
+                    pass
+
+                if existing_mail:
+                    create_dict["mail"] = existing_mail
+                elif "mailDomain" in data:
+                    create_dict["mail"] = f"{uid}@{data['mailDomain']}"
+                else:
+                    domain = self._config.get("default_mail_domain", "localdomain")
+                    create_dict["mail"] = f"{uid}@{domain}"
+
+            # Map template keys → create-schema aliases
+            if "mailServer" in data:
+                create_dict["mailServer"] = data["mailServer"]
+            if "mailQuota" in data:
+                create_dict["quotaMb"] = data["mailQuota"]
+            elif "quotaMb" in data:
+                create_dict["quotaMb"] = data["quotaMb"]
+            if "alternateAddresses" in data:
+                create_dict["alternateAddresses"] = data["alternateAddresses"]
+            if "forwardingAddresses" in data:
+                create_dict["forwardingAddresses"] = data["forwardingAddresses"]
+
+            activate_data = MailAccountCreate(**create_dict)
         elif isinstance(data, MailAccountCreate):
             activate_data = data
         else:
