@@ -5,7 +5,7 @@ export interface TemplateResponse {
   name: string
   description: string | null
   defaults: Record<string, unknown>
-  pluginActivations: Record<string, Record<string, unknown>> | null
+  plugin_activations: Record<string, Record<string, unknown>> | null
   variables: Record<string, { default?: string; description?: string }> | null
   department_dn: string | null
   display_order: number

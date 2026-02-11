@@ -46,4 +46,12 @@ export const usersApi = {
   unlock: async (uid: string): Promise<void> => {
     await apiClient.post(`/users/${uid}/unlock`)
   },
+
+  uploadPhoto: async (uid: string, photoBase64: string): Promise<void> => {
+    await apiClient.put(`/users/${uid}/photo`, { photo: photoBase64 })
+  },
+
+  deletePhoto: async (uid: string): Promise<void> => {
+    await apiClient.delete(`/users/${uid}/photo`)
+  },
 }

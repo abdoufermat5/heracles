@@ -17,6 +17,28 @@ export const userSchema = z.object({
   telephoneNumber: z.string().optional(),
   title: z.string().optional(),
   description: z.string().optional(),
+  // Personal
+  displayName: z.string().optional(),
+  labeledURI: z.string().url('Invalid URL').optional().or(z.literal('')),
+  preferredLanguage: z.string().optional(),
+  // Contact
+  mobile: z.string().optional(),
+  facsimileTelephoneNumber: z.string().optional(),
+  // Address
+  street: z.string().optional(),
+  postalAddress: z.string().optional(),
+  l: z.string().optional(),
+  st: z.string().optional(),
+  postalCode: z.string().optional(),
+  c: z.string().max(2, 'Country code must be 2 characters').optional().or(z.literal('')),
+  roomNumber: z.string().optional(),
+  // Organization
+  o: z.string().optional(),
+  organizationalUnit: z.string().optional(),
+  departmentNumber: z.string().optional(),
+  employeeNumber: z.string().optional(),
+  employeeType: z.string().optional(),
+  manager: z.string().optional(),
 })
 
 export const userCreateSchema = userSchema.extend({
@@ -139,4 +161,31 @@ export const attrRuleCreateSchema = z.object({
 })
 
 export type AttrRuleCreateFormData = z.infer<typeof attrRuleCreateSchema>
+
+// Template schemas
+const jsonString = z.string().refine(
+  (val) => {
+    if (!val.trim()) return true
+    try { JSON.parse(val); return true } catch { return false }
+  },
+  { message: 'Invalid JSON' },
+)
+
+export const templateCreateSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(128),
+  description: z.string().max(512).optional(),
+  defaults: jsonString.refine((val) => val.trim().length > 0, { message: 'Defaults JSON is required' }),
+})
+
+export const templateUpdateSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(128),
+  description: z.string().max(512).optional(),
+  defaults: jsonString.refine((val) => val.trim().length > 0, { message: 'Defaults JSON is required' }),
+  variables: jsonString,
+  departmentDn: z.string().optional(),
+  displayOrder: z.coerce.number().int().min(0).default(0),
+})
+
+export type TemplateCreateFormData = z.infer<typeof templateCreateSchema>
+export type TemplateUpdateFormData = z.infer<typeof templateUpdateSchema>
 

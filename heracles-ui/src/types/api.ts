@@ -11,10 +11,34 @@ export interface User {
   telephoneNumber?: string
   title?: string
   description?: string
+  // Personal
+  labeledURI?: string
+  preferredLanguage?: string
+  jpegPhoto?: string
+  // Contact
+  mobile?: string
+  facsimileTelephoneNumber?: string
+  // Address
+  street?: string
+  postalAddress?: string
+  l?: string
+  st?: string
+  postalCode?: string
+  c?: string
+  roomNumber?: string
+  // Organization
+  o?: string
+  organizationalUnit?: string
+  departmentNumber?: string
+  employeeNumber?: string
+  employeeType?: string
+  manager?: string
+  // POSIX (from plugin)
   uidNumber?: number
   gidNumber?: number
   homeDirectory?: string
   loginShell?: string
+  // Membership & metadata
   memberOf?: string[]
   objectClass?: string[]
   createTimestamp?: string
@@ -79,10 +103,34 @@ export interface UserCreateData {
   telephoneNumber?: string
   title?: string
   description?: string
+  // Personal
+  displayName?: string
+  labeledURI?: string
+  preferredLanguage?: string
+  // Contact
+  mobile?: string
+  facsimileTelephoneNumber?: string
+  // Address
+  street?: string
+  postalAddress?: string
+  l?: string
+  st?: string
+  postalCode?: string
+  c?: string
+  roomNumber?: string
+  // Organization
+  o?: string
+  organizationalUnit?: string
+  departmentNumber?: string
+  employeeNumber?: string
+  employeeType?: string
+  manager?: string
+  // POSIX (plugin)
   uidNumber?: number
   gidNumber?: number
   homeDirectory?: string
   loginShell?: string
+  // Auth
   password: string
   departmentDn?: string
   templateId?: string
@@ -95,6 +143,29 @@ export interface UserUpdateData {
   telephoneNumber?: string
   title?: string
   description?: string
+  // Personal
+  displayName?: string
+  labeledURI?: string
+  preferredLanguage?: string
+  // Contact
+  mobile?: string
+  facsimileTelephoneNumber?: string
+  // Address
+  street?: string
+  postalAddress?: string
+  l?: string
+  st?: string
+  postalCode?: string
+  c?: string
+  roomNumber?: string
+  // Organization
+  o?: string
+  organizationalUnit?: string
+  departmentNumber?: string
+  employeeNumber?: string
+  employeeType?: string
+  manager?: string
+  // POSIX (plugin)
   uidNumber?: number
   gidNumber?: number
   homeDirectory?: string
