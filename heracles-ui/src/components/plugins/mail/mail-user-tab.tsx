@@ -8,9 +8,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import {
   Mail,
-  Power,
   PowerOff,
-  AlertTriangle,
   Palmtree,
   Forward,
   AtSign,
@@ -30,7 +28,6 @@ import {
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -80,6 +77,7 @@ import {
   formatDate,
 } from '@/types/mail'
 import type { DeliveryMode, MailAccountCreate } from '@/types/mail'
+import { PluginTabSkeleton, PluginTabError, PluginTabInactive } from '@/components/plugins/plugin-tab-shell'
 
 interface MailUserTabProps {
   uid: string
@@ -268,44 +266,17 @@ export function MailUserTab({ uid, displayName }: MailUserTabProps) {
   }
 
   if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-4 w-72" />
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </CardContent>
-      </Card>
-    )
+    return <PluginTabSkeleton />
   }
 
   if (error) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Mail className="h-5 w-5" />
-            Mail Account
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2 text-destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <span>Failed to load mail status</span>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-4"
-            onClick={() => refetch()}
-          >
-            Retry
-          </Button>
-        </CardContent>
-      </Card>
+      <PluginTabError
+        icon={Mail}
+        title="Mail Account"
+        message="Failed to load mail status"
+        onRetry={() => refetch()}
+      />
     )
   }
 
@@ -313,34 +284,15 @@ export function MailUserTab({ uid, displayName }: MailUserTabProps) {
   if (!mailStatus?.active) {
     return (
       <>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5" />
-              Mail Account
-            </CardTitle>
-            <CardDescription>
-              Mail account is not enabled for this user.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <Mail className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">Mail Not Enabled</h3>
-              <p className="text-muted-foreground mb-6 max-w-md">
-                Enable mail to configure email settings, forwarding, and
-                vacation auto-reply for this user.
-              </p>
-              <Button
-                onClick={() => setShowActivateDialog(true)}
-                disabled={activateMutation.isPending}
-              >
-                <Power className="mr-2 h-4 w-4" />
-                Enable Mail Account
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <PluginTabInactive
+          icon={Mail}
+          title="Mail Account"
+          heading="Mail Not Enabled"
+          description="Enable mail to configure email settings, forwarding, and vacation auto-reply for this user."
+          activateLabel="Enable Mail Account"
+          onActivate={() => setShowActivateDialog(true)}
+          isActivating={activateMutation.isPending}
+        />
 
         {/* Activate Dialog */}
         <Dialog open={showActivateDialog} onOpenChange={setShowActivateDialog}>

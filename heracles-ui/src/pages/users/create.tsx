@@ -16,19 +16,79 @@ import {
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
 import { PageHeader, LoadingSpinner, PasswordRequirements } from '@/components/common'
+import { UserFormFields } from '@/components/users'
 import { useCreateUser, useTemplates } from '@/hooks'
 import { userCreateSchema, type UserCreateFormData } from '@/lib/schemas'
 import { AppError } from '@/lib/errors'
 import { ROUTES } from '@/config/constants'
 import { useDepartmentStore } from '@/stores'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+
+/** Maps LDAP attribute names from template defaults to form field names */
+const TEMPLATE_FIELD_MAP: Record<string, keyof UserCreateFormData> = {
+  uid: 'uid',
+  givenName: 'givenName',
+  sn: 'sn',
+  mail: 'mail',
+  telephoneNumber: 'telephoneNumber',
+  title: 'title',
+  description: 'description',
+  displayName: 'displayName',
+  labeledURI: 'labeledURI',
+  preferredLanguage: 'preferredLanguage',
+  mobile: 'mobile',
+  facsimileTelephoneNumber: 'facsimileTelephoneNumber',
+  street: 'street',
+  postalAddress: 'postalAddress',
+  l: 'l',
+  st: 'st',
+  postalCode: 'postalCode',
+  c: 'c',
+  roomNumber: 'roomNumber',
+  o: 'o',
+  ou: 'organizationalUnit',
+  organizationalUnit: 'organizationalUnit',
+  departmentNumber: 'departmentNumber',
+  employeeNumber: 'employeeNumber',
+  employeeType: 'employeeType',
+  manager: 'manager',
+}
+
+const EMPTY_DEFAULTS: UserCreateFormData = {
+  uid: '',
+  givenName: '',
+  sn: '',
+  mail: '',
+  telephoneNumber: '',
+  title: '',
+  description: '',
+  displayName: '',
+  labeledURI: '',
+  preferredLanguage: '',
+  mobile: '',
+  facsimileTelephoneNumber: '',
+  street: '',
+  postalAddress: '',
+  l: '',
+  st: '',
+  postalCode: '',
+  c: '',
+  roomNumber: '',
+  o: '',
+  organizationalUnit: '',
+  departmentNumber: '',
+  employeeNumber: '',
+  employeeType: '',
+  manager: '',
+  password: '',
+  confirmPassword: '',
+}
 
 export function UserCreatePage() {
   const navigate = useNavigate()
@@ -37,21 +97,51 @@ export function UserCreatePage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
   const { data: templateList } = useTemplates(currentBase || undefined)
   const templates = templateList?.templates ?? []
+  const prevTemplateId = useRef<string>('')
 
   const form = useForm<UserCreateFormData>({
     resolver: zodResolver(userCreateSchema),
-    defaultValues: {
-      uid: '',
-      givenName: '',
-      sn: '',
-      mail: '',
-      telephoneNumber: '',
-      title: '',
-      description: '',
-      password: '',
-      confirmPassword: '',
-    },
+    defaultValues: EMPTY_DEFAULTS,
   })
+
+  // Pre-fill form fields when a template is selected
+  useEffect(() => {
+    if (selectedTemplateId === prevTemplateId.current) return
+    prevTemplateId.current = selectedTemplateId
+
+    if (!selectedTemplateId) {
+      // Cleared template — reset to blank (preserve password fields)
+      const pw = form.getValues('password')
+      const cpw = form.getValues('confirmPassword')
+      form.reset({ ...EMPTY_DEFAULTS, password: pw, confirmPassword: cpw })
+      return
+    }
+
+    const tmpl = templates.find((t) => t.id === selectedTemplateId)
+    if (!tmpl) return
+
+    // Start from blank defaults
+    const values: Record<string, string> = {}
+    for (const [ldapAttr, val] of Object.entries(tmpl.defaults)) {
+      if (ldapAttr === 'objectClasses' || ldapAttr === 'objectClass') continue
+      const formField = TEMPLATE_FIELD_MAP[ldapAttr]
+      if (formField && typeof val === 'string') {
+        values[formField] = val
+      }
+    }
+
+    // Apply to form — keep password untouched
+    const pw = form.getValues('password')
+    const cpw = form.getValues('confirmPassword')
+    form.reset({
+      ...EMPTY_DEFAULTS,
+      ...values,
+      password: pw,
+      confirmPassword: cpw,
+    })
+
+    toast.success(`Template "${tmpl.name}" applied`)
+  }, [selectedTemplateId, templates, form])
 
   const onSubmit = async (data: UserCreateFormData) => {
     try {
@@ -101,14 +191,14 @@ export function UserCreatePage() {
               </CardHeader>
               <CardContent>
                 <Select
-                  value={selectedTemplateId}
-                  onValueChange={setSelectedTemplateId}
+                  value={selectedTemplateId || '__none__'}
+                  onValueChange={(val) => setSelectedTemplateId(val === '__none__' ? '' : val)}
                 >
                   <SelectTrigger className="w-full md:w-[320px]">
                     <SelectValue placeholder="No template (manual setup)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No template</SelectItem>
+                    <SelectItem value="__none__">No template</SelectItem>
                     {templates.map((t) => (
                       <SelectItem key={t.id} value={t.id}>
                         {t.name}
@@ -126,91 +216,8 @@ export function UserCreatePage() {
               <CardTitle>Basic Information</CardTitle>
               <CardDescription>User identity and contact information</CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="uid"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Username *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="jdoe" {...field} />
-                    </FormControl>
-                    <FormDescription>Unique login identifier</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="mail"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="john.doe@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="givenName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>First Name *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="John" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="sn"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Last Name *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Doe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="telephoneNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone</FormLabel>
-                    <FormControl>
-                      <Input placeholder="+1 234 567 8900" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Job Title</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Software Engineer" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <CardContent>
+              <UserFormFields control={form.control} mode="create" />
             </CardContent>
           </Card>
 

@@ -4,26 +4,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 import { Save, ArrowLeft, Building2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { PageHeader, LoadingSpinner } from '@/components/common'
+import { Form } from '@/components/ui/form'
+import { PageHeader, LoadingSpinner, FormInput, FormTextarea, FormSelect } from '@/components/common'
 import { useCreateDepartment, useDepartmentTree } from '@/hooks'
 import { departmentCreateSchema, type DepartmentCreateFormData } from '@/lib/schemas'
 import { ROUTES } from '@/config/routes'
@@ -103,102 +86,48 @@ export function DepartmentCreatePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
-              <FormField
+              <FormInput
                 control={form.control}
                 name="ou"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Engineering" {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      Unique identifier for the department
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                label="Name *"
+                placeholder="Engineering"
+                description="Unique identifier for the department"
               />
 
-              <FormField
+              <FormSelect
                 control={form.control}
                 name="parentDn"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Parent Department</FormLabel>
-                    <Select
-                      onValueChange={(val) => field.onChange(val === "__root__" ? "" : val)}
-                      defaultValue={field.value || "__root__"}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Root (no parent)" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="__root__">Root (no parent)</SelectItem>
-                        {parentOptions.map((opt) => (
-                          <SelectItem key={opt.dn} value={opt.dn}>
-                            {opt.path}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      Optional parent department for hierarchy
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                label="Parent Department"
+                noneOption="Root (no parent)"
+                options={parentOptions.map((opt) => ({
+                  value: opt.dn,
+                  label: opt.path,
+                }))}
+                placeholder="Root (no parent)"
+                description="Optional parent department for hierarchy"
               />
 
-              <FormField
+              <FormTextarea
                 control={form.control}
                 name="description"
-                render={({ field }) => (
-                  <FormItem className="md:col-span-2">
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Enter a description for this department..."
-                        className="resize-none"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                label="Description"
+                placeholder="Enter a description for this department..."
+                className="md:col-span-2"
               />
 
-              <FormField
+              <FormSelect
                 control={form.control}
                 name="hrcDepartmentCategory"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Category</FormLabel>
-                    <Select
-                      onValueChange={(val) => field.onChange(val === "__none__" ? "" : val)}
-                      defaultValue={field.value || "__none__"}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a category" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="__none__">None</SelectItem>
-                        <SelectItem value="division">Division</SelectItem>
-                        <SelectItem value="team">Team</SelectItem>
-                        <SelectItem value="project">Project</SelectItem>
-                        <SelectItem value="location">Location</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      Type of organizational unit
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                label="Category"
+                noneOption="None"
+                options={[
+                  { value: 'division', label: 'Division' },
+                  { value: 'team', label: 'Team' },
+                  { value: 'project', label: 'Project' },
+                  { value: 'location', label: 'Location' },
+                ]}
+                description="Type of organizational unit"
+                placeholder="Select a category"
               />
             </CardContent>
           </Card>

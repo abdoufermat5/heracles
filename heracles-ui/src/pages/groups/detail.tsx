@@ -18,12 +18,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import {
   Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
 } from '@/components/ui/form'
+import { FormInput } from '@/components/common'
 import { Label } from '@/components/ui/label'
 import {
   Dialog,
@@ -192,18 +188,10 @@ export function GroupDetailPage() {
                         <Input value={group.cn} disabled className="mt-2" />
                       </div>
 
-                      <FormField
+                      <FormInput
                         control={form.control}
                         name="description"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Description</FormLabel>
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
+                        label="Description"
                       />
                     </CardContent>
                   </Card>

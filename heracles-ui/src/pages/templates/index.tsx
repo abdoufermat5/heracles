@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import {
   FileText,
   Plus,
@@ -19,11 +21,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
+import { Form } from '@/components/ui/form'
 import { toast } from 'sonner'
+import { FormInput, FormTextarea } from '@/components/common'
 import { templatesApi, type TemplateCreate, type TemplateResponse } from '@/lib/api/templates'
+import { templateCreateSchema, type TemplateCreateFormData } from '@/lib/schemas'
 import { ROUTES } from '@/config/constants'
 
 export function TemplatesListPage() {
@@ -32,10 +34,14 @@ export function TemplatesListPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
-  // Form state for create dialog
-  const [formName, setFormName] = useState('')
-  const [formDesc, setFormDesc] = useState('')
-  const [formDefaults, setFormDefaults] = useState('{\n  "objectClasses": ["inetOrgPerson"],\n  "loginShell": "/bin/bash",\n  "homeDirectory": "/home/{{uid}}"\n}')
+  const form = useForm<TemplateCreateFormData>({
+    resolver: zodResolver(templateCreateSchema),
+    defaultValues: {
+      name: '',
+      description: '',
+      defaults: '{\n  "objectClasses": ["inetOrgPerson"],\n  "loginShell": "/bin/bash",\n  "homeDirectory": "/home/{{uid}}"\n}',
+    },
+  })
 
   const { data, isLoading } = useQuery({
     queryKey: ['templates'],
@@ -47,8 +53,7 @@ export function TemplatesListPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['templates'] })
       setCreateOpen(false)
-      setFormName('')
-      setFormDesc('')
+      form.reset()
       toast.success('Template created')
     },
     onError: (err: Error) => {
@@ -65,10 +70,10 @@ export function TemplatesListPage() {
     },
   })
 
-  const handleCreate = () => {
+  const handleCreate = (data: TemplateCreateFormData) => {
     try {
-      const defaults = JSON.parse(formDefaults)
-      createMutation.mutate({ name: formName, description: formDesc || undefined, defaults })
+      const defaults = JSON.parse(data.defaults)
+      createMutation.mutate({ name: data.name, description: data.description || undefined, defaults })
     } catch {
       toast.error('Invalid JSON in defaults')
     }
@@ -97,41 +102,25 @@ export function TemplatesListPage() {
                 Define a reusable template with default values and variable placeholders like {'{{uid}}'}.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  placeholder="e.g., Standard Employee"
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleCreate)} className="space-y-4 py-4">
+                <FormInput control={form.control} name="name" label="Name" placeholder="e.g., Standard Employee" />
+                <FormInput control={form.control} name="description" label="Description" placeholder="Optional description" />
+                <FormTextarea
+                  control={form.control}
+                  name="defaults"
+                  label="Default Values (JSON)"
+                  rows={8}
+                  className="font-mono text-sm"
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="desc">Description</Label>
-                <Input
-                  id="desc"
-                  value={formDesc}
-                  onChange={(e) => setFormDesc(e.target.value)}
-                  placeholder="Optional description"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="defaults">Default Values (JSON)</Label>
-                <Textarea
-                  id="defaults"
-                  value={formDefaults}
-                  onChange={(e) => setFormDefaults(e.target.value)}
-                  className="font-mono text-sm min-h-[200px]"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-              <Button onClick={handleCreate} disabled={!formName || createMutation.isPending}>
-                Create
-              </Button>
-            </DialogFooter>
+                <DialogFooter>
+                  <Button variant="outline" type="button" onClick={() => setCreateOpen(false)}>Cancel</Button>
+                  <Button type="submit" disabled={createMutation.isPending}>
+                    Create
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
       </div>

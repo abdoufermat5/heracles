@@ -19,11 +19,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import {
   Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
 } from '@/components/ui/form'
 import { Label } from '@/components/ui/label'
 import {
@@ -35,6 +30,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { PageHeader, DetailPageSkeleton, ErrorDisplay, LoadingSpinner, ConfirmDialog, PasswordRequirements, DataTable, SortableHeader, type ColumnDef } from '@/components/common'
+import { UserFormFields } from '@/components/users'
 import { EntityPermissionsTab } from '@/components/acl'
 import { useUser, useUpdateUser, useDeleteUser, useSetUserPassword, useUserLockStatus, useLockUser, useUnlockUser, usePluginTabs } from '@/hooks'
 import { usePluginStore, useRecentStore } from '@/stores'
@@ -117,6 +113,24 @@ export function UserDetailPage() {
       telephoneNumber: user.telephoneNumber || '',
       title: user.title || '',
       description: user.description || '',
+      displayName: user.displayName || '',
+      labeledURI: user.labeledURI || '',
+      preferredLanguage: user.preferredLanguage || '',
+      mobile: user.mobile || '',
+      facsimileTelephoneNumber: user.facsimileTelephoneNumber || '',
+      street: user.street || '',
+      postalAddress: user.postalAddress || '',
+      l: user.l || '',
+      st: user.st || '',
+      postalCode: user.postalCode || '',
+      c: user.c || '',
+      roomNumber: user.roomNumber || '',
+      o: user.o || '',
+      organizationalUnit: user.organizationalUnit || '',
+      departmentNumber: user.departmentNumber || '',
+      employeeNumber: user.employeeNumber || '',
+      employeeType: user.employeeType || '',
+      manager: user.manager || '',
     } : undefined,
   })
 
@@ -188,13 +202,12 @@ export function UserDetailPage() {
     try {
       // Convert empty strings to undefined for optional fields
       // This ensures LDAP deletes the attribute rather than setting it to empty
-      const cleanedData = {
-        ...data,
-        mail: data.mail || undefined,
-        telephoneNumber: data.telephoneNumber || undefined,
-        title: data.title || undefined,
-        description: data.description || undefined,
-      }
+      const cleanedData = Object.fromEntries(
+        Object.entries(data).map(([key, value]) => [
+          key,
+          (typeof value === 'string' && value === '') ? undefined : value,
+        ])
+      )
       await updateMutation.mutateAsync(cleanedData)
       toast.success('User updated successfully')
     } catch (error) {
@@ -330,81 +343,12 @@ export function UserDetailPage() {
                     <CardHeader>
                       <CardTitle>Basic Information</CardTitle>
                     </CardHeader>
-                    <CardContent className="grid gap-4 md:grid-cols-2">
-                      <div>
+                    <CardContent>
+                      <div className="mb-4">
                         <Label>Username</Label>
                         <Input value={user.uid} disabled className="mt-2" />
                       </div>
-
-                      <FormField
-                        control={form.control}
-                        name="mail"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Email</FormLabel>
-                            <FormControl>
-                              <Input type="email" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="givenName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>First Name *</FormLabel>
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="sn"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Last Name *</FormLabel>
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="telephoneNumber"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Phone</FormLabel>
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="title"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Job Title</FormLabel>
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      <UserFormFields control={form.control} mode="edit" />
                     </CardContent>
                   </Card>
 

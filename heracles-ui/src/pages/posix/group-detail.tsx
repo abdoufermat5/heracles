@@ -24,12 +24,8 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
 } from '@/components/ui/form'
+import { FormInput } from '@/components/common'
 import {
   Dialog,
   DialogContent,
@@ -263,18 +259,11 @@ export function PosixGroupDetailPage() {
                   </p>
                 </div>
 
-                <FormField
+                <FormInput
                   control={editForm.control}
                   name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Group description" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  label="Description"
+                  placeholder="Group description"
                 />
 
                 {/* System Trust Section - Using shared component */}
@@ -362,18 +351,11 @@ export function PosixGroupDetailPage() {
               onSubmit={addMemberForm.handleSubmit(handleAddMember)}
               className="space-y-4"
             >
-              <FormField
+              <FormInput
                 control={addMemberForm.control}
                 name="uid"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>User ID (uid)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="jdoe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                label="User ID (uid)"
+                placeholder="jdoe"
               />
               <DialogFooter>
                 <Button

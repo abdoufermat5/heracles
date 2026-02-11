@@ -4,8 +4,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 import { Save, ArrowLeft, Building2, Trash2, MoreHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-// Input import removed
-import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -14,23 +12,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { PageHeader, DetailPageSkeleton, LoadingSpinner, ErrorDisplay, ConfirmDialog } from '@/components/common'
+import { Form } from '@/components/ui/form'
+import { PageHeader, DetailPageSkeleton, LoadingSpinner, ErrorDisplay, ConfirmDialog, FormTextarea, FormSelect } from '@/components/common'
 import { useDepartment, useUpdateDepartment, useDeleteDepartment } from '@/hooks'
 import { departmentUpdateSchema, type DepartmentUpdateFormData } from '@/lib/schemas'
 import { ROUTES, departmentDetailPath } from '@/config/routes'
@@ -199,53 +182,27 @@ export function DepartmentDetailPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-2">
-                <FormField
+                <FormTextarea
                   control={form.control}
                   name="description"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter a description for this department..."
-                          className="resize-none"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  label="Description"
+                  placeholder="Enter a description for this department..."
+                  className="md:col-span-2"
                 />
 
-                <FormField
+                <FormSelect
                   control={form.control}
                   name="hrcDepartmentCategory"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Category</FormLabel>
-                      <Select
-                        onValueChange={(val) => field.onChange(val === '_none' ? '' : val)}
-                        value={field.value || '_none'}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a category" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="_none">None</SelectItem>
-                          <SelectItem value="division">Division</SelectItem>
-                          <SelectItem value="team">Team</SelectItem>
-                          <SelectItem value="project">Project</SelectItem>
-                          <SelectItem value="location">Location</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        Type of organizational unit
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  label="Category"
+                  noneOption="None"
+                  options={[
+                    { value: 'division', label: 'Division' },
+                    { value: 'team', label: 'Team' },
+                    { value: 'project', label: 'Project' },
+                    { value: 'location', label: 'Location' },
+                  ]}
+                  description="Type of organizational unit"
+                  placeholder="Select a category"
                 />
               </CardContent>
             </Card>

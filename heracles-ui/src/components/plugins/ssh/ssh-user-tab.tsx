@@ -6,14 +6,14 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Key, Plus, Power, PowerOff, AlertTriangle } from 'lucide-react'
+import { Key, Plus, PowerOff } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PluginTabSkeleton, PluginTabError, PluginTabInactive } from '@/components/plugins/plugin-tab-shell'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -120,69 +120,32 @@ export function SSHUserTab({ uid, displayName }: SSHUserTabProps) {
   }
 
   if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-4 w-72" />
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </CardContent>
-      </Card>
-    )
+    return <PluginTabSkeleton />
   }
 
   if (error) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Key className="h-5 w-5" />
-            SSH Keys
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2 text-destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <span>Failed to load SSH status</span>
-          </div>
-          <Button variant="outline" size="sm" className="mt-4" onClick={() => refetch()}>
-            Retry
-          </Button>
-        </CardContent>
-      </Card>
+      <PluginTabError
+        icon={Key}
+        title="SSH Keys"
+        message="Failed to load SSH status"
+        onRetry={() => refetch()}
+      />
     )
   }
 
   // SSH not activated
   if (!sshStatus?.hasSsh) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Key className="h-5 w-5" />
-            SSH Keys
-          </CardTitle>
-          <CardDescription>
-            SSH key management is not enabled for this user.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <Key className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">SSH Not Enabled</h3>
-            <p className="text-muted-foreground mb-6 max-w-md">
-              Enable SSH to allow this user to store public keys for SSH authentication.
-            </p>
-            <Button onClick={handleActivate} disabled={activateMutation.isPending}>
-              <Power className="mr-2 h-4 w-4" />
-              {activateMutation.isPending ? 'Enabling...' : 'Enable SSH'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <PluginTabInactive
+        icon={Key}
+        title="SSH Keys"
+        heading="SSH Not Enabled"
+        description="Enable SSH to allow this user to store public keys for SSH authentication."
+        activateLabel="Enable SSH"
+        onActivate={handleActivate}
+        isActivating={activateMutation.isPending}
+      />
     )
   }
 

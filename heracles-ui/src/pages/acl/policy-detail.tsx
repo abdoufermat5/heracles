@@ -5,8 +5,6 @@ import { toast } from 'sonner'
 import { Save, ArrowLeft, Trash2, Lock, MoreHorizontal, Plus } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -22,10 +20,9 @@ import {
   FormControl,
   FormField,
   FormItem,
-  FormLabel,
   FormMessage,
 } from '@/components/ui/form'
-import { PageHeader, DetailPageSkeleton, ErrorDisplay, ConfirmDialog } from '@/components/common'
+import { PageHeader, DetailPageSkeleton, ErrorDisplay, ConfirmDialog, FormInput, FormTextarea } from '@/components/common'
 import { PermissionGroupCheckboxes, AttrRulesEditor, AssignmentsTable } from '@/components/acl'
 import { useAclPolicy, useUpdatePolicy, useDeletePolicy, useAclAssignments } from '@/hooks'
 import { policyUpdateSchema, type PolicyUpdateFormData } from '@/lib/schemas'
@@ -177,31 +174,17 @@ export function AclPolicyDetailPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <FormField
+                  <FormInput
                     control={form.control}
                     name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Name</FormLabel>
-                        <FormControl>
-                          <Input {...field} disabled={isBuiltin} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    label="Name"
+                    disabled={isBuiltin}
                   />
-                  <FormField
+                  <FormTextarea
                     control={form.control}
                     name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description</FormLabel>
-                        <FormControl>
-                          <Textarea {...field} disabled={isBuiltin} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    label="Description"
+                    disabled={isBuiltin}
                   />
                 </CardContent>
               </Card>

@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { ArrowLeft, Save, Eye, Plug } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import {
@@ -15,8 +16,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Form } from '@/components/ui/form'
 import { toast } from 'sonner'
+import { FormInput, FormTextarea } from '@/components/common'
 import { templatesApi, type TemplateUpdate, type TemplatePreview } from '@/lib/api/templates'
+import { templateUpdateSchema, type TemplateUpdateFormData } from '@/lib/schemas'
 import { useTemplatePluginFields } from '@/hooks'
 import { ROUTES } from '@/config/constants'
 
@@ -25,17 +29,21 @@ export function TemplateDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [defaults, setDefaults] = useState('')
-  const [variables, setVariables] = useState('')
-  const [departmentDn, setDepartmentDn] = useState('')
-  const [displayOrder, setDisplayOrder] = useState('')
-  const [jsonError, setJsonError] = useState<string | null>(null)
-  const [variablesError, setVariablesError] = useState<string | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewData, setPreviewData] = useState<TemplatePreview | null>(null)
   const [pluginActivations, setPluginActivations] = useState<Record<string, Record<string, unknown>>>({})
+
+  const form = useForm<TemplateUpdateFormData>({
+    resolver: zodResolver(templateUpdateSchema),
+    defaultValues: {
+      name: '',
+      description: '',
+      defaults: '{}',
+      variables: '',
+      departmentDn: '',
+      displayOrder: 0,
+    },
+  })
 
   // Fetch available plugin fields for the template editor
   const { data: pluginFieldSections } = useTemplatePluginFields('user')
@@ -49,17 +57,17 @@ export function TemplateDetailPage() {
   // Populate form when template loads
   useEffect(() => {
     if (template) {
-      setName(template.name)
-      setDescription(template.description || '')
-      setDefaults(JSON.stringify(template.defaults, null, 2))
-      setVariables(
-        template.variables ? JSON.stringify(template.variables, null, 2) : ''
-      )
-      setDepartmentDn(template.department_dn || '')
-      setDisplayOrder(template.display_order?.toString() || '0')
-      setPluginActivations(template.pluginActivations || {})
+      form.reset({
+        name: template.name,
+        description: template.description || '',
+        defaults: JSON.stringify(template.defaults, null, 2),
+        variables: template.variables ? JSON.stringify(template.variables, null, 2) : '',
+        departmentDn: template.department_dn || '',
+        displayOrder: template.display_order ?? 0,
+      })
+      setPluginActivations(template.plugin_activations || {})
     }
-  }, [template])
+  }, [template, form])
 
   const updateMutation = useMutation({
     mutationFn: (data: TemplateUpdate) => templatesApi.update(id!, data),
@@ -85,45 +93,38 @@ export function TemplateDetailPage() {
     },
   })
 
-  const handleSave = () => {
-    // Validate defaults JSON
+  const handleSave = (data: TemplateUpdateFormData) => {
     let parsedDefaults: Record<string, unknown>
     try {
-      parsedDefaults = JSON.parse(defaults)
-      setJsonError(null)
+      parsedDefaults = JSON.parse(data.defaults)
     } catch {
-      setJsonError('Invalid JSON')
-      return
+      return // Zod should catch this, but just in case
     }
 
-    // Validate variables JSON (optional)
     let parsedVariables: Record<string, { default?: string; description?: string }> | undefined
-    if (variables.trim()) {
+    if (data.variables?.trim()) {
       try {
-        parsedVariables = JSON.parse(variables)
-        setVariablesError(null)
+        parsedVariables = JSON.parse(data.variables)
       } catch {
-        setVariablesError('Invalid JSON')
         return
       }
     }
 
     const payload: TemplateUpdate = {
-      name,
-      description: description || undefined,
+      name: data.name,
+      description: data.description || undefined,
       defaults: parsedDefaults,
       pluginActivations: Object.keys(pluginActivations).length > 0 ? pluginActivations : undefined,
       variables: parsedVariables,
-      departmentDn: departmentDn || undefined,
-      displayOrder: displayOrder ? parseInt(displayOrder, 10) : undefined,
+      departmentDn: data.departmentDn || undefined,
+      displayOrder: data.displayOrder || undefined,
     }
     updateMutation.mutate(payload)
   }
 
   const handlePreview = () => {
-    // Extract variable placeholders from defaults JSON
+    const defaultsStr = form.getValues('defaults')
     const placeholderPattern = /\{\{(\w+)\}\}/g
-    const defaultsStr = defaults
     const variableNames: string[] = []
     let match
     while ((match = placeholderPattern.exec(defaultsStr)) !== null) {
@@ -183,95 +184,63 @@ export function TemplateDetailPage() {
             <Eye className="mr-2 h-4 w-4" />
             Preview
           </Button>
-          <Button onClick={handleSave} disabled={!name || updateMutation.isPending}>
+          <Button type="submit" form="template-form" disabled={updateMutation.isPending}>
             <Save className="mr-2 h-4 w-4" />
             {updateMutation.isPending ? 'Saving...' : 'Save'}
           </Button>
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Basic Info */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Basic Information</CardTitle>
-            <CardDescription>Template name and metadata</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-name">Name</Label>
-              <Input
-                id="edit-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Template name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-desc">Description</Label>
-              <Input
-                id="edit-desc"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Optional description"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-dept">Department DN (optional)</Label>
-              <Input
-                id="edit-dept"
-                value={departmentDn}
-                onChange={(e) => setDepartmentDn(e.target.value)}
+      <Form {...form}>
+        <form id="template-form" onSubmit={form.handleSubmit(handleSave)} className="grid gap-6 lg:grid-cols-2">
+          {/* Basic Info */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Basic Information</CardTitle>
+              <CardDescription>Template name and metadata</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FormInput control={form.control} name="name" label="Name" placeholder="Template name" />
+              <FormInput control={form.control} name="description" label="Description" placeholder="Optional description" />
+              <FormInput
+                control={form.control}
+                name="departmentDn"
+                label="Department DN (optional)"
                 placeholder="ou=engineering,ou=departments,dc=example,dc=com"
                 className="font-mono text-sm"
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-order">Display Order</Label>
-              <Input
-                id="edit-order"
-                type="number"
-                value={displayOrder}
-                onChange={(e) => setDisplayOrder(e.target.value)}
-                placeholder="0"
-                className="w-24"
-              />
-            </div>
-            <div className="text-xs text-muted-foreground space-y-1">
-              <p>Created: {new Date(template.created_at).toLocaleString()}</p>
-              <p>Updated: {new Date(template.updated_at).toLocaleString()}</p>
-              {template.created_by && <p>By: {template.created_by}</p>}
-            </div>
-          </CardContent>
-        </Card>
+              <FormInput control={form.control} name="displayOrder" label="Display Order" type="number" className="w-24" />
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>Created: {new Date(template.created_at).toLocaleString()}</p>
+                <p>Updated: {new Date(template.updated_at).toLocaleString()}</p>
+                {template.created_by && <p>By: {template.created_by}</p>}
+              </div>
+            </CardContent>
+          </Card>
 
-        {/* Variables */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Variable Definitions</CardTitle>
-            <CardDescription>
-              Define template variables with optional defaults and descriptions (JSON)
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Textarea
-              value={variables}
-              onChange={(e) => {
-                setVariables(e.target.value)
-                setVariablesError(null)
-              }}
-              className="font-mono text-sm min-h-[200px]"
-              placeholder={'{\n  "uid": { "description": "Username" },\n  "department": { "default": "Engineering" }\n}'}
-            />
-            {variablesError && (
-              <p className="text-sm text-destructive mt-2">{variablesError}</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Plugin Activations */}
-        {pluginFieldSections && Object.keys(pluginFieldSections).length > 0 && (
+          {/* Variables */}
           <Card>
+            <CardHeader>
+              <CardTitle>Variable Definitions</CardTitle>
+              <CardDescription>
+                Define template variables with optional defaults and descriptions (JSON)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FormTextarea
+                control={form.control}
+                name="variables"
+                label=""
+                rows={8}
+                className="font-mono text-sm"
+                placeholder={'{\n  "uid": { "description": "Username" },\n  "department": { "default": "Engineering" }\n}'}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Plugin Activations */}
+          {pluginFieldSections && Object.keys(pluginFieldSections).length > 0 && (
+            <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Plug className="h-5 w-5" />
@@ -291,7 +260,7 @@ export function TemplateDetailPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <Label className="text-sm font-medium">{section.label}</Label>
-                        {section.objectClasses.length > 0 && (
+                        {section.objectClasses?.length > 0 && (
                           <p className="text-xs text-muted-foreground">
                             Object classes: {section.objectClasses.join(', ')}
                           </p>
@@ -352,32 +321,29 @@ export function TemplateDetailPage() {
               })}
             </CardContent>
           </Card>
-        )}
+          )}
 
-        {/* Defaults JSON */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Default Values (JSON)</CardTitle>
-            <CardDescription>
-              LDAP attributes to set when creating users from this template. Use {'{{variable}}'} for
-              placeholders.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Textarea
-              value={defaults}
-              onChange={(e) => {
-                setDefaults(e.target.value)
-                setJsonError(null)
-              }}
-              className="font-mono text-sm min-h-[300px]"
-            />
-            {jsonError && (
-              <p className="text-sm text-destructive mt-2">{jsonError}</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          {/* Defaults JSON */}
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle>Default Values (JSON)</CardTitle>
+              <CardDescription>
+                LDAP attributes to set when creating users from this template. Use {'{{variable}}'} for
+                placeholders.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FormTextarea
+                control={form.control}
+                name="defaults"
+                label=""
+                rows={12}
+                className="font-mono text-sm"
+              />
+            </CardContent>
+          </Card>
+        </form>
+      </Form>
 
       {/* Preview Dialog */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
