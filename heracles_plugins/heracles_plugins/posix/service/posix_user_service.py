@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 import structlog
 
 from heracles_api.plugins.base import TabService
+from heracles_api.plugins.base import PluginFieldDefinition, PluginTemplateField
 from heracles_api.services.ldap_service import LdapService, LdapOperationError
 
 from .base import PosixValidationError, get_int, get_int_optional
@@ -68,6 +69,61 @@ class PosixService(TabService):
         {"value": "/usr/sbin/nologin", "label": "No Login"},
         {"value": "/bin/false", "label": "False (disabled)"},
     ]
+
+    # ------------------------------------------------------------------
+    # Import / Export / Template extension points
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def get_import_fields(cls) -> list[PluginFieldDefinition]:
+        return [
+            PluginFieldDefinition(name="uidNumber", label="UID Number", description="POSIX user ID"),
+            PluginFieldDefinition(name="gidNumber", label="GID Number", required=True, description="Primary group ID"),
+            PluginFieldDefinition(name="homeDirectory", label="Home Directory", description="Auto-generated if omitted"),
+            PluginFieldDefinition(name="loginShell", label="Login Shell", description="Default: /bin/bash"),
+            PluginFieldDefinition(name="gecos", label="GECOS", description="Real name / comment"),
+        ]
+
+    @classmethod
+    def get_export_fields(cls) -> list[PluginFieldDefinition]:
+        return [
+            PluginFieldDefinition(name="uidNumber", label="UID Number"),
+            PluginFieldDefinition(name="gidNumber", label="GID Number"),
+            PluginFieldDefinition(name="homeDirectory", label="Home Directory"),
+            PluginFieldDefinition(name="loginShell", label="Login Shell"),
+            PluginFieldDefinition(name="gecos", label="GECOS"),
+            PluginFieldDefinition(name="shadowLastChange", label="Shadow Last Change"),
+            PluginFieldDefinition(name="shadowMin", label="Shadow Min Days"),
+            PluginFieldDefinition(name="shadowMax", label="Shadow Max Days"),
+            PluginFieldDefinition(name="shadowWarning", label="Shadow Warning"),
+            PluginFieldDefinition(name="shadowInactive", label="Shadow Inactive"),
+            PluginFieldDefinition(name="shadowExpire", label="Shadow Expire"),
+        ]
+
+    @classmethod
+    def get_template_fields(cls) -> list[PluginTemplateField]:
+        return [
+            PluginTemplateField(
+                key="loginShell", label="Login Shell",
+                field_type="select", default_value="/bin/bash",
+                options=cls.DEFAULT_SHELLS,
+            ),
+            PluginTemplateField(
+                key="gidNumber", label="Primary Group GID",
+                field_type="integer",
+                description="Leave empty for auto-allocation",
+            ),
+            PluginTemplateField(
+                key="homeDirectory", label="Home Directory Pattern",
+                field_type="string", default_value="/home/{{uid}}",
+                description="Supports {{uid}} placeholder",
+            ),
+            PluginTemplateField(
+                key="gecos", label="GECOS",
+                field_type="string",
+                description="Supports {{cn}} placeholder",
+            ),
+        ]
     
     def __init__(self, ldap_service: LdapService, config: Dict[str, Any]):
         super().__init__(ldap_service, config)

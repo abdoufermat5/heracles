@@ -539,3 +539,54 @@ class MailUserService(TabService):
 
         status = await self.update_mail(uid, update_data)
         return status.data
+
+    # ========================================================================
+    # Import / Export / Template extension points
+    # ========================================================================
+
+    @classmethod
+    def get_import_fields(cls) -> list:
+        from heracles_api.plugins.base import PluginFieldDefinition
+        return [
+            PluginFieldDefinition(name="mail", label="Email Address", required=True),
+            PluginFieldDefinition(name="hrcMailServer", label="Mail Server"),
+            PluginFieldDefinition(name="hrcMailQuota", label="Mail Quota"),
+            PluginFieldDefinition(name="hrcMailAlternateAddress", label="Alternate Addresses"),
+            PluginFieldDefinition(name="hrcMailForwardingAddress", label="Forwarding Address"),
+        ]
+
+    @classmethod
+    def get_export_fields(cls) -> list:
+        from heracles_api.plugins.base import PluginFieldDefinition
+        return [
+            PluginFieldDefinition(name="mail", label="Email Address"),
+            PluginFieldDefinition(name="hrcMailServer", label="Mail Server"),
+            PluginFieldDefinition(name="hrcMailQuota", label="Mail Quota (MB)"),
+            PluginFieldDefinition(name="hrcMailAlternateAddress", label="Alternate Addresses"),
+            PluginFieldDefinition(name="hrcMailForwardingAddress", label="Forwarding Address"),
+            PluginFieldDefinition(name="hrcMailDeliveryMode", label="Delivery Mode"),
+            PluginFieldDefinition(name="hrcVacationMessage", label="Vacation Message"),
+            PluginFieldDefinition(name="hrcVacationStart", label="Vacation Start"),
+            PluginFieldDefinition(name="hrcVacationStop", label="Vacation End"),
+        ]
+
+    @classmethod
+    def get_template_fields(cls) -> list:
+        from heracles_api.plugins.base import PluginTemplateField
+        return [
+            PluginTemplateField(
+                key="mailDomain", label="Mail Domain",
+                field_type="string", default_value="heracles.local",
+                description="Domain for auto-generated email address",
+            ),
+            PluginTemplateField(
+                key="mailQuota", label="Default Quota (MB)",
+                field_type="integer", default_value=0,
+                description="0 = unlimited",
+            ),
+            PluginTemplateField(
+                key="mailServer", label="Mail Server",
+                field_type="string",
+                description="IMAP/POP server hostname",
+            ),
+        ]

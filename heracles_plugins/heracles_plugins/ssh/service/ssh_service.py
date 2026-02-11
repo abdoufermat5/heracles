@@ -169,3 +169,32 @@ class SSHService(
             status = await self.get_user_ssh_status(uid)
         
         return status.model_dump(by_alias=True)
+
+    # ========================================================================
+    # Import / Export / Template extension points
+    # ========================================================================
+
+    @classmethod
+    def get_import_fields(cls) -> list:
+        from heracles_api.plugins.base import PluginFieldDefinition
+        return [
+            PluginFieldDefinition(
+                name="sshPublicKey", label="SSH Public Key",
+                description="Full SSH public key string",
+            ),
+        ]
+
+    @classmethod
+    def get_export_fields(cls) -> list:
+        from heracles_api.plugins.base import PluginFieldDefinition
+        return [
+            PluginFieldDefinition(
+                name="sshPublicKey", label="SSH Public Key",
+                description="SSH public keys (multi-valued)",
+            ),
+        ]
+
+    @classmethod
+    def get_template_fields(cls) -> list:
+        """SSH has no template-configurable defaults (keys are per-user)."""
+        return []
