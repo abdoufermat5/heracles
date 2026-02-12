@@ -71,6 +71,21 @@ def mock_auth_service():
     service.invalidate_session = AsyncMock()
     service.invalidate_all_user_sessions = AsyncMock(return_value=1)
 
+    # Refresh token flow
+    service.use_refresh_token = AsyncMock(return_value="mock-jti")
+
+    # CSRF
+    service.get_csrf_cookie_settings = AsyncMock(
+        return_value={
+            "key": "csrf_token",
+            "httponly": False,
+            "secure": False,
+            "samesite": "lax",
+            "max_age": 3600,
+        }
+    )
+    service.create_csrf_token = MagicMock(return_value="mock-csrf-token")
+
     return service
 
 

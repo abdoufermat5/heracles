@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 
 from heracles_api.core.dependencies import (
     get_acl_guard,
+    get_acl_repository,
     get_auth,
     get_department_repository,
     get_group_repository,
@@ -23,6 +24,12 @@ from heracles_api.core.dependencies import (
     get_user_repository,
 )
 from heracles_api.main import app
+
+
+@pytest.fixture
+def mock_acl_repository():
+    """Create a mock ACL repository."""
+    return MagicMock()
 
 
 @pytest.fixture
@@ -51,6 +58,7 @@ def test_client(
     mock_department_repository,
     mock_redis,
     mock_acl_guard,
+    mock_acl_repository,
 ) -> Generator[TestClient, None, None]:
     """
     FastAPI test client with all dependencies mocked.
@@ -67,6 +75,7 @@ def test_client(
     app.dependency_overrides[get_department_repository] = lambda: mock_department_repository
     app.dependency_overrides[get_redis] = lambda: mock_redis
     app.dependency_overrides[get_acl_guard] = lambda: mock_acl_guard
+    app.dependency_overrides[get_acl_repository] = lambda: mock_acl_repository
 
     with TestClient(app) as client:
         yield client

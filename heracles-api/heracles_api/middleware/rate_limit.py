@@ -11,6 +11,7 @@ Configuration is read from the 'security' category:
 - rate_limit_window: Window duration in seconds
 """
 
+import os
 import time
 from collections.abc import Callable, Iterable
 from datetime import datetime, timedelta
@@ -270,6 +271,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         call_next: Callable,
     ) -> Response:
         """Process request with rate limiting."""
+        # Skip rate limiting entirely in test mode
+        if os.environ.get("TESTING", "").lower() in ("true", "1"):
+            return await call_next(request)
+
         # Skip rate limiting for exempt paths
         if request.url.path in self.EXEMPT_PATHS:
             return await call_next(request)
