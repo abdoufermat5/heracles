@@ -157,7 +157,6 @@ impl From<SearchScope> for ldap3::Scope {
     }
 }
 
-
 /// Builder for LDAP search queries.
 #[derive(Debug, Clone)]
 pub struct SearchBuilder {

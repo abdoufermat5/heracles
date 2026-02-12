@@ -126,10 +126,7 @@ impl LdapConnection {
                 let search_entry = SearchEntry::construct(entry);
                 LdapEntry {
                     dn: search_entry.dn,
-                    attributes: search_entry
-                        .attrs
-                        .into_iter()
-                        .collect(),
+                    attributes: search_entry.attrs.into_iter().collect(),
                 }
             })
             .collect();

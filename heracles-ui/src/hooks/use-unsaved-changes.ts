@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from 'react'
+import { useEffect, useCallback, useMemo } from 'react'
 import { useBlocker, type Blocker } from 'react-router-dom'
 
 interface UseUnsavedChangesOptions {
@@ -60,8 +60,6 @@ export function useUnsavedChanges({
   message = 'You have unsaved changes. Are you sure you want to leave?',
   enabled = true,
 }: UseUnsavedChangesOptions): UseUnsavedChangesReturn {
-  const [showDialog, setShowDialog] = useState(false)
-
   // Block navigation when there are unsaved changes
   const blocker = useBlocker(
     useCallback(
@@ -71,12 +69,8 @@ export function useUnsavedChanges({
     )
   )
 
-  // Show dialog when blocker is triggered
-  useEffect(() => {
-    if (blocker.state === 'blocked') {
-      setShowDialog(true)
-    }
-  }, [blocker.state])
+  // Derive showDialog from blocker state instead of syncing via effect
+  const showDialog = useMemo(() => blocker.state === 'blocked', [blocker.state])
 
   // Handle browser's beforeunload event
   useEffect(() => {
@@ -97,14 +91,12 @@ export function useUnsavedChanges({
     if (blocker.state === 'blocked') {
       blocker.proceed()
     }
-    setShowDialog(false)
   }, [blocker])
 
   const cancelNavigation = useCallback(() => {
     if (blocker.state === 'blocked') {
       blocker.reset()
     }
-    setShowDialog(false)
   }, [blocker])
 
   return {

@@ -131,16 +131,12 @@ function getBreadcrumbs(pathname: string) {
 export function AppHeader() {
   const location = useLocation()
   const { user, logout } = useAuthStore()
-  const [isDark, setIsDark] = useState(false)
+  const [isDark, setIsDark] = useState(
+    () => document.documentElement.classList.contains('dark')
+  )
   const [searchOpen, setSearchOpen] = useState(false)
 
   const breadcrumbs = getBreadcrumbs(location.pathname)
-
-  // Theme toggle
-  useEffect(() => {
-    const isDarkMode = document.documentElement.classList.contains('dark')
-    setIsDark(isDarkMode)
-  }, [])
 
   const toggleTheme = useCallback(() => {
     const newIsDark = !isDark
