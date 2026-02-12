@@ -5,7 +5,7 @@ DHCP Service Base
 Base class and common functionality for DHCP operations.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import structlog
 

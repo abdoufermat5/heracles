@@ -9,7 +9,7 @@ import re
 from typing import Optional, List, Annotated
 from enum import Enum
 from datetime import date
-from pydantic import BaseModel, Field, EmailStr, field_validator, model_validator, BeforeValidator
+from pydantic import BaseModel, Field, field_validator, model_validator, BeforeValidator
 
 
 def _validate_email_with_test_domains(v: str) -> str:

@@ -49,17 +49,11 @@ from .schemas import (
     DhcpClassRead,
     DhcpClassListResponse,
     # SubClass
-    SubClassCreate,
-    SubClassUpdate,
-    SubClassRead,
-    # TSIG Key
     TsigKeyCreate,
-    TsigKeyUpdate,
     TsigKeyRead,
     TsigKeyListResponse,
     # DNS Zone
     DnsZoneCreate,
-    DnsZoneUpdate,
     DnsZoneRead,
     DnsZoneListResponse,
     # Failover Peer
@@ -96,7 +90,7 @@ def get_dhcp_service() -> DhcpService:
 
 
 # Import CurrentUser and AclGuardDep from core dependencies
-from heracles_api.core.dependencies import CurrentUser, AclGuardDep
+from heracles_api.core.dependencies import CurrentUser, AclGuardDep  # noqa: E402
 
 
 # =============================================================================

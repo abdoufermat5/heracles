@@ -6,14 +6,11 @@ Tests for SSHService with mocked LDAP.
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from typing import Dict, Any, List
+from unittest.mock import AsyncMock
 
 from heracles_plugins.ssh.service import SSHService
 from heracles_plugins.ssh.schemas import (
     SSHKeyCreate,
-    SSHKeyRead,
-    UserSSHStatus,
     UserSSHActivate,
     UserSSHKeysUpdate,
 )
@@ -185,7 +182,7 @@ class TestActivateSSH:
         # Setup side effect to return different values
         mock_ldap_service.get_by_dn.side_effect = [user_without_ssh, user_activated]
         
-        result = await ssh_service.activate_ssh("testuser")
+        await ssh_service.activate_ssh("testuser")
         
         # Verify modify was called with correct parameters
         mock_ldap_service.modify.assert_called_once()
@@ -221,7 +218,7 @@ class TestActivateSSH:
         mock_ldap_service.get_by_dn.side_effect = [user_without_ssh, user_activated]
         
         data = UserSSHActivate(initial_key=VALID_ED25519_KEY)
-        result = await ssh_service.activate_ssh("testuser", data)
+        await ssh_service.activate_ssh("testuser", data)
         
         # Verify modify was called with key
         mock_ldap_service.modify.assert_called_once()
@@ -249,7 +246,7 @@ class TestDeactivateSSH:
         del user_deactivated["sshPublicKey"]
         mock_ldap_service.get_by_dn.side_effect = [user_with_ssh, user_deactivated]
         
-        result = await ssh_service.deactivate_ssh("testuser")
+        await ssh_service.deactivate_ssh("testuser")
         
         # Verify modify was called
         mock_ldap_service.modify.assert_called_once()
@@ -289,7 +286,7 @@ class TestAddKey:
         mock_ldap_service.get_by_dn.side_effect = [user_with_ssh, user_updated]
         
         data = SSHKeyCreate(key=VALID_ECDSA_KEY)
-        result = await ssh_service.add_key("testuser", data)
+        await ssh_service.add_key("testuser", data)
         
         mock_ldap_service.modify.assert_called_once()
         call_args = mock_ldap_service.modify.call_args
@@ -311,7 +308,7 @@ class TestAddKey:
         mock_ldap_service.get_by_dn.side_effect = [user_without_ssh, user_activated, user_activated]
         
         data = SSHKeyCreate(key=VALID_ED25519_KEY)
-        result = await ssh_service.add_key("testuser", data)
+        await ssh_service.add_key("testuser", data)
         
         # Should have called modify at least once (for activation)
         assert mock_ldap_service.modify.call_count >= 1
@@ -363,7 +360,7 @@ class TestRemoveKey:
         key_info = parse_ssh_key(VALID_ED25519_KEY)
         fingerprint = key_info["fingerprint"]
         
-        result = await ssh_service.remove_key("testuser", fingerprint)
+        await ssh_service.remove_key("testuser", fingerprint)
         
         mock_ldap_service.modify.assert_called_once()
     
@@ -399,7 +396,7 @@ class TestUpdateKeys:
         mock_ldap_service.get_by_dn.side_effect = [user_with_ssh, user_updated]
         
         data = UserSSHKeysUpdate(keys=new_keys)
-        result = await ssh_service.update_keys("testuser", data)
+        await ssh_service.update_keys("testuser", data)
         
         mock_ldap_service.modify.assert_called_once()
         call_args = mock_ldap_service.modify.call_args
@@ -419,7 +416,7 @@ class TestUpdateKeys:
         mock_ldap_service.get_by_dn.side_effect = [user_with_ssh, user_updated]
         
         data = UserSSHKeysUpdate(keys=[])
-        result = await ssh_service.update_keys("testuser", data)
+        await ssh_service.update_keys("testuser", data)
         
         mock_ldap_service.modify.assert_called_once()
         call_args = mock_ldap_service.modify.call_args

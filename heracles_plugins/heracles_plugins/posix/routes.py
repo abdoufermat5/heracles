@@ -15,18 +15,16 @@ from fastapi import APIRouter, HTTPException, status, Depends, Query
 
 import structlog
 
-from heracles_api.services.ldap_service import LdapService, LdapNotFoundError
+from heracles_api.services.ldap_service import LdapService
 
 from .schemas import (
     PosixAccountCreate,
     PosixAccountRead,
     PosixAccountUpdate,
-    PosixGroupCreate,
     PosixGroupRead,
     PosixGroupUpdate,
     PosixGroupFullCreate,
     PosixStatusResponse,
-    PosixGroupStatusResponse,
     AvailableShellsResponse,
     IdAllocationResponse,
     PosixGroupListResponse,
@@ -34,7 +32,6 @@ from .schemas import (
     MixedGroupCreate,
     MixedGroupRead,
     MixedGroupUpdate,
-    MixedGroupListItem,
     MixedGroupListResponse,
 )
 from .service import PosixService, PosixGroupService, MixedGroupService, PosixValidationError
@@ -135,7 +132,7 @@ def get_mixed_group_service() -> MixedGroupService:
 
 
 # Import CurrentUser and AclGuardDep from core dependencies
-from heracles_api.core.dependencies import CurrentUser, AclGuardDep
+from heracles_api.core.dependencies import CurrentUser, AclGuardDep  # noqa: E402
 
 
 # =============================================================================
@@ -688,7 +685,7 @@ async def add_user_to_group(
     """
     guard.require(group_service.get_base_dn(), "posix:write")
     try:
-        result = await group_service.add_member_by_cn(cn, uid, base_dn=base_dn)
+        result = await group_service.add_member_by_cn(cn, uid, base_dn=None)
         logger.info("user_added_to_group", uid=uid, cn=cn, by=current_user.uid)
         return result
         
@@ -724,7 +721,7 @@ async def remove_user_from_group(
     """
     guard.require(group_service.get_base_dn(), "posix:write")
     try:
-        await group_service.remove_member_by_cn(cn, uid, base_dn=base_dn)
+        await group_service.remove_member_by_cn(cn, uid, base_dn=None)
         logger.info("user_removed_from_group", uid=uid, cn=cn, by=current_user.uid)
         
     except PosixValidationError as e:

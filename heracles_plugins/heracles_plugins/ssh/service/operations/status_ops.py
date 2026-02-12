@@ -5,7 +5,6 @@ SSH Status Operations Mixin
 User SSH status and discovery operations.
 """
 
-from typing import Any, Dict, Optional
 
 import structlog
 

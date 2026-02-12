@@ -5,7 +5,7 @@ SSH Key Operations Mixin
 SSH key management (add, remove, update, search).
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
 import structlog
 
@@ -17,7 +17,6 @@ from ...schemas import (
     SSHKeyRead,
     UserSSHKeysUpdate,
     UserSSHStatus,
-    parse_ssh_key,
     compute_fingerprint,
 )
 

@@ -47,7 +47,7 @@ def get_dns_service() -> DnsService:
 
 
 # Import CurrentUser and AclGuardDep from core dependencies
-from heracles_api.core.dependencies import CurrentUser, AclGuardDep
+from heracles_api.core.dependencies import CurrentUser, AclGuardDep  # noqa: E402
 
 
 # =============================================================================

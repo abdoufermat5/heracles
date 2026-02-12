@@ -18,12 +18,6 @@ from heracles_api.plugins.base import (
     TabDefinition,
 )
 
-from .schemas import (
-    DhcpObjectType,
-    DhcpServiceCreate,
-    DhcpServiceRead,
-    DhcpServiceUpdate,
-)
 from .service import DhcpService
 from .routes import router
 

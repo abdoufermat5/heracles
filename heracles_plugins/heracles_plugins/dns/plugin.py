@@ -279,15 +279,10 @@ class DnsPlugin(Plugin):
     ) -> None:
         """Handle configuration changes at runtime."""
         self.logger.info(
-            f"DNS plugin configuration updated",
+            "DNS plugin configuration updated",
             changed_keys=changed_keys,
         )
     
-    @staticmethod
-    def routes() -> List[Any]:
-        """Return API routers for DNS endpoints."""
-        return [router]
-
     @staticmethod
     def routes() -> List[Any]:
         """Return API routers for DNS endpoints."""

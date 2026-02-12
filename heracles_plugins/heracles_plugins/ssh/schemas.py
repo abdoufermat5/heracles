@@ -7,7 +7,6 @@ Pydantic models for SSH key management.
 
 import hashlib
 import base64
-import re
 from typing import Optional, List
 from pydantic import BaseModel, Field, field_validator, model_validator
 from datetime import datetime

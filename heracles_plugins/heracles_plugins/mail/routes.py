@@ -5,7 +5,6 @@ Mail Plugin Routes
 FastAPI routes for mail account management.
 """
 
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, status, Depends
 

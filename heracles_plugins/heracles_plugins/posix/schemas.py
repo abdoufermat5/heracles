@@ -6,7 +6,7 @@ Pydantic models for POSIX account data validation.
 """
 
 from enum import Enum
-from typing import Optional, List, Literal
+from typing import Optional, List
 from pydantic import BaseModel, Field, field_validator, model_validator
 import re
 

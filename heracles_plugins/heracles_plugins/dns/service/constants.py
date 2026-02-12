@@ -5,7 +5,6 @@ DNS Service Constants
 Attribute definitions and mappings for DNS objects.
 """
 
-from typing import List
 
 
 # Default DNS container RDN

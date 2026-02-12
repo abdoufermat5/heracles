@@ -6,7 +6,7 @@ Business logic for standalone POSIX group management.
 Handles GID allocation, memberUid, and group CRUD operations.
 """
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional
 
 import structlog
 
@@ -14,7 +14,6 @@ from heracles_api.services.ldap_service import LdapService, LdapOperationError
 
 from .base import PosixValidationError, get_int, get_int_optional
 from ..schemas import (
-    PosixGroupCreate,
     PosixGroupRead,
     PosixGroupUpdate,
     PosixGroupFullCreate,

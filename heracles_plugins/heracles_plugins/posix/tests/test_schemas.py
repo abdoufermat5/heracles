@@ -18,15 +18,12 @@ from heracles_plugins.posix.schemas import (
     PosixAccountRead,
     PosixAccountUpdate,
     # POSIX Group
-    PosixGroupCreate,
     PosixGroupFullCreate,
     PosixGroupRead,
     PosixGroupUpdate,
     # MixedGroup
     MixedGroupCreate,
     MixedGroupRead,
-    MixedGroupUpdate,
-    # Response schemas
     PosixStatusResponse,
     AvailableShellsResponse,
     IdAllocationResponse,

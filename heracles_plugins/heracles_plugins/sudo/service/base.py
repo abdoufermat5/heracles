@@ -6,7 +6,7 @@ Constants, exceptions, and base configuration for sudo service.
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
 import structlog
 

@@ -11,8 +11,7 @@ Run with: pytest tests/e2e/ -v --e2e
 import pytest
 import os
 import httpx
-import asyncio
-from typing import Optional, Dict, Any
+from typing import Dict
 
 # Skip if not running E2E tests
 pytestmark = pytest.mark.skipif(
@@ -238,7 +237,7 @@ class TestSudoPluginE2E:
                     f"/api/v1/sudo/roles/{rule}",
                     headers=auth_headers
                 )
-            except:
+            except Exception:
                 pass
         yield
         for rule in test_rules:
@@ -247,7 +246,7 @@ class TestSudoPluginE2E:
                     f"/api/v1/sudo/roles/{rule}",
                     headers=auth_headers
                 )
-            except:
+            except Exception:
                 pass
     
     def test_list_sudo_roles(self, api_client, auth_headers):

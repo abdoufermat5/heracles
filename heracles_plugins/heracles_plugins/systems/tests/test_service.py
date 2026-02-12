@@ -6,8 +6,7 @@ Unit tests for the systems plugin schemas, service, and routes.
 """
 
 import pytest
-from typing import List
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 # Import schemas
 from heracles_plugins.systems.schemas import (
@@ -15,8 +14,6 @@ from heracles_plugins.systems.schemas import (
     SystemCreate,
     SystemRead,
     SystemUpdate,
-    SystemListItem,
-    SystemListResponse,
     LockMode,
     HostValidationRequest,
     HostValidationResponse,
@@ -302,7 +299,7 @@ class TestSystemServiceUnit:
             description="Test server",
         )
         
-        result = await service.create_system(data)
+        await service.create_system(data)
         
         # Verify add was called (for OUs and system entry)
         assert mock_ldap_service.add.call_count >= 1

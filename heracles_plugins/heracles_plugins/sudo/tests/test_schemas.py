@@ -10,7 +10,6 @@ from datetime import datetime, timezone, timedelta
 from pydantic import ValidationError
 
 from heracles_plugins.sudo.schemas import (
-    SudoRoleBase,
     SudoRoleCreate,
     SudoRoleRead,
     SudoRoleUpdate,

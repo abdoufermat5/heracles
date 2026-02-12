@@ -5,7 +5,7 @@ DNS Service Utilities
 Helper functions for DNS service operations.
 """
 
-from typing import Any, List, Optional
+from typing import Any, List
 
 from heracles_api.services.ldap_service import LdapEntry
 

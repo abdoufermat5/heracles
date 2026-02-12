@@ -5,7 +5,6 @@ Sudo CRUD Operations Mixin
 Create, Read, Update, Delete operations for sudo roles.
 """
 
-from datetime import datetime, timezone
 from typing import Optional
 
 import structlog

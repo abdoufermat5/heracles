@@ -14,13 +14,11 @@ from heracles_api.plugins.base import TabService
 from heracles_api.services.ldap_service import LdapService
 
 from ..schemas import (
-    SSHKeyCreate,
     UserSSHStatus,
     UserSSHActivate,
     UserSSHKeysUpdate,
 )
 
-from .base import SSHKeyValidationError
 from .operations import (
     ValidationOperationsMixin,
     StatusOperationsMixin,

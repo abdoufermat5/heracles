@@ -6,8 +6,8 @@ Tests for POSIX service business logic with mocked LDAP operations.
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from typing import Any, Dict, List, Optional
+from unittest.mock import AsyncMock, patch
+from typing import Any, Dict
 
 from heracles_plugins.posix.service import (
     PosixService,
@@ -18,13 +18,9 @@ from heracles_plugins.posix.service import (
 from heracles_plugins.posix.schemas import (
     TrustMode,
     AccountStatus,
-    PrimaryGroupMode,
-    PosixAccountCreate,
-    PosixAccountUpdate,
     PosixGroupFullCreate,
     PosixGroupUpdate,
     MixedGroupCreate,
-    MixedGroupUpdate,
 )
 
 
@@ -413,7 +409,7 @@ class TestPosixGroupService:
         mock_ldap.search.return_value = []  # No GIDs in use
         
         data = PosixGroupFullCreate(cn="newgroup")
-        result = await service.create(data)
+        await service.create(data)
         
         mock_ldap.add.assert_called_once()
         call_args = mock_ldap.add.call_args
@@ -439,7 +435,7 @@ class TestPosixGroupService:
             trustMode=TrustMode.BY_HOST,
             host=["secureserver"],
         )
-        result = await service.create(data)
+        await service.create(data)
         
         # Verify hostObject was added to objectClasses
         call_args = mock_ldap.add.call_args
@@ -464,7 +460,7 @@ class TestPosixGroupService:
             gidNumber=50000,
             forceGid=True,  # Force even though GID exists
         )
-        result = await service.create(data)
+        await service.create(data)
         
         mock_ldap.add.assert_called_once()
     
@@ -514,7 +510,7 @@ class TestPosixGroupService:
             trustMode=TrustMode.BY_HOST,
             host=["newserver"],
         )
-        result = await service.update_group("existinggroup", data)
+        await service.update_group("existinggroup", data)
         
         # Verify modify was called with hostObject addition
         mock_ldap.modify.assert_called_once()
@@ -556,7 +552,7 @@ class TestPosixGroupService:
             "objectClass": ["posixGroup"],
         })
         
-        result = await service.add_member_by_cn("testgroup", "user2")
+        await service.add_member_by_cn("testgroup", "user2")
         
         # Should not call modify since user is already a member
         mock_ldap.modify.assert_not_called()
@@ -652,7 +648,7 @@ class TestMixedGroupService:
             trustMode=TrustMode.BY_HOST,
             host=["secureserver"],
         )
-        result = await service.create(data)
+        await service.create(data)
         
         call_args = mock_ldap.add.call_args
         # Should have all three objectClasses
@@ -675,7 +671,7 @@ class TestMixedGroupService:
         mock_ldap.search.return_value = []
         
         data = MixedGroupCreate(cn="emptygroup")  # No members
-        result = await service.create(data)
+        await service.create(data)
         
         call_args = mock_ldap.add.call_args
         attrs = call_args[0][2]

@@ -21,7 +21,6 @@ from heracles_api.plugins.base import (
 from .schemas import (
     SSHKeyCreate,
     SSHKeyRead,
-    UserSSHStatus,
 )
 from .service import SSHService
 from .routes import router

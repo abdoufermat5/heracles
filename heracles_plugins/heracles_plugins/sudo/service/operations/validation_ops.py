@@ -9,7 +9,6 @@ from typing import Any, Dict, List
 
 import structlog
 
-from ..base import SudoValidationError
 from ...schemas import SudoRoleCreate
 
 logger = structlog.get_logger(__name__)

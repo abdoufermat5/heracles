@@ -19,7 +19,6 @@ from heracles_api.plugins.base import (
 )
 
 from .schemas import (
-    SystemType,
     SystemCreate,
     SystemRead,
     SystemUpdate,

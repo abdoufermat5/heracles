@@ -1,8 +1,7 @@
 """Unit tests for DHCP plugin service layer."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from ldap3 import SUBTREE
+from unittest.mock import AsyncMock, MagicMock
 
 from heracles_plugins.dhcp.service import DhcpService
 from heracles_plugins.dhcp.schemas import (
@@ -141,7 +140,7 @@ class TestDhcpServiceCRUD:
         """Test creating a service with minimal parameters."""
         create_data = DhcpServiceCreate(cn="new-dhcp")
         
-        result = await dhcp_service.create_service(create_data)
+        await dhcp_service.create_service(create_data)
         
         mock_ldap_connection.add.assert_called_once()
         call_args = mock_ldap_connection.add.call_args
@@ -190,7 +189,7 @@ class TestDhcpSubnetCRUD:
             range="192.168.1.100 192.168.1.200",
         )
         
-        result = await dhcp_service.create_subnet("mydhcp", create_data)
+        await dhcp_service.create_subnet("mydhcp", create_data)
         
         mock_ldap_connection.add.assert_called_once()
         call_args = mock_ldap_connection.add.call_args
@@ -234,7 +233,7 @@ class TestDhcpPoolCRUD:
             permit_list=["allow known-clients"],
         )
         
-        result = await dhcp_service.create_pool("mydhcp", create_data)
+        await dhcp_service.create_pool("mydhcp", create_data)
         
         mock_ldap_connection.add.assert_called_once()
         call_args = mock_ldap_connection.add.call_args
@@ -260,7 +259,7 @@ class TestDhcpHostCRUD:
             statements=["fixed-address 192.168.1.10"],
         )
         
-        result = await dhcp_service.create_host("mydhcp", create_data)
+        await dhcp_service.create_host("mydhcp", create_data)
         
         mock_ldap_connection.add.assert_called_once()
 
@@ -315,7 +314,7 @@ class TestDhcpSharedNetworkCRUD:
             description="Main campus network",
         )
         
-        result = await dhcp_service.create_shared_network("mydhcp", create_data)
+        await dhcp_service.create_shared_network("mydhcp", create_data)
         
         mock_ldap_connection.add.assert_called_once()
 
@@ -337,7 +336,7 @@ class TestDhcpGroupCRUD:
             statements=["default-lease-time 86400"],
         )
         
-        result = await dhcp_service.create_group("mydhcp", create_data)
+        await dhcp_service.create_group("mydhcp", create_data)
         
         mock_ldap_connection.add.assert_called_once()
 
@@ -358,7 +357,7 @@ class TestDhcpClassCRUD:
             statements=['match if option vendor-class-identifier = "MSFT"'],
         )
         
-        result = await dhcp_service.create_class("mydhcp", create_data)
+        await dhcp_service.create_class("mydhcp", create_data)
         
         mock_ldap_connection.add.assert_called_once()
 
@@ -370,7 +369,7 @@ class TestDhcpClassCRUD:
             class_data="01:02:03:04:05:06",
         )
         
-        result = await dhcp_service.create_subclass("mydhcp", create_data)
+        await dhcp_service.create_subclass("mydhcp", create_data)
         
         mock_ldap_connection.add.assert_called_once()
 
@@ -392,7 +391,7 @@ class TestDhcpTsigKeyCRUD:
             secret="c2VjcmV0a2V5MTIzNDU2Nzg=",
         )
         
-        result = await dhcp_service.create_tsig_key("mydhcp", create_data)
+        await dhcp_service.create_tsig_key("mydhcp", create_data)
         
         mock_ldap_connection.add.assert_called_once()
         call_args = mock_ldap_connection.add.call_args
@@ -418,7 +417,7 @@ class TestDhcpDnsZoneCRUD:
             tsig_key_dn="cn=ddns-key,cn=mydhcp,ou=dhcp,dc=example,dc=com",
         )
         
-        result = await dhcp_service.create_dns_zone("mydhcp", create_data)
+        await dhcp_service.create_dns_zone("mydhcp", create_data)
         
         mock_ldap_connection.add.assert_called_once()
         call_args = mock_ldap_connection.add.call_args
@@ -446,7 +445,7 @@ class TestDhcpFailoverPeerCRUD:
             split=128,
         )
         
-        result = await dhcp_service.create_failover_peer("mydhcp", create_data)
+        await dhcp_service.create_failover_peer("mydhcp", create_data)
         
         mock_ldap_connection.add.assert_called_once()
         call_args = mock_ldap_connection.add.call_args
@@ -500,7 +499,7 @@ class TestDhcpTreeStructure:
             },
         ]
         
-        result = await dhcp_service.get_service_tree("mydhcp")
+        await dhcp_service.get_service_tree("mydhcp")
         
         # Just verify it doesn't crash with hierarchical data
         assert True
@@ -535,7 +534,7 @@ class TestSystemsIntegration:
         assert dhcp_service._systems_service is None
         
         # Should still be able to create hosts
-        create_data = DhcpHostCreate(cn="standalone-host")
+        DhcpHostCreate(cn="standalone-host")
         
         # This shouldn't fail due to missing systems service
         # (actual creation would need LDAP mock setup)
@@ -572,7 +571,7 @@ class TestErrorHandling:
         # Should handle gracefully
         try:
             await dhcp_service.delete_service("nonexistent")
-        except Exception as e:
+        except Exception:
             # Expected behavior - may raise NotFound
             pass
 
@@ -591,7 +590,7 @@ class TestErrorHandling:
         
         # Should handle gracefully
         try:
-            result = await dhcp_service.list_subnets("mydhcp")
+            await dhcp_service.list_subnets("mydhcp")
         except Exception:
             # May raise validation error
             pass

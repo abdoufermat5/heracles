@@ -5,7 +5,7 @@ Mail User Service
 Business logic for managing user mail accounts.
 """
 
-from typing import Optional, List, Any, Dict
+from typing import Optional, Any, Dict
 import re
 
 import structlog

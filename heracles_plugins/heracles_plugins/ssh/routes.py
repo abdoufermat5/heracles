@@ -7,7 +7,7 @@ FastAPI routes for SSH key management.
 
 from typing import Optional, List
 
-from fastapi import APIRouter, HTTPException, status, Depends, Query, Path
+from fastapi import APIRouter, HTTPException, status, Depends, Query
 
 import structlog
 
@@ -52,7 +52,7 @@ def get_ssh_service() -> SSHService:
 
 
 # Import CurrentUser and AclGuardDep from core dependencies
-from heracles_api.core.dependencies import CurrentUser, AclGuardDep
+from heracles_api.core.dependencies import CurrentUser, AclGuardDep  # noqa: E402
 
 
 # ============================================================================

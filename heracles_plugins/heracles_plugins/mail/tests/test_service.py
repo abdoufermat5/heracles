@@ -19,7 +19,6 @@ from heracles_plugins.mail.schemas import (
     MailAccountUpdate,
     MailGroupCreate,
     MailGroupUpdate,
-    DeliveryMode,
 )
 
 

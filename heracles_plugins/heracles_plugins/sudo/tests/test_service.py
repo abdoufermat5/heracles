@@ -7,8 +7,8 @@ Tests for Sudo service business logic with mocked LDAP operations.
 
 import pytest
 from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
-from typing import Any, Dict, List, Optional
+from unittest.mock import AsyncMock, MagicMock
+from typing import Any, Dict, List
 
 from heracles_plugins.sudo.service import (
     SudoService,
@@ -150,7 +150,7 @@ class TestSudoService:
             create_sudo_role_entry("admin-role", sudo_user=["admin"]),
         ]
         
-        result = await service.list_roles(search="admin")
+        await service.list_roles(search="admin")
         
         mock_ldap.search.assert_called_once()
         call_args = mock_ldap.search.call_args
@@ -229,7 +229,7 @@ class TestSudoService:
             sudoCommand=["/bin/ls"],
         )
         
-        result = await service.create_role(create_data)
+        await service.create_role(create_data)
         
         # add is called for OU creation + role creation
         assert mock_ldap.add.call_count >= 1
@@ -310,7 +310,7 @@ class TestSudoService:
             sudoCommand=["/new/cmd"],
         )
         
-        result = await service.update_role("updaterole", update_data)
+        await service.update_role("updaterole", update_data)
         
         mock_ldap.modify.assert_called_once()
     
@@ -420,7 +420,7 @@ class TestSudoService:
             create_sudo_role_entry("role1", sudo_user=["%admins"]),
         ]
         
-        result = await service.get_roles_for_user("testuser", groups=["admins", "users"])
+        await service.get_roles_for_user("testuser", groups=["admins", "users"])
         
         # Should search for user AND their groups
         call_args = mock_ldap.search.call_args

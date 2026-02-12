@@ -6,7 +6,7 @@ Business logic for managing MixedGroups that combine groupOfNames
 with posixGroupAux for dual LDAP/POSIX functionality.
 """
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional
 
 import structlog
 

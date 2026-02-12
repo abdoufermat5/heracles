@@ -6,14 +6,13 @@ Helper methods for LDAP entry conversion and attribute handling.
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import structlog
 
 from heracles_api.services.ldap_service import LdapEntry
 
 from ..base import (
-    MANAGED_ATTRIBUTES,
     parse_generalized_time,
     datetime_to_generalized,
     is_time_valid,

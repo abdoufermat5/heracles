@@ -6,12 +6,9 @@ Tests for SSH API endpoints with mocked service.
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock
 
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from httpx import AsyncClient
 
 from heracles_plugins.ssh.routes import router
 from heracles_plugins.ssh.schemas import (
@@ -155,7 +152,7 @@ class TestActivateSSHEndpoint:
         mock_ssh_service.activate_ssh.return_value = sample_user_status
         
         data = UserSSHActivate(initial_key=VALID_ED25519_KEY)
-        result = await mock_ssh_service.activate_ssh("testuser", data)
+        await mock_ssh_service.activate_ssh("testuser", data)
         
         mock_ssh_service.activate_ssh.assert_called_with("testuser", data)
     

@@ -6,11 +6,9 @@ Tests for Sudo API endpoints with mocked service.
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock
 
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 from httpx import AsyncClient
 
 from heracles_plugins.sudo.routes import router
@@ -60,7 +58,6 @@ def app(mock_sudo_service, mock_current_user):
     
     # Override dependencies
     from heracles_plugins.sudo.routes import get_sudo_service
-    from heracles_api.core.dependencies import CurrentUser
     
     app.dependency_overrides[get_sudo_service] = lambda: mock_sudo_service
     
@@ -110,7 +107,7 @@ class TestListRolesEndpoint:
         
         async with AsyncClient(app=app, base_url="http://test") as client:
             # Note: In real tests, we'd need to handle auth
-            response = await client.get("/api/v1/sudo/roles")
+            await client.get("/api/v1/sudo/roles")
         
         # Would need proper auth mocking for full test
         # This is a structural test showing the pattern
@@ -320,7 +317,7 @@ class TestUserRolesEndpoint:
         """Test getting roles including group membership."""
         mock_sudo_service.get_roles_for_user.return_value = [sample_role]
         
-        result = await mock_sudo_service.get_roles_for_user(
+        await mock_sudo_service.get_roles_for_user(
             "testuser",
             groups=["admins", "developers"]
         )

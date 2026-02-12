@@ -5,7 +5,7 @@ Helper Operations
 Entry conversion and attribute building helpers.
 """
 
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from heracles_api.services.ldap_service import LdapEntry
 
