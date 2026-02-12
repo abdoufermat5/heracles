@@ -36,7 +36,7 @@ async def get_users_rdn() -> str:
     """
     from heracles_api.services.config import get_config_value
     
-    value = await get_config_value("ldap", "users_rdn", DEFAULT_USERS_RDN)
+    value = await get_config_value("ldap", "user_rdn", DEFAULT_USERS_RDN)
     
     # Remove quotes if stored as JSON string
     if isinstance(value, str):
@@ -53,7 +53,7 @@ async def get_groups_rdn() -> str:
     """
     from heracles_api.services.config import get_config_value
     
-    value = await get_config_value("ldap", "groups_rdn", DEFAULT_GROUPS_RDN)
+    value = await get_config_value("ldap", "group_rdn", DEFAULT_GROUPS_RDN)
     
     # Remove quotes if stored as JSON string
     if isinstance(value, str):

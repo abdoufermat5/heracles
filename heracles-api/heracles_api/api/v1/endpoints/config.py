@@ -542,7 +542,7 @@ async def update_setting_with_migration(
     """
     Update a setting with RDN migration support.
     
-    For RDN settings (like users_rdn, groups_rdn, etc.), this endpoint:
+    For RDN settings (like user_rdn, group_rdn, etc.), this endpoint:
     1. Checks if entries exist in the old location
     2. If entries exist and not confirmed, returns warning with migration check
     3. If confirmed and migrate_entries is true, performs migration
@@ -553,8 +553,8 @@ async def update_setting_with_migration(
     
     # List of RDN settings that may require migration
     RDN_SETTINGS = {
-        ("ldap", "users_rdn"): None,
-        ("ldap", "groups_rdn"): None,
+        ("ldap", "user_rdn"): None,
+        ("ldap", "group_rdn"): None,
         ("dns", "dns_rdn"): "dNSZone",
         ("dhcp", "dhcp_rdn"): "dhcpService",
         ("sudo", "sudoers_rdn"): "sudoRole",
