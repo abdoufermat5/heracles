@@ -479,6 +479,18 @@ export function DataTable<TData, TValue>({
     getRowId,
   })
 
+  const selectedRows = table.getFilteredSelectedRowModel().rows
+  const selectedData = useMemo(
+    () => selectedRows.map((row) => row.original),
+    [selectedRows]
+  )
+
+  useEffect(() => {
+    if (onSelectionChange) {
+      onSelectionChange(selectedData)
+    }
+  }, [onSelectionChange, selectedData])
+
   // Handle error state
   if (error) {
     return (
@@ -492,18 +504,6 @@ export function DataTable<TData, TValue>({
   // Show header if search or column visibility is enabled
   const showHeader =
     enableSearch || enableColumnVisibility || headerActions || enableExport || bulkActions
-
-  const selectedRows = table.getFilteredSelectedRowModel().rows
-  const selectedData = useMemo(
-    () => selectedRows.map((row) => row.original),
-    [selectedRows]
-  )
-
-  useEffect(() => {
-    if (onSelectionChange) {
-      onSelectionChange(selectedData)
-    }
-  }, [onSelectionChange, selectedData])
 
   const exportRows = () => {
     const rowsToExport = selectedRows.length > 0

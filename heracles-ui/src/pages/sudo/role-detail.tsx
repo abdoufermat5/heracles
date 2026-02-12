@@ -54,7 +54,6 @@ export function SudoRoleDetailPage() {
   const navigate = useNavigate()
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [hasChanges, setHasChanges] = useState(false)
   const { currentBase } = useDepartmentStore()
 
   const { data: role, isLoading, error, refetch } = useSudoRole(cn!, {
@@ -82,15 +81,10 @@ export function SudoRoleDetailPage() {
         sudoNotBefore: role.sudoNotBefore ?? '',
         sudoNotAfter: role.sudoNotAfter ?? '',
       })
-      setHasChanges(false)
     }
   }, [role, form])
 
-  // Track changes
-  useEffect(() => {
-    const subscription = form.watch(() => setHasChanges(true))
-    return () => subscription.unsubscribe()
-  }, [form])
+  const hasChanges = form.formState.isDirty
 
   const handleUpdate = async (data: EditFormData) => {
     try {
@@ -111,7 +105,7 @@ export function SudoRoleDetailPage() {
         baseDn: currentBase || undefined,
       })
       toast.success('Sudo role updated successfully')
-      setHasChanges(false)
+      form.reset(data)
     } catch (error) {
       AppError.toastError(error, 'Failed to update sudo role')
     }

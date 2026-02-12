@@ -4,7 +4,7 @@
  * Lists all sudo roles and provides CRUD operations.
  */
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Plus, Shield, RefreshCw, Search } from 'lucide-react'
 import { toast } from 'sonner'
@@ -25,18 +25,18 @@ import type { SudoRoleData } from '@/types/sudo'
 export function SudoRolesPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [searchQuery, setSearchQuery] = useState('')
-  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [showCreateDialog, setShowCreateDialog] = useState(
+    () => {
+      const isCreate = searchParams.get('create') === 'true'
+      if (isCreate) {
+        searchParams.delete('create')
+        setSearchParams(searchParams, { replace: true })
+      }
+      return isCreate
+    }
+  )
   const [roleToDelete, setRoleToDelete] = useState<SudoRoleData | null>(null)
   const { currentBase } = useDepartmentStore()
-
-  // Open create dialog if ?create=true is in URL
-  useEffect(() => {
-    if (searchParams.get('create') === 'true') {
-      setShowCreateDialog(true)
-      searchParams.delete('create')
-      setSearchParams(searchParams, { replace: true })
-    }
-  }, [searchParams, setSearchParams])
 
   const { data: rolesResponse, isLoading, error, refetch } = useSudoRoles({
     base: currentBase ?? undefined

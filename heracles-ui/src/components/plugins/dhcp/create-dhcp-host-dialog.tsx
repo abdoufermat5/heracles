@@ -151,7 +151,7 @@ export function CreateDhcpHostDialog({
       toast.success(`DHCP host "${data.cn}" created successfully`)
       form.reset()
       onOpenChange(false)
-    } catch (error) {
+    } catch {
       toast.error('Failed to create DHCP host')
     }
   }

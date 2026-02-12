@@ -39,10 +39,10 @@ import { useCreateDnsZone } from '@/hooks/use-dns'
 import { useDepartmentStore } from '@/stores'
 
 // Zone name validation regex
-const zoneNameRegex = /^[a-z0-9]([a-z0-9\-\.]*[a-z0-9])?$/
+const zoneNameRegex = /^[a-z0-9]([a-z0-9\-.]*[a-z0-9])?$/
 
 // FQDN validation (must end with dot or we add it)
-const fqdnRegex = /^[a-z0-9]([a-z0-9\-\.]*[a-z0-9])?\.?$/
+const fqdnRegex = /^[a-z0-9]([a-z0-9\-.]*[a-z0-9])?\.?$/
 
 // Form schema
 const createZoneSchema = z.object({

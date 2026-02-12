@@ -4,7 +4,7 @@
  * Sudo options configuration for sudo role.
  */
 
-import type { Control } from 'react-hook-form'
+import type { Control, FieldValues } from 'react-hook-form'
 import { Shield } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -21,7 +21,7 @@ import { SUDO_OPTIONS } from '@/types/sudo'
 import type { SudoRoleData } from '@/types/sudo'
 
 interface SudoRoleOptionsTabProps {
-  control: Control<any>
+  control: Control<FieldValues>
   role: SudoRoleData
 }
 

@@ -4,7 +4,7 @@
  * Allowed commands configuration for sudo role.
  */
 
-import type { UseFormReturn } from 'react-hook-form'
+import type { UseFormReturn, FieldValues } from 'react-hook-form'
 import { Terminal } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
@@ -28,7 +28,7 @@ import { COMMON_COMMANDS } from '@/types/sudo'
 import type { SudoRoleData } from '@/types/sudo'
 
 interface SudoRoleCommandsTabProps {
-  form: UseFormReturn<any>
+  form: UseFormReturn<FieldValues>
   role: SudoRoleData
 }
 

@@ -4,7 +4,7 @@
  * Lists all standalone POSIX groups and provides CRUD operations.
  */
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Plus, Users, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
@@ -27,17 +27,17 @@ import type { PosixGroupListItem } from '@/types/posix'
 
 export function PosixGroupsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const [groupToDelete, setGroupToDelete] = useState<PosixGroupListItem | null>(null)
-
-  // Open create dialog if ?create=true is in URL
-  useEffect(() => {
-    if (searchParams.get('create') === 'true') {
-      setShowCreateDialog(true)
-      searchParams.delete('create')
-      setSearchParams(searchParams, { replace: true })
+  const [showCreateDialog, setShowCreateDialog] = useState(
+    () => {
+      const isCreate = searchParams.get('create') === 'true'
+      if (isCreate) {
+        searchParams.delete('create')
+        setSearchParams(searchParams, { replace: true })
+      }
+      return isCreate
     }
-  }, [searchParams, setSearchParams])
+  )
+  const [groupToDelete, setGroupToDelete] = useState<PosixGroupListItem | null>(null)
 
   const { data: groupsResponse, isLoading, error, refetch } = usePosixGroups()
   const deleteMutation = useDeletePosixGroup()

@@ -4,7 +4,7 @@
  * Lists all systems with filtering by type and CRUD operations.
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Plus,
@@ -44,37 +44,25 @@ import { SYSTEM_TYPE_LABELS } from '@/types/systems'
 
 export function SystemsListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [showCreateDialog, setShowCreateDialog] = useState(
+    () => {
+      const isCreate = searchParams.get('create') === 'true'
+      if (isCreate) {
+        searchParams.delete('create')
+        setSearchParams(searchParams, { replace: true })
+      }
+      return isCreate
+    }
+  )
   const [systemToDelete, setSystemToDelete] = useState<SystemListItem | null>(
     null
   )
-  const [selectedType, setSelectedType] = useState<SystemType | 'all'>('all')
-  const { currentBase } = useDepartmentStore()
-
-  // Open create dialog if ?create=true is in URL
-  useEffect(() => {
-    if (searchParams.get('create') === 'true') {
-      setShowCreateDialog(true)
-      searchParams.delete('create')
-      setSearchParams(searchParams, { replace: true })
-    }
-    // Set type from URL if present
+  const validTypes = ['server', 'workstation', 'terminal', 'printer', 'component', 'phone', 'mobile']
+  const [selectedType, setSelectedType] = useState<SystemType | 'all'>(() => {
     const typeParam = searchParams.get('type')
-    if (
-      typeParam &&
-      [
-        'server',
-        'workstation',
-        'terminal',
-        'printer',
-        'component',
-        'phone',
-        'mobile',
-      ].includes(typeParam)
-    ) {
-      setSelectedType(typeParam as SystemType)
-    }
-  }, [searchParams, setSearchParams])
+    return typeParam && validTypes.includes(typeParam) ? typeParam as SystemType : 'all'
+  })
+  const { currentBase } = useDepartmentStore()
 
   const {
     data: systemsResponse,
@@ -117,7 +105,7 @@ export function SystemsListPage() {
   }
 
   // Get icon for current type
-  const getTypeIcon = () => {
+  const TypeIcon = useMemo(() => {
     const icons: Record<SystemType | 'all', React.ElementType> = {
       all: Server,
       server: Server,
@@ -129,9 +117,7 @@ export function SystemsListPage() {
       mobile: Smartphone,
     }
     return icons[selectedType]
-  }
-
-  const TypeIcon = getTypeIcon()
+  }, [selectedType])
 
   if (isLoading) {
     return (

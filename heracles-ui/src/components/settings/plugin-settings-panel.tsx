@@ -189,7 +189,7 @@ export function PluginSettingsPanel({ plugin, onSave }: PluginSettingsPanelProps
       try {
         // Resubmit with confirmation
         await onSubmit(migrationDialog.pendingData, true, migrate);
-      } catch (error) {
+      } catch {
         // Error is handled by the hook's onError
         // Close the dialog anyway
         setMigrationDialog({ open: false, pendingData: null, migrationCheck: null });

@@ -63,7 +63,7 @@ export function DhcpServiceDetailPage() {
   const deleteSubnetMutation = useDeleteDhcpSubnet(serviceCn || '')
   const deleteHostMutation = useDeleteDhcpHost(serviceCn || '')
 
-  const handleCreateSubnet = async (data: any) => {
+  const handleCreateSubnet = async (data: { cn: string; netmask: number; description?: string; range?: string; statements?: string[]; options?: string[] }) => {
     try {
       await createSubnetMutation.mutateAsync({
         data: {
@@ -71,7 +71,7 @@ export function DhcpServiceDetailPage() {
           dhcpNetMask: data.netmask,
           dhcpStatements: data.statements,
           dhcpOptions: data.options,
-          comments: data.comments,
+          comments: data.description,
         },
         baseDn: currentBase || undefined,
       })
@@ -82,18 +82,16 @@ export function DhcpServiceDetailPage() {
     }
   }
 
-  const handleCreateHost = async (data: any) => {
+  const handleCreateHost = async (data: { cn: string; description?: string; hw_address?: string; statements?: string[]; options?: string[] }) => {
     try {
       await createHostMutation.mutateAsync({
         data: {
           cn: data.cn,
-          dhcpHWAddress: data.hwAddress,
-          fixedAddress: data.fixedAddress,
+          dhcpHWAddress: data.hw_address,
           dhcpStatements: data.statements,
           dhcpOptions: data.options,
-          comments: data.comments,
+          comments: data.description,
         },
-        parentDn: data.parentDn,
         baseDn: currentBase || undefined,
       })
       toast.success(`Host ${data.cn} created successfully`)

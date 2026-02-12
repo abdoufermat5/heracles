@@ -4,7 +4,7 @@
  * Lists all MixedGroups (groupOfNames + posixGroup) and provides CRUD operations.
  */
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Plus, Layers, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
@@ -27,17 +27,17 @@ import type { MixedGroupListItem } from '@/types/posix'
 
 export function MixedGroupsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const [groupToDelete, setGroupToDelete] = useState<MixedGroupListItem | null>(null)
-
-  // Open create dialog if ?create=true is in URL
-  useEffect(() => {
-    if (searchParams.get('create') === 'true') {
-      setShowCreateDialog(true)
-      searchParams.delete('create')
-      setSearchParams(searchParams, { replace: true })
+  const [showCreateDialog, setShowCreateDialog] = useState(
+    () => {
+      const isCreate = searchParams.get('create') === 'true'
+      if (isCreate) {
+        searchParams.delete('create')
+        setSearchParams(searchParams, { replace: true })
+      }
+      return isCreate
     }
-  }, [searchParams, setSearchParams])
+  )
+  const [groupToDelete, setGroupToDelete] = useState<MixedGroupListItem | null>(null)
 
   const { data: groupsResponse, isLoading, error, refetch } = useMixedGroups()
   const deleteMutation = useDeleteMixedGroup()

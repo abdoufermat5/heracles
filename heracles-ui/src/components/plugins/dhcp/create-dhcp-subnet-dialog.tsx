@@ -167,7 +167,7 @@ export function CreateDhcpSubnetDialog({
       toast.success(`Subnet "${data.cn}/${data.netmask}" created successfully`)
       form.reset()
       onOpenChange(false)
-    } catch (error) {
+    } catch {
       toast.error('Failed to create subnet')
     }
   }

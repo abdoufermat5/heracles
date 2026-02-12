@@ -103,7 +103,7 @@ export function CreateDhcpServiceDialog({
       toast.success(`DHCP service "${data.cn}" created successfully`)
       form.reset()
       onOpenChange(false)
-    } catch (error) {
+    } catch {
       toast.error('Failed to create DHCP service')
     }
   }

@@ -4,7 +4,7 @@
  * Users, hosts, and run-as configuration for sudo role.
  */
 
-import type { Control } from 'react-hook-form'
+import type { Control, FieldValues } from 'react-hook-form'
 import { Users, Server } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -27,7 +27,7 @@ import {
 import type { SudoRoleData } from '@/types/sudo'
 
 interface SudoRoleAccessTabProps {
-  control: Control<any>
+  control: Control<FieldValues>
   role: SudoRoleData
 }
 

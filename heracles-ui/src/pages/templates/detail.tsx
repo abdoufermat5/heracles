@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
@@ -31,7 +31,6 @@ export function TemplateDetailPage() {
 
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewData, setPreviewData] = useState<TemplatePreview | null>(null)
-  const [pluginActivations, setPluginActivations] = useState<Record<string, Record<string, unknown>>>({})
 
   const form = useForm<TemplateUpdateFormData>({
     resolver: zodResolver(templateUpdateSchema),
@@ -54,6 +53,13 @@ export function TemplateDetailPage() {
     enabled: !!id,
   })
 
+  const initialPluginActivations = useMemo(
+    () => template?.plugin_activations || {},
+    [template?.plugin_activations]
+  )
+  const [pluginActivationOverrides, setPluginActivations] = useState<Record<string, Record<string, unknown>> | null>(null)
+  const pluginActivations = pluginActivationOverrides ?? initialPluginActivations
+
   // Populate form when template loads
   useEffect(() => {
     if (template) {
@@ -65,7 +71,6 @@ export function TemplateDetailPage() {
         departmentDn: template.department_dn || '',
         displayOrder: template.display_order ?? 0,
       })
-      setPluginActivations(template.plugin_activations || {})
     }
   }, [template, form])
 
@@ -277,10 +282,10 @@ export function TemplateDetailPage() {
                                 defaults[field.key] = field.defaultValue
                               }
                             }
-                            setPluginActivations((prev) => ({ ...prev, [pluginName]: defaults }))
+                            setPluginActivations((prev) => ({ ...(prev ?? {}), [pluginName]: defaults }))
                           } else {
                             setPluginActivations((prev) => {
-                              const next = { ...prev }
+                              const next = { ...(prev ?? {}) }
                               delete next[pluginName]
                               return next
                             })
@@ -301,9 +306,9 @@ export function TemplateDetailPage() {
                                   ? (e.target.value ? Number(e.target.value) : '')
                                   : e.target.value
                                 setPluginActivations((prev) => ({
-                                  ...prev,
+                                  ...(prev ?? {}),
                                   [pluginName]: {
-                                    ...prev[pluginName],
+                                    ...(prev ?? {})[pluginName],
                                     [field.key]: val,
                                   },
                                 }))

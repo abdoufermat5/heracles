@@ -4,7 +4,7 @@
  * Basic information tab for sudo role editing.
  */
 
-import type { Control } from 'react-hook-form'
+import type { Control, FieldValues } from 'react-hook-form'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/form'
 
 interface SudoRoleGeneralTabProps {
-  control: Control<any>
+  control: Control<FieldValues>
   roleName: string
 }
 

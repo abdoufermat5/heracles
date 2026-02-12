@@ -14,7 +14,7 @@ interface PosixGroupTabProps {
  * not something you add to groupOfNames. This tab provides information and
  * links to the proper POSIX group management page.
  */
-export function PosixGroupTab(_props: PosixGroupTabProps) {
+export function PosixGroupTab(_: PosixGroupTabProps) {
   return (
     <Card>
       <CardHeader>

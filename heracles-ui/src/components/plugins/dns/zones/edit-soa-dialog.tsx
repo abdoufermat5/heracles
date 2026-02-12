@@ -44,7 +44,7 @@ import type { DnsZone } from '@/types/dns'
 import { useDepartmentStore } from '@/stores'
 
 // FQDN validation (must end with dot or we add it)
-const fqdnRegex = /^[a-z0-9]([a-z0-9\-\.]*[a-z0-9])?\.?$/
+const fqdnRegex = /^[a-z0-9]([a-z0-9\-.]*[a-z0-9])?\.?$/
 
 // Form schema for SOA update
 const editSoaSchema = z.object({

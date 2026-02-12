@@ -110,7 +110,7 @@ export function ConfigFieldComponent<T extends FieldValues>({
           </Select>
         );
 
-      case "multiselect":
+      case "multiselect": {
         const selectedValues = (controllerField.value as (string | number)[]) || [];
         return (
           <div className="space-y-2">
@@ -159,6 +159,7 @@ export function ConfigFieldComponent<T extends FieldValues>({
             </div>
           </div>
         );
+      }
 
       case "password":
         return (
