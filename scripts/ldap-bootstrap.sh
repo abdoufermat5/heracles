@@ -27,12 +27,12 @@ LDAP_CONTAINER="${LDAP_CONTAINER:-heracles-ldap}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 # Schema directories:
-#   - Core schemas: docker/ldap/schemas/core/
+#   - Core schemas: deploy/docker/ldap/schemas/core/
 #   - Plugin schemas: heracles_plugins/heracles_plugins/*/ldap/
-#   - Compat symlinks: docker/ldap/schemas/ (symlinks to plugin schemas)
-CORE_SCHEMAS_DIR="$PROJECT_ROOT/docker/ldap/schemas/core"
+#   - Compat symlinks: deploy/docker/ldap/schemas/ (symlinks to plugin schemas)
+CORE_SCHEMAS_DIR="$PROJECT_ROOT/deploy/docker/ldap/schemas/core"
 PLUGINS_DIR="$PROJECT_ROOT/heracles_plugins/heracles_plugins"
-COMPAT_SCHEMAS_DIR="$PROJECT_ROOT/docker/ldap/schemas"
+COMPAT_SCHEMAS_DIR="$PROJECT_ROOT/deploy/docker/ldap/schemas"
 
 # Heracles admin user
 HRC_ADMIN_USER="${HRC_ADMIN_USER:-hrc-admin}"
@@ -125,11 +125,11 @@ EOF
 # SCHEMAS: Load Custom Schemas
 # =============================================================================
 # Schema loading order:
-#   1. Core configuration schemas (docker/ldap/schemas/core/)
+#   1. Core configuration schemas (deploy/docker/ldap/schemas/core/)
 #   2. Plugin schemas (heracles_plugins/heracles_plugins/*/ldap/)
-#   3. Compat schemas (docker/ldap/schemas/ - non-plugin schemas only)
+#   3. Compat schemas (deploy/docker/ldap/schemas/ - non-plugin schemas only)
 #
-# Note: docker/ldap/schemas/ contains symlinks to plugin schemas for backward
+# Note: deploy/docker/ldap/schemas/ contains symlinks to plugin schemas for backward
 # compatibility. These are skipped since plugins are loaded directly.
 # =============================================================================
 

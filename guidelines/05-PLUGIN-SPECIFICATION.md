@@ -1277,7 +1277,7 @@ async def create_mixed_group(
 Pour les fonctionnalités avancées (posixGroupAux), un schéma custom est requis:
 
 ```ldif
-# docker/ldap/schemas/00-heracles-aux.ldif
+# deploy/docker/ldap/schemas/00-heracles-aux.ldif
 
 dn: cn=heracles-aux,cn=schema,cn=config
 objectClass: olcSchemaConfig

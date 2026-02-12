@@ -20,7 +20,8 @@ heracles-core/     → Rust lib (LDAP ops, password hashing, PyO3 bindings)
 heracles-api/      → FastAPI backend (REST API, auth, services)
 heracles-ui/       → React frontend (Vite, TailwindCSS, shadcn/ui)
 heracles_plugins/  → Plugin package (7 plugins)
-docker/            → Docker configs + LDAP schemas
+docker/            → Docker configs + LDAP schemas (in deploy/)
+deploy/            → Deployment configs (Ansible, Docker)
 guidelines/        → Specifications (read before development)
 ```
 
@@ -59,7 +60,7 @@ make tag-release           # Create Git tags
 - Use **standard schemas only** except documented custom ones
 - Custom allowed: `posixGroupAux` (AUXILIARY for Mixed Groups)
 - All entries must work with standard LDAP tools
-- Schemas: `docker/ldap/schemas/`
+- Schemas: `deploy/docker/ldap/schemas/`
 
 ### Security
 - No hardcoded secrets → use env vars

@@ -58,6 +58,6 @@ def info() -> PluginInfo:
 
 - Each plugin declares `minimum_api_version`
 - Use standard LDAP schemas when possible
-- Custom schemas go in `docker/ldap/schemas/`
+- Custom schemas go in `deploy/docker/ldap/schemas/`
 - Pydantic schemas use `Field(alias="camelCase")`
 - Service classes handle all business logic

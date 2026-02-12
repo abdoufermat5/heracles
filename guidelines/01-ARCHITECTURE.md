@@ -15,7 +15,7 @@ heracles/
 │   └── alembic/            # Migrations base de données
 ├── heracles-ui/            # Frontend React 19 (Vite + Bun)
 ├── heracles_plugins/       # Plugins Python (7 plugins opérationnels)
-├── docker/                 # Configurations Docker (LDAP schemas, Dockerfiles)
+├── deploy/docker/              # Configurations Docker (LDAP schemas, Dockerfiles)
 ├── guidelines/             # Documentation et spécifications (ce dossier)
 ├── scripts/                # Scripts de déploiement et bootstrap
 ├── mk/                     # Modules Makefile (docker.mk, demo.mk, help.mk)

@@ -97,7 +97,7 @@
     - name: Copy nginx production config
       tags: [config]
       ansible.builtin.copy:
-        src: ../../../docker/proxy/nginx.prod.conf
+        src: ../../../deploy/docker/proxy/nginx.prod.conf
         dest: "{{ heracles_install_dir }}/nginx.conf"
         mode: "0644"
 

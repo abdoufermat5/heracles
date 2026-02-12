@@ -32,10 +32,10 @@ jobs:
       matrix:
         include:
           - component: api
-            dockerfile: docker/api/Dockerfile
+            dockerfile: deploy/docker/api/Dockerfile
             image_env: API_IMAGE
           - component: ui
-            dockerfile: docker/ui/Dockerfile
+            dockerfile: deploy/docker/ui/Dockerfile
             image_env: UI_IMAGE
 
     steps:

@@ -63,7 +63,7 @@ services:
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./deploy/docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     networks:
@@ -99,7 +99,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: docker/api/Dockerfile
+      dockerfile: deploy/docker/api/Dockerfile
     container_name: heracles-api
     environment:
       # LDAP
@@ -147,7 +147,7 @@ services:
   ui:
     build:
       context: .
-      dockerfile: docker/ui/Dockerfile
+      dockerfile: deploy/docker/ui/Dockerfile
       target: builder
     container_name: heracles-ui
     environment:
@@ -170,7 +170,7 @@ services:
     image: nginx:alpine
     container_name: heracles-proxy
     volumes:
-      - ./docker/proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/docker/proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - ./pki/dev/server/heracles.local.crt:/etc/nginx/certs/heracles.local.crt:ro
       - ./pki/dev/server/heracles.local.key:/etc/nginx/certs/heracles.local.key:ro
     ports:
