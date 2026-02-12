@@ -310,7 +310,7 @@ class PluginConfigContract(ABC):
             ConfigFieldType.STRING: lambda v: isinstance(v, str),
             ConfigFieldType.INTEGER: lambda v: isinstance(v, int) and not isinstance(v, bool),
             ConfigFieldType.BOOLEAN: lambda v: isinstance(v, bool),
-            ConfigFieldType.FLOAT: lambda v: isinstance(v, (int, float)) and not isinstance(v, bool),
+            ConfigFieldType.FLOAT: lambda v: isinstance(v, int | float) and not isinstance(v, bool),
             ConfigFieldType.LIST: lambda v: isinstance(v, list),
             ConfigFieldType.SELECT: lambda v: True,  # Any type for select
             ConfigFieldType.MULTISELECT: lambda v: isinstance(v, list),
@@ -318,7 +318,7 @@ class PluginConfigContract(ABC):
             ConfigFieldType.PATH: lambda v: isinstance(v, str),
             ConfigFieldType.URL: lambda v: isinstance(v, str),
             ConfigFieldType.EMAIL: lambda v: isinstance(v, str),
-            ConfigFieldType.JSON: lambda v: isinstance(v, (dict, list)),
+            ConfigFieldType.JSON: lambda v: isinstance(v, dict | list),
         }
 
         checker = type_checks.get(field_def.field_type, lambda v: True)

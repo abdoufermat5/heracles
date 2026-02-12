@@ -11,9 +11,9 @@ import asyncio
 from pathlib import Path
 
 import structlog
+from alembic import command
 from alembic.config import Config
 
-from alembic import command
 from heracles_api.config import settings
 
 logger = structlog.get_logger(__name__)

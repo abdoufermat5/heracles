@@ -108,7 +108,7 @@ def validate_value(
         "string": lambda v: isinstance(v, str),
         "integer": lambda v: isinstance(v, int) and not isinstance(v, bool),
         "boolean": lambda v: isinstance(v, bool),
-        "float": lambda v: isinstance(v, (int, float)) and not isinstance(v, bool),
+        "float": lambda v: isinstance(v, int | float) and not isinstance(v, bool),
         "list": lambda v: isinstance(v, list),
         "select": lambda v: True,
         "multiselect": lambda v: isinstance(v, list),
