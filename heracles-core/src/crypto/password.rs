@@ -632,7 +632,10 @@ mod tests {
             HashMethod::detect("{ARGON2}$argon2id$v=19..."),
             Some(HashMethod::Argon2id)
         );
-        assert_eq!(HashMethod::detect("{BCRYPT}$2b$..."), Some(HashMethod::Bcrypt));
+        assert_eq!(
+            HashMethod::detect("{BCRYPT}$2b$..."),
+            Some(HashMethod::Bcrypt)
+        );
         assert_eq!(
             HashMethod::detect("{SHA512}abc123"),
             Some(HashMethod::Sha512)

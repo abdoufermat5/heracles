@@ -27,12 +27,12 @@
 //! let allowed = user_acl.check("uid=john,ou=users,dc=example,dc=com", required);
 //! ```
 
-mod bitmap;
 mod attributes;
-mod engine;
+mod bitmap;
 mod compiler;
+mod engine;
 
-pub use bitmap::PermissionBitmap;
 pub use attributes::{AttributeFilter, ObjectAttributeAcl};
-pub use engine::{UserAcl, AclVerdict, ScopedEntry};
-pub use compiler::{AclRow, AttrRuleRow, compile};
+pub use bitmap::PermissionBitmap;
+pub use compiler::{compile, AclRow, AttrRuleRow};
+pub use engine::{AclVerdict, ScopedEntry, UserAcl};

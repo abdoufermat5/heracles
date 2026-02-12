@@ -511,21 +511,13 @@ mod tests {
         };
 
         // Child of scope
-        assert!(entry.matches(
-            "uid=john,ou=users,dc=example,dc=com",
-            "",
-            false
-        ));
+        assert!(entry.matches("uid=john,ou=users,dc=example,dc=com", "", false));
 
         // Exact match
         assert!(entry.matches("ou=users,dc=example,dc=com", "", false));
 
         // Not in subtree
-        assert!(!entry.matches(
-            "uid=john,ou=groups,dc=example,dc=com",
-            "",
-            false
-        ));
+        assert!(!entry.matches("uid=john,ou=groups,dc=example,dc=com", "", false));
     }
 
     #[test]
@@ -541,11 +533,7 @@ mod tests {
         };
 
         // Exact match only
-        assert!(entry.matches(
-            "uid=john,ou=users,dc=example,dc=com",
-            "",
-            false
-        ));
+        assert!(entry.matches("uid=john,ou=users,dc=example,dc=com", "", false));
 
         // Child doesn't match for base scope
         assert!(!entry.matches("ou=users,dc=example,dc=com", "", false));

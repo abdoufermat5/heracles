@@ -178,10 +178,7 @@ impl LdapConnection {
     pub async fn modify(&mut self, dn: &str, modifications: Vec<LdapModification>) -> Result<()> {
         self.ensure_bound().await?;
 
-        let mods: Vec<ldap3::Mod<&str>> = modifications
-            .iter()
-            .map(|m| m.to_ldap3_mod())
-            .collect();
+        let mods: Vec<ldap3::Mod<&str>> = modifications.iter().map(|m| m.to_ldap3_mod()).collect();
 
         debug!("Modifying entry: {} with {} changes", dn, mods.len());
 

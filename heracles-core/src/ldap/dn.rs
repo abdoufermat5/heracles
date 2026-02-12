@@ -36,7 +36,12 @@ impl RdnComponent {
 
 impl fmt::Display for RdnComponent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}={}", self.attr_type, escape_dn_value(&self.attr_value))
+        write!(
+            f,
+            "{}={}",
+            self.attr_type,
+            escape_dn_value(&self.attr_value)
+        )
     }
 }
 
@@ -265,9 +270,7 @@ pub fn unescape_dn_value(value: &str) -> String {
                         let n2 = chars.next();
                         if let Some(n2) = n2 {
                             if n2.is_ascii_hexdigit() {
-                                if let Ok(byte) =
-                                    u8::from_str_radix(&format!("{}{}", n1, n2), 16)
-                                {
+                                if let Ok(byte) = u8::from_str_radix(&format!("{}{}", n1, n2), 16) {
                                     result.push(byte as char);
                                     continue;
                                 }

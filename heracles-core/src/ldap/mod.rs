@@ -50,6 +50,6 @@ pub use dn::{
 pub use filter::{patterns, FilterBuilder, LdapFilter};
 pub use operations::{LdapEntry, LdapModification, SearchBuilder, SearchScope};
 pub use pool::{
-    create_pool, create_pool_from_env, LdapPool, LdapPoolBuilder, LdapPoolExt, PooledConnection,
-    PoolStatus,
+    create_pool, create_pool_from_env, LdapPool, LdapPoolBuilder, LdapPoolExt, PoolStatus,
+    PooledConnection,
 };

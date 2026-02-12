@@ -3,19 +3,17 @@
 //! This module exposes heracles-core functionality to Python via PyO3.
 //! Includes LDAP operations, password hashing, DN utilities, and ACL engine.
 
-use pyo3::prelude::*;
 use pyo3::exceptions::{PyConnectionError, PyRuntimeError, PyValueError};
+use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use crate::acl::{
-    compile as rust_compile_acl, AclRow, AttrRuleRow, PermissionBitmap, UserAcl,
-};
+use crate::acl::{compile as rust_compile_acl, AclRow, AttrRuleRow, PermissionBitmap, UserAcl};
 use crate::crypto::password::{
-    hash_password as rust_hash_password, verify_password as rust_verify_password,
-    HashMethod, PasswordHash,
+    hash_password as rust_hash_password, verify_password as rust_verify_password, HashMethod,
+    PasswordHash,
 };
 use crate::ldap::config::LdapConfig;
 use crate::ldap::connection::LdapConnection;
@@ -222,7 +220,12 @@ impl PyLdapConnection {
     /// Returns:
     ///     True if authentication successful, False otherwise
     #[pyo3(signature = (user_dn, password))]
-    fn authenticate<'py>(&self, py: Python<'py>, user_dn: String, password: String) -> PyResult<&'py PyAny> {
+    fn authenticate<'py>(
+        &self,
+        py: Python<'py>,
+        user_dn: String,
+        password: String,
+    ) -> PyResult<&'py PyAny> {
         let config = self.config.clone();
         let connection = self.connection.clone();
 
@@ -408,7 +411,10 @@ impl PyLdapConnection {
     }
 
     fn __repr__(&self) -> String {
-        format!("LdapConnection(uri='{}', base_dn='{}')", self.config.uri, self.config.base_dn)
+        format!(
+            "LdapConnection(uri='{}', base_dn='{}')",
+            self.config.uri, self.config.base_dn
+        )
     }
 }
 

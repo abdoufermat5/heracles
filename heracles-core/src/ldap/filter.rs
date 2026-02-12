@@ -345,7 +345,10 @@ mod tests {
             LdapFilter::eq("objectClass", "inetOrgPerson"),
             LdapFilter::eq("uid", "test"),
         ]);
-        assert_eq!(filter.to_string(), "(&(objectClass=inetOrgPerson)(uid=test))");
+        assert_eq!(
+            filter.to_string(),
+            "(&(objectClass=inetOrgPerson)(uid=test))"
+        );
     }
 
     #[test]

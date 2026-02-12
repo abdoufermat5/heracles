@@ -168,13 +168,17 @@ impl PermissionBitmap {
     /// ```
     #[inline]
     pub const fn union(self, other: Self) -> Self {
-        Self { bits: self.bits | other.bits }
+        Self {
+            bits: self.bits | other.bits,
+        }
     }
 
     /// Intersection (AND) two bitmaps - common permissions only.
     #[inline]
     pub const fn intersection(self, other: Self) -> Self {
-        Self { bits: self.bits & other.bits }
+        Self {
+            bits: self.bits & other.bits,
+        }
     }
 
     /// Subtract (AND NOT) — remove bits present in `other`.
@@ -194,7 +198,9 @@ impl PermissionBitmap {
     /// ```
     #[inline]
     pub const fn subtract(self, other: Self) -> Self {
-        Self { bits: self.bits & !other.bits }
+        Self {
+            bits: self.bits & !other.bits,
+        }
     }
 
     /// Check if the bitmap is empty (no permissions set).
@@ -215,7 +221,9 @@ impl PermissionBitmap {
         if pos >= 128 {
             return self;
         }
-        Self { bits: self.bits | (1u128 << pos) }
+        Self {
+            bits: self.bits | (1u128 << pos),
+        }
     }
 
     /// Clear a bit at the given position.
@@ -224,7 +232,9 @@ impl PermissionBitmap {
         if pos >= 128 {
             return self;
         }
-        Self { bits: self.bits & !(1u128 << pos) }
+        Self {
+            bits: self.bits & !(1u128 << pos),
+        }
     }
 
     /// Create a bitmap from multiple bit positions.
@@ -266,7 +276,14 @@ impl fmt::Display for PermissionBitmap {
             write!(f, "(none)")
         } else {
             let bits = self.to_bits();
-            write!(f, "bits[{}]", bits.iter().map(|b| b.to_string()).collect::<Vec<_>>().join(","))
+            write!(
+                f,
+                "bits[{}]",
+                bits.iter()
+                    .map(|b| b.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",")
+            )
         }
     }
 }
@@ -368,7 +385,7 @@ mod tests {
     #[test]
     fn test_has_any() {
         let user = PermissionBitmap::from_bits(&[0, 1, 2]);
-        
+
         assert!(user.has_any(PermissionBitmap::from_bits(&[1, 5, 10])));
         assert!(!user.has_any(PermissionBitmap::from_bits(&[5, 10, 15])));
     }

@@ -54,11 +54,7 @@ impl LdapEntry {
     pub fn has_object_class(&self, object_class: &str) -> bool {
         self.attributes
             .get("objectClass")
-            .map(|classes| {
-                classes
-                    .iter()
-                    .any(|c| c.eq_ignore_ascii_case(object_class))
-            })
+            .map(|classes| classes.iter().any(|c| c.eq_ignore_ascii_case(object_class)))
             .unwrap_or(false)
     }
 

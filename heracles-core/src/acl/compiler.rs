@@ -299,7 +299,7 @@ mod tests {
         // Bit 3 should be denied
         assert!(acl.global_deny().has_bit(3));
         assert!(acl.global_allow().has_bit(3)); // Still in allow...
-        // But the engine subtracts deny from allow
+                                                // But the engine subtracts deny from allow
     }
 
     #[test]

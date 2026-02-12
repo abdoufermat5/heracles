@@ -55,15 +55,8 @@ impl AttributeFilter {
     /// * `denied` - These attributes are always blocked, regardless of allowed.
     pub fn new(allowed: Option<HashSet<String>>, denied: HashSet<String>) -> Self {
         // Normalize to lowercase for case-insensitive comparison
-        let allowed = allowed.map(|set| {
-            set.into_iter()
-                .map(|s| s.to_ascii_lowercase())
-                .collect()
-        });
-        let denied = denied
-            .into_iter()
-            .map(|s| s.to_ascii_lowercase())
-            .collect();
+        let allowed = allowed.map(|set| set.into_iter().map(|s| s.to_ascii_lowercase()).collect());
+        let denied = denied.into_iter().map(|s| s.to_ascii_lowercase()).collect();
 
         Self { allowed, denied }
     }
@@ -242,11 +235,8 @@ impl AttributeFilter {
         I: IntoIterator<Item = S>,
         S: AsRef<str>,
     {
-        self.denied.extend(
-            attrs
-                .into_iter()
-                .map(|s| s.as_ref().to_ascii_lowercase()),
-        );
+        self.denied
+            .extend(attrs.into_iter().map(|s| s.as_ref().to_ascii_lowercase()));
     }
 }
 
@@ -361,10 +351,7 @@ mod tests {
             .iter()
             .map(|s| s.to_string())
             .collect();
-        let denied: HashSet<String> = ["userPassword"]
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
+        let denied: HashSet<String> = ["userPassword"].iter().map(|s| s.to_string()).collect();
 
         let filter = AttributeFilter::new(Some(allowed), denied);
 
