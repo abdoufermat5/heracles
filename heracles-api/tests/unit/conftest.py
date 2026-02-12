@@ -23,7 +23,6 @@ from heracles_api.core.dependencies import (
     get_redis,
     get_acl_guard,
 )
-from heracles_api.acl import AclGuard
 
 
 @pytest.fixture

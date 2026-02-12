@@ -7,7 +7,7 @@ Common dependencies for API endpoints.
 
 from typing import Annotated, Optional
 
-from fastapi import Depends, HTTPException, status, Request, Cookie
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,7 +30,6 @@ from heracles_api.repositories import (
     PluginConfigRepository,
     ConfigHistoryRepository,
 )
-from heracles_api.config import settings
 from heracles_api.acl.guard import AclGuard
 from heracles_api.core.database import get_db_session
 

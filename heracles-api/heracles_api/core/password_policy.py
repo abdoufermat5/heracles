@@ -7,7 +7,7 @@ Falls back to environment/default values when config service is unavailable.
 """
 
 import re
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 from dataclasses import dataclass
 
 import structlog

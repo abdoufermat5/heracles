@@ -14,13 +14,11 @@ Matches or exceeds FusionDirectory's ldapmanager plugin:
 import csv
 import io
 import re
-import textwrap
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
 import structlog
 
-import heracles_core
 from heracles_api.services.audit_service import get_audit_service
 
 logger = structlog.get_logger(__name__)

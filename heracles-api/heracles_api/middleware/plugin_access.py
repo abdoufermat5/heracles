@@ -5,7 +5,7 @@ Plugin Access Middleware
 Middleware to block access to disabled plugins.
 """
 
-from typing import Dict, Optional, Set
+from typing import Dict, Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker

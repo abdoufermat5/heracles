@@ -5,7 +5,6 @@ Groups API Unit Tests
 Tests for group management endpoints.
 """
 
-import pytest
 from unittest.mock import MagicMock
 
 

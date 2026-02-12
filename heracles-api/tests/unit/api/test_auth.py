@@ -5,8 +5,6 @@ Auth API Unit Tests
 Tests for authentication endpoints.
 """
 
-import pytest
-
 
 class TestLogin:
     """Tests for POST /api/v1/auth/login"""

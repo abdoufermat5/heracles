@@ -8,8 +8,7 @@ Integrates with ConfigService for plugin configuration management.
 
 import importlib
 import pkgutil
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Type
 
 import structlog
 

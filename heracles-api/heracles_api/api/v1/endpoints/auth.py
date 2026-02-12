@@ -7,7 +7,7 @@ Handles user authentication (login, logout, password reset).
 
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, HTTPException, status, Response, Cookie, Depends, Request
+from fastapi import APIRouter, HTTPException, status, Response, Cookie, Request
 
 from heracles_api.core.dependencies import (
     CurrentUser,

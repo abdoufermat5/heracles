@@ -9,13 +9,12 @@ from typing import Optional, List
 from dataclasses import dataclass
 
 from heracles_api.services.ldap_service import LdapService, LdapEntry, LdapOperationError
-from heracles_api.schemas.user import UserCreate, UserUpdate, UserResponse
+from heracles_api.schemas.user import UserCreate, UserUpdate
 from heracles_api.config import settings
 from heracles_api.core.password_policy import get_password_hash_algorithm
 from heracles_api.core.ldap_config import (
     get_users_rdn,
     get_default_user_objectclasses,
-    DEFAULT_USERS_RDN,
 )
 
 import structlog
@@ -291,8 +290,8 @@ class UserRepository:
             attrs["street"] = user.street
         if user.postal_address:
             attrs["postalAddress"] = user.postal_address
-        if user.l:
-            attrs["l"] = user.l
+        if user.locality:
+            attrs["l"] = user.locality
         if user.st:
             attrs["st"] = user.st
         if user.postal_code:

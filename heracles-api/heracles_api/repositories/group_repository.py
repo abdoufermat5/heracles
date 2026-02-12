@@ -14,7 +14,6 @@ from heracles_api.config import settings
 from heracles_api.core.ldap_config import (
     get_groups_rdn,
     get_default_group_objectclasses,
-    DEFAULT_GROUPS_RDN,
 )
 
 import structlog
@@ -282,7 +281,7 @@ class GroupRepository:
         # Check if already a member
         existing_members = self._get_members_list(entry)
         if member_dn in existing_members:
-            raise LdapOperationError(f"Member already exists in group")
+            raise LdapOperationError("Member already exists in group")
         
         await self.ldap.modify(
             entry.dn,

@@ -7,11 +7,14 @@ Provides a convenient API for permission checks and attribute filtering.
 """
 
 import structlog
-from typing import Optional
 
+from typing import TYPE_CHECKING
 from fastapi import HTTPException, status
 
 from heracles_api.acl.registry import PermissionRegistry
+
+if TYPE_CHECKING:
+    from heracles_core import UserAcl as PyUserAcl
 
 logger = structlog.get_logger(__name__)
 

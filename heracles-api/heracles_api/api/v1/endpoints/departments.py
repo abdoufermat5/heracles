@@ -277,7 +277,7 @@ async def delete_department(
         # ACL check - department:delete on the specific department
         guard.require(decoded_dn, "department:delete")
 
-        deleted = await dept_repo.delete(decoded_dn, recursive=recursive)
+        await dept_repo.delete(decoded_dn, recursive=recursive)
 
         logger.info("department_deleted", dn=decoded_dn, recursive=recursive, by=current_user.uid)
 

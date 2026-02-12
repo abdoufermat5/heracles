@@ -27,7 +27,6 @@ from heracles_api.acl.schemas import (
     AuditLogListResponse,
     PolicyAttrRuleResponse,
     PolicyAttrRuleCreate,
-    PolicyDetailResponse,
 )
 
 import structlog

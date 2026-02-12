@@ -213,7 +213,7 @@ class LdapMigrationService:
         if entries_count > 0 and not supports_modrdn:
             warnings.append(
                 "⚠️ WARNING: If you proceed without migration, entries will remain "
-                f"in their old locations and become orphaned. "
+                "in their old locations and become orphaned. "
                 "This means they will not be visible in the application."
             )
         
@@ -298,7 +298,7 @@ class LdapMigrationService:
                 new_rdn=new_rdn,
             )
             warnings.append(
-                f"Entries left in their old locations. "
+                "Entries left in their old locations. "
                 "They will not be visible in the application until manually migrated."
             )
             return MigrationResult(

@@ -6,11 +6,11 @@ Tests for the department repository LDAP operations.
 """
 
 import pytest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock
 
 from heracles_api.repositories.department_repository import DepartmentRepository, DepartmentSearchResult
 from heracles_api.schemas.department import DepartmentCreate, DepartmentUpdate
-from heracles_api.services.ldap_service import LdapEntry, LdapOperationError, SearchScope
+from heracles_api.services.ldap_service import LdapEntry, LdapOperationError
 
 
 @pytest.fixture

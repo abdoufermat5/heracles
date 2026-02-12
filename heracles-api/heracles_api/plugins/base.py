@@ -13,7 +13,7 @@ from typing import Any, Callable, Dict, List, Optional, Type, Union
 import inspect
 import logging
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 # =============================================================================
@@ -186,8 +186,8 @@ class PluginConfigContract(ABC):
         """
         defaults = {}
         for section in PluginConfigContract.config_schema():
-            for field in section.fields:
-                defaults[field.key] = field.default_value
+            for config_field in section.fields:
+                defaults[config_field.key] = config_field.default_value
         return defaults
     
     def validate_config(self, config: Dict[str, Any]) -> List[str]:

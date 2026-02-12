@@ -6,12 +6,11 @@ General-purpose audit log for all entity CRUD operations.
 Stored in PostgreSQL for queryability and retention.
 """
 
-import uuid
 from datetime import datetime
 from typing import Any, Optional
 
 from sqlalchemy import BigInteger, Index, String, Text
-from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
+from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 

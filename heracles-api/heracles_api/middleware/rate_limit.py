@@ -11,7 +11,6 @@ Configuration is read from the 'security' category:
 - rate_limit_window: Window duration in seconds
 """
 
-import asyncio
 import time
 from typing import Callable, Optional, Dict, Any, Tuple, Iterable
 from datetime import datetime, timedelta

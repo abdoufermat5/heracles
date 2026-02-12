@@ -6,7 +6,6 @@ Business logic for audit logging and retrieval.
 Provides a simple API for logging actions from any service layer.
 """
 
-from datetime import datetime
 from typing import Any, Optional
 
 import structlog

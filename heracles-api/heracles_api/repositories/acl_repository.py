@@ -6,8 +6,6 @@ Data access layer for ACL PostgreSQL operations.
 Replaces raw asyncpg queries with SQLAlchemy ORM.
 """
 
-import json
-from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
@@ -265,7 +263,7 @@ class AclRepository:
     ) -> None:
         stmt = (
             update(AclPolicy)
-            .where(AclPolicy.name == name, AclPolicy.builtin == True)
+            .where(AclPolicy.name == name, AclPolicy.builtin.is_(True))
             .values(perm_low=perm_low, perm_high=perm_high, updated_at=func.now())
         )
         await self.session.execute(stmt)

@@ -5,8 +5,7 @@ Departments API Unit Tests
 Tests for department management endpoints.
 """
 
-import pytest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock
 
 from heracles_api.services.ldap_service import LdapEntry
 

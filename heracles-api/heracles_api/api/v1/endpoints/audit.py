@@ -8,7 +8,7 @@ Unified audit log endpoint for querying all entity operations.
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 
 from heracles_api.services.audit_service import get_audit_service
 from heracles_api.schemas.audit import AuditLogFilters, AuditLogListResponse

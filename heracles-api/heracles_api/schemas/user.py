@@ -31,7 +31,7 @@ class UserBase(BaseModel):
     # Address
     street: Optional[str] = Field(None, max_length=256)
     postal_address: Optional[str] = Field(None, max_length=256, alias="postalAddress")
-    l: Optional[str] = Field(None, max_length=128, alias="l", description="City / Locality")
+    locality: Optional[str] = Field(None, max_length=128, alias="l", description="City / Locality")
     st: Optional[str] = Field(None, max_length=128, alias="st", description="State / Province")
     postal_code: Optional[str] = Field(None, max_length=16, alias="postalCode")
     c: Optional[str] = Field(None, max_length=2, alias="c", description="Country (2-letter code)")
@@ -80,7 +80,7 @@ class UserUpdate(BaseModel):
     # Address
     street: Optional[str] = Field(None, max_length=256)
     postal_address: Optional[str] = Field(None, max_length=256, alias="postalAddress")
-    l: Optional[str] = Field(None, max_length=128, alias="l")
+    locality: Optional[str] = Field(None, max_length=128, alias="l")
     st: Optional[str] = Field(None, max_length=128, alias="st")
     postal_code: Optional[str] = Field(None, max_length=16, alias="postalCode")
     c: Optional[str] = Field(None, max_length=2, alias="c")
@@ -116,7 +116,7 @@ class UserResponse(BaseModel):
     # Address
     street: Optional[str] = None
     postal_address: Optional[str] = Field(None, alias="postalAddress")
-    l: Optional[str] = Field(None, alias="l")
+    locality: Optional[str] = Field(None, alias="l")
     st: Optional[str] = Field(None, alias="st")
     postal_code: Optional[str] = Field(None, alias="postalCode")
     c: Optional[str] = Field(None, alias="c")

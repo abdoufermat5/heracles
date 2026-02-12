@@ -7,10 +7,13 @@ use by AclGuard in endpoints.
 """
 
 import structlog
-from typing import Callable, Optional
+from typing import Callable, Optional, TYPE_CHECKING
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
+
+if TYPE_CHECKING:
+    from heracles_core import UserAcl as PyUserAcl
 
 logger = structlog.get_logger(__name__)
 

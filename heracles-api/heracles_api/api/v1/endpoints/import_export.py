@@ -43,7 +43,6 @@ from fastapi.responses import PlainTextResponse
 
 from heracles_api.schemas.import_export import (
     AvailableFieldsResponse,
-    ColumnMappingSchema,
     CsvImportConfigRequest,
     ExportRequest,
     ImportPreviewResponse,
@@ -57,7 +56,6 @@ from heracles_api.schemas.import_export import (
     PluginFieldInfo,
 )
 from heracles_api.services.import_service import (
-    ALLOWED_FIELDS,
     ColumnMapping,
     FixedValue,
     export_users_to_csv,
@@ -488,10 +486,8 @@ async def export_entries(body: ExportRequest) -> PlainTextResponse:
     if body.format == "ldif":
         output = export_users_to_ldif(items, wrap=body.ldif_wrap)
         media_type = "application/ldif"
-        ext = "ldif"
     else:
         output = export_users_to_csv(items, fields=export_fields)
         media_type = "text/csv"
-        ext = "csv"
 
     return PlainTextResponse(content=output, media_type=media_type)

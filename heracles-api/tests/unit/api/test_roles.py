@@ -5,8 +5,7 @@ Roles API Unit Tests
 Tests for role management endpoints.
 """
 
-import pytest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock
 
 from heracles_api.services.ldap_service import LdapEntry, LdapOperationError
 

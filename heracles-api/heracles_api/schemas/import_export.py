@@ -10,8 +10,7 @@ Matches or exceeds FusionDirectory's ldapmanager plugin capabilities:
 - CSV/LDIF export with field selection and object type support
 """
 
-from typing import Any, Literal, Optional
-from uuid import UUID
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, validator
 

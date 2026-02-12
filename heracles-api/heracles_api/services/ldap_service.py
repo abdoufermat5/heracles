@@ -6,7 +6,6 @@ Provides LDAP operations for the Heracles API.
 This service uses heracles-core (Rust) for all LDAP operations.
 """
 
-import asyncio
 from typing import Optional, List, Dict, Any, Tuple, Union
 from dataclasses import dataclass, field
 from enum import Enum

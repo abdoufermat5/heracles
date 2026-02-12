@@ -129,7 +129,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("plugins_loaded", count=len(loaded_plugins))
 
         # Register plugin routes
-        from heracles_api.plugins.registry import plugin_registry
         from heracles_api.services.config import get_config_service
         
         # Get config service if available
@@ -237,7 +236,7 @@ app.add_middleware(PluginAccessMiddleware)
 app.add_middleware(AclMiddleware)
 
 # Audit logging (runs after response — logs all POST/PUT/PATCH/DELETE)
-from heracles_api.middleware.audit import AuditMiddleware
+from heracles_api.middleware.audit import AuditMiddleware  # noqa: E402
 app.add_middleware(AuditMiddleware)
 
 # CSRF protection

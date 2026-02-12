@@ -8,15 +8,17 @@ The ACL service bridges the Python API with the Rust ACL engine,
 providing efficient permission checking across the application.
 """
 
-import json
 import structlog
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from redis.asyncio import Redis
 
 from heracles_api.acl.registry import PermissionRegistry
 from heracles_api.repositories.acl_repository import AclRepository
+
+if TYPE_CHECKING:
+    from heracles_core import UserAcl as PyUserAcl
 
 logger = structlog.get_logger(__name__)
 

@@ -49,7 +49,7 @@ os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only"
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import all fixtures from fixtures module
-from tests.fixtures.auth import (
+from tests.fixtures.auth import (  # noqa: F401, E402
     mock_auth_service,
     mock_redis,
     auth_headers,
@@ -57,7 +57,7 @@ from tests.fixtures.auth import (
     user_session,
 )
 
-from tests.fixtures.repositories import (
+from tests.fixtures.repositories import (  # noqa: F401, E402
     mock_ldap_service,
     mock_user_repository,
     mock_group_repository,
@@ -70,7 +70,7 @@ from tests.fixtures.repositories import (
     mock_dhcp_service,
 )
 
-from tests.fixtures.entries import (
+from tests.fixtures.entries import (  # noqa: F401, E402
     create_mock_entry,
     mock_user_entry,
     mock_admin_entry,

@@ -5,7 +5,6 @@ Users API Unit Tests
 Tests for user management endpoints.
 """
 
-import pytest
 from unittest.mock import MagicMock
 
 

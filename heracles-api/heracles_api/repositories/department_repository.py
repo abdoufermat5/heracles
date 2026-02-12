@@ -213,9 +213,6 @@ class DepartmentRepository:
         if not entries:
             return []
 
-        # Build lookup by DN
-        entry_map = {e.dn: e for e in entries}
-
         # Count children for each department
         children_count = {e.dn: 0 for e in entries}
         for entry in entries:

@@ -5,11 +5,11 @@ Plugin Registry
 Manages loaded plugins and provides access to their services.
 """
 
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional
 
 import structlog
 
-from .base import Plugin, PluginInfo, PluginFieldDefinition, PluginTemplateField, TabDefinition, TabService
+from .base import Plugin, PluginFieldDefinition, TabDefinition, TabService
 
 logger = structlog.get_logger(__name__)
 

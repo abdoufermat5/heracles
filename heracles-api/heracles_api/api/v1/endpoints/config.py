@@ -5,7 +5,7 @@ Configuration API Endpoints
 API routes for managing application and plugin configuration.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 import structlog

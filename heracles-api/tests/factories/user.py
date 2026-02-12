@@ -7,8 +7,6 @@ Factory for creating user test data.
 
 from dataclasses import dataclass, field
 from typing import List, Optional
-import random
-import string
 
 
 @dataclass

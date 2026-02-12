@@ -16,8 +16,6 @@ from heracles_api.schemas.role import RoleCreate, RoleUpdate
 from heracles_api.config import settings
 from heracles_api.core.ldap_config import (
     get_roles_rdn,
-    get_default_role_objectclasses,
-    DEFAULT_ROLES_RDN,
 )
 
 import structlog
