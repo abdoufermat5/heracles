@@ -254,17 +254,6 @@
       "self_only": false,
       "deny": false,
       "priority": 100
-    },
-    {
-      "$comment": "Bootstrap: Assign Superadmin policy to the LDAP bind DN (backend operations)",
-      "policy": "Superadmin",
-      "subject_type": "user",
-      "subject_dn_setting": "LDAP_BIND_DN",
-      "scope_dn": "",
-      "scope_type": "subtree",
-      "self_only": false,
-      "deny": false,
-      "priority": 100
     }
   ]
 }
