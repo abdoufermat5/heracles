@@ -18,11 +18,11 @@ from heracles_plugins.mail.schemas import (
     MailGroupRead,
     DeliveryMode,
 )
-from heracles_plugins.mail.services.base import (
+from heracles_plugins.mail.service.base import (
     MailValidationError,
     MailAlreadyExistsError,
 )
-from heracles_api.core.dependencies import get_current_user
+from heracles_api.core.dependencies import get_current_user, get_acl_guard
 
 
 # ============================================================================
@@ -34,6 +34,7 @@ from heracles_api.core.dependencies import get_current_user
 def mock_mail_user_service():
     """Create mock mail user service."""
     service = AsyncMock()
+    service.get_base_dn.return_value = "dc=example,dc=com"
     return service
 
 
@@ -41,6 +42,7 @@ def mock_mail_user_service():
 def mock_mail_group_service():
     """Create mock mail group service."""
     service = AsyncMock()
+    service.get_base_dn.return_value = "dc=example,dc=com"
     return service
 
 
@@ -50,11 +52,20 @@ def mock_current_user():
     user = MagicMock()
     user.uid = "admin"
     user.dn = "uid=admin,ou=people,dc=example,dc=com"
+    user.user_dn = "uid=admin,ou=people,dc=example,dc=com"
     return user
 
 
 @pytest.fixture
-def app_with_mocks(mock_mail_user_service, mock_mail_group_service, mock_current_user):
+def mock_acl_guard():
+    """Create mock ACL guard."""
+    guard = MagicMock()
+    guard.require = MagicMock(return_value=None)  # Always allow
+    return guard
+
+
+@pytest.fixture
+def app_with_mocks(mock_mail_user_service, mock_mail_group_service, mock_current_user, mock_acl_guard):
     """Create FastAPI app with all dependencies mocked."""
     app = FastAPI()
     app.include_router(router, prefix="/api/v1")
@@ -63,6 +74,7 @@ def app_with_mocks(mock_mail_user_service, mock_mail_group_service, mock_current
     app.dependency_overrides[get_mail_user_service] = lambda: mock_mail_user_service
     app.dependency_overrides[get_mail_group_service] = lambda: mock_mail_group_service
     app.dependency_overrides[get_current_user] = lambda: mock_current_user
+    app.dependency_overrides[get_acl_guard] = lambda: mock_acl_guard
 
     return app
 

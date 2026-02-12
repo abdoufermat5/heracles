@@ -8,9 +8,9 @@ Integration tests for mail account services.
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from heracles_plugins.mail.services.mail_user_service import MailUserService
-from heracles_plugins.mail.services.mail_group_service import MailGroupService
-from heracles_plugins.mail.services.base import (
+from heracles_plugins.mail.service.mail_user_service import MailUserService
+from heracles_plugins.mail.service.mail_group_service import MailGroupService
+from heracles_plugins.mail.service.base import (
     MailValidationError,
     MailAlreadyExistsError,
 )
