@@ -21,7 +21,7 @@ Provides POSIX account management (Unix accounts) for users and groups.
 ## Installation
 
 ```bash
-pip install -e /path/to/heracles_plugins
+uv pip install -e /path/to/heracles_plugins
 ```
 
 ## Configuration

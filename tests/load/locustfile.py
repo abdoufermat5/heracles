@@ -3,7 +3,7 @@ Heracles — Load Testing with Locust
 =====================================
 
 Usage:
-  pip install locust
+  uv pip install locust
   locust -f tests/load/locustfile.py --host http://localhost:8000
 
 Web UI will be at http://localhost:8089

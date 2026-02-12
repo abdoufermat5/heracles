@@ -123,7 +123,7 @@ fn heracles_core(_py: Python, m: &PyModule) -> PyResult<()> {
 
 ```
 heracles-api/
-├── requirements.txt        # Dependencies Python
+├── pyproject.toml          # Dependencies Python (uv)
 ├── alembic/                # Migrations DB
 │   ├── alembic.ini
 │   └── versions/

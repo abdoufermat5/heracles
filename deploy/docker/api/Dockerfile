@@ -1,7 +1,8 @@
 # Heracles API Dockerfile — Multi-stage Production Build
 # ======================================================
 # Stage 1: Build heracles-core Rust → Python wheel
-# Stage 2: Lean production image (~200MB vs ~1.5GB)
+# Stage 2: Lean production image with uv
+# Package manager: uv (https://docs.astral.sh/uv/)
 
 # ---------------------------------------------------------------------------
 # Stage 1 — Rust builder: compile heracles-core Python wheel
@@ -25,7 +26,7 @@ RUN maturin build --release
 # Wheel lands in /heracles-core/target/wheels/*.whl
 
 # ---------------------------------------------------------------------------
-# Stage 2 — Production Python image
+# Stage 2 — Production Python image (uv)
 # ---------------------------------------------------------------------------
 FROM python:3.11-slim AS production
 
@@ -37,25 +38,36 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
-# Install production Python deps first (layer cache)
-COPY heracles-api/requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+# uv settings: install into system python, no venvs inside container
+ENV UV_SYSTEM_PYTHON=1 \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
+
+WORKDIR /app
 
 # Install heracles-core wheel from builder stage
 COPY --from=rust-builder /heracles-core/target/wheels/*.whl /tmp/
-RUN pip install /tmp/*.whl && rm -f /tmp/*.whl
+RUN uv pip install /tmp/*.whl && rm -f /tmp/*.whl
 
-# Copy application code
+# Install API deps (layer cache: copy pyproject.toml first, install deps only)
+COPY heracles-api/pyproject.toml /app/pyproject.toml
+COPY heracles-api/CHANGELOG.md /app/CHANGELOG.md
+RUN mkdir -p /app/heracles_api && touch /app/heracles_api/__init__.py \
+    && uv pip install . \
+    && rm -rf /app/heracles_api
+
+# Copy application code (deps already cached in layer above)
 COPY heracles-api /app
 
 # Copy and install plugins
 COPY heracles_plugins /heracles_plugins
-RUN pip install /heracles_plugins
+RUN uv pip install /heracles_plugins
 
 # Gunicorn config
-COPY docker/api/gunicorn.conf.py /app/gunicorn.conf.py
+COPY deploy/docker/api/gunicorn.conf.py /app/gunicorn.conf.py
 
 # Create non-root user
 RUN useradd -m -u 1000 heracles \

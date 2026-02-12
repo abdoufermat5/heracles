@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Package management**: Migrated from pip/requirements.txt to **uv** with pyproject.toml
+- Build backend switched from setuptools to hatchling
+- Dockerfile now uses `uv pip install` for all Python package operations
+- CI pipeline uses `astral-sh/setup-uv@v4` for reproducible installs
+- Removed `requirements.txt` and `requirements-dev.txt` (replaced by `pyproject.toml`)
+- Tool config (pytest, ruff, black, mypy) consolidated into `pyproject.toml`
+
 ## [0.8.1-rc] - 2026-02-11
 
 ### Added

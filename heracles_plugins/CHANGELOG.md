@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Package management**: Migrated from setuptools to **hatchling** build backend (uv-compatible)
+- Updated dev dependency versions (pytest, pytest-asyncio, pytest-cov)
+- Removed `heracles_plugins.egg-info/` directory
+
 ### Added
 - `minimum_api_version` field in PluginInfo for API compatibility checking
 

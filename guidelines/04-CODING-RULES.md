@@ -820,7 +820,7 @@ filter = f"(uid={safe_uid})"
 ```bash
 # Vérifier régulièrement les vulnérabilités (dans conteneurs pour Python/JS)
 cargo audit                                           # Rust (hôte OK)
-docker compose exec api pip-audit                     # Python (conteneur)
+docker compose exec api uv pip compile pyproject.toml | pip-audit -r /dev/stdin  # Python (conteneur)
 docker compose --profile full exec ui npm audit       # JavaScript (conteneur)
 ```
 

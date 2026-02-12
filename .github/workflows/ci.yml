@@ -66,8 +66,11 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
       - name: Install linters
-        run: pip install ruff==0.1.13 mypy==1.8.0
+        run: uv pip install --system ruff==0.1.13 mypy==1.8.0
 
       - name: Ruff check (API)
         run: ruff check heracles-api/
@@ -130,18 +133,21 @@ jobs:
       - name: Install Rust (for heracles-core build)
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache pip
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Cache uv
         uses: actions/cache@v4
         with:
-          path: ~/.cache/pip
-          key: pip-${{ runner.os }}-${{ hashFiles('heracles-api/requirements.txt') }}
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('heracles-api/pyproject.toml') }}
 
       - name: Install dependencies
         run: |
-          pip install -r heracles-api/requirements.txt
-          pip install maturin
-          cd heracles-core && maturin build --release && pip install target/wheels/*.whl && cd ..
-          pip install -e heracles_plugins/
+          uv pip install --system maturin
+          cd heracles-core && maturin build --release && uv pip install --system target/wheels/*.whl && cd ..
+          uv pip install --system -e "heracles-api[dev]"
+          uv pip install --system -e heracles_plugins/
 
       - name: Run API tests with coverage
         run: |
@@ -201,10 +207,13 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
       - name: Python dependency audit
         run: |
-          pip install pip-audit
-          pip-audit -r heracles-api/requirements.txt || true
+          uv pip install --system pip-audit
+          pip-audit --require-hashes=false -r <(uv pip compile --system heracles-api/pyproject.toml) || true
 
       - name: Rust dependency audit
         run: |
