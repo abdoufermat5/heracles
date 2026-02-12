@@ -89,7 +89,7 @@ export class AppError extends Error {
 
     // Maintains proper stack trace for where error was thrown (V8 only)
     const ErrorWithCapture = Error as typeof Error & {
-      captureStackTrace?: (targetObject: object, constructorOpt?: (...args: unknown[]) => unknown) => void
+      captureStackTrace?: (targetObject: object, constructorOpt?: Function) => void
     }
     if (typeof ErrorWithCapture.captureStackTrace === 'function') {
       ErrorWithCapture.captureStackTrace(this, AppError)
@@ -169,7 +169,7 @@ export class AppError extends Error {
     const statusCode = response.status
     let code: ErrorCode
     let validationErrors: string[] | undefined
-    
+
     // Handle structured detail object or plain string
     let message: string
     if (body?.detail && typeof body.detail === 'object') {
@@ -292,7 +292,7 @@ export class AppError extends Error {
         })
         return
       }
-      
+
       if (validationErrors.length > 0) {
         // Show each validation error as a separate toast
         validationErrors.forEach((err) => toast.error(err))

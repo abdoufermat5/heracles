@@ -29,6 +29,8 @@ export default defineConfig([
       'react-hooks/set-state-in-effect': 'warn',
       // Allow non-component exports alongside components (common pattern)
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+      // Ignore React Compiler warnings about incompatible libraries (React Hook Form)
+      'react-hooks/incompatible-library': 'off',
     },
   },
 ])
