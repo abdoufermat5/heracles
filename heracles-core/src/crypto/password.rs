@@ -15,9 +15,10 @@ use sha2::{Digest, Sha256, Sha512};
 use std::fmt;
 
 /// Supported password hash methods.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum HashMethod {
     /// Salted SHA-1 (LDAP standard default)
+    #[default]
     Ssha,
     /// Argon2id (modern, recommended)
     Argon2id,
@@ -57,6 +58,7 @@ impl HashMethod {
     }
 
     /// Parses a hash method from a string.
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_uppercase().as_str() {
             "SSHA" | "{SSHA}" => Some(HashMethod::Ssha),
@@ -109,12 +111,6 @@ impl HashMethod {
                 | HashMethod::Ssha256
                 | HashMethod::Ssha
         )
-    }
-}
-
-impl Default for HashMethod {
-    fn default() -> Self {
-        HashMethod::Ssha // LDAP standard default
     }
 }
 
@@ -232,7 +228,7 @@ fn hash_ssha(password: &str) -> Result<String> {
 
     let mut hasher = Sha1::new();
     hasher.update(password.as_bytes());
-    hasher.update(&salt);
+    hasher.update(salt);
     let digest = hasher.finalize();
 
     let mut hash_with_salt = Vec::with_capacity(digest.len() + salt.len());
@@ -323,7 +319,7 @@ fn hash_sha512(password: &str) -> String {
     let mut hasher = Sha512::new();
     hasher.update(password.as_bytes());
     let digest = hasher.finalize();
-    format!("{{SHA512}}{}", BASE64.encode(&digest))
+    format!("{{SHA512}}{}", BASE64.encode(digest))
 }
 
 fn verify_sha512(password: &str, hash: &str) -> bool {
@@ -335,7 +331,7 @@ fn verify_sha512(password: &str, hash: &str) -> bool {
     let mut hasher = Sha512::new();
     hasher.update(password.as_bytes());
     let computed = hasher.finalize();
-    let computed_b64 = BASE64.encode(&computed);
+    let computed_b64 = BASE64.encode(computed);
 
     hash_value == computed_b64
 }
@@ -346,7 +342,7 @@ fn hash_ssha512(password: &str) -> Result<String> {
 
     let mut hasher = Sha512::new();
     hasher.update(password.as_bytes());
-    hasher.update(&salt);
+    hasher.update(salt);
     let digest = hasher.finalize();
 
     let mut hash_with_salt = Vec::with_capacity(digest.len() + salt.len());
@@ -388,7 +384,7 @@ fn hash_sha256(password: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(password.as_bytes());
     let digest = hasher.finalize();
-    format!("{{SHA256}}{}", BASE64.encode(&digest))
+    format!("{{SHA256}}{}", BASE64.encode(digest))
 }
 
 fn verify_sha256(password: &str, hash: &str) -> bool {
@@ -400,7 +396,7 @@ fn verify_sha256(password: &str, hash: &str) -> bool {
     let mut hasher = Sha256::new();
     hasher.update(password.as_bytes());
     let computed = hasher.finalize();
-    let computed_b64 = BASE64.encode(&computed);
+    let computed_b64 = BASE64.encode(computed);
 
     hash_value == computed_b64
 }
@@ -411,7 +407,7 @@ fn hash_ssha256(password: &str) -> Result<String> {
 
     let mut hasher = Sha256::new();
     hasher.update(password.as_bytes());
-    hasher.update(&salt);
+    hasher.update(salt);
     let digest = hasher.finalize();
 
     let mut hash_with_salt = Vec::with_capacity(digest.len() + salt.len());
@@ -454,7 +450,7 @@ fn hash_md5(password: &str) -> String {
     let mut hasher = md5::Md5::new();
     hasher.update(password.as_bytes());
     let digest = hasher.finalize();
-    format!("{{MD5}}{}", BASE64.encode(&digest))
+    format!("{{MD5}}{}", BASE64.encode(digest))
 }
 
 fn verify_md5(password: &str, hash: &str) -> bool {
@@ -467,7 +463,7 @@ fn verify_md5(password: &str, hash: &str) -> bool {
     let mut hasher = md5::Md5::new();
     hasher.update(password.as_bytes());
     let computed = hasher.finalize();
-    let computed_b64 = BASE64.encode(&computed);
+    let computed_b64 = BASE64.encode(computed);
 
     hash_value == computed_b64
 }
@@ -479,7 +475,7 @@ fn hash_smd5(password: &str) -> Result<String> {
 
     let mut hasher = md5::Md5::new();
     hasher.update(password.as_bytes());
-    hasher.update(&salt);
+    hasher.update(salt);
     let digest = hasher.finalize();
 
     let mut hash_with_salt = Vec::with_capacity(16 + salt.len());

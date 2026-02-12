@@ -21,7 +21,7 @@ use crate::ldap::dn::{
     escape_dn_value as rust_escape_dn_value, escape_filter_value as rust_escape_filter_value,
     DistinguishedName,
 };
-use crate::ldap::operations::{LdapEntry as RustLdapEntry, LdapModification, SearchScope};
+use crate::ldap::operations::{LdapEntry as RustLdapEntry, LdapModification};
 
 /// Registers the Python module.
 pub fn register_module(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
@@ -227,7 +227,7 @@ impl PyLdapConnection {
         password: String,
     ) -> PyResult<&'py PyAny> {
         let config = self.config.clone();
-        let connection = self.connection.clone();
+        let _connection = self.connection.clone();
 
         pyo3_asyncio::tokio::future_into_py(py, async move {
             // Create a temporary connection for auth
@@ -265,6 +265,7 @@ impl PyLdapConnection {
         attributes: Option<Vec<String>>,
         size_limit: i32,
     ) -> PyResult<&'py PyAny> {
+        let _ = size_limit; // TODO: implement size_limit support
         let connection = self.connection.clone();
         let search_scope = match scope {
             "base" => ldap3::Scope::Base,
@@ -902,6 +903,7 @@ pub struct PyAclRow {
 #[pymethods]
 impl PyAclRow {
     #[new]
+    #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (policy_name, perm_low, perm_high, scope_dn, scope_type, self_only, deny, priority, attr_rules=None))]
     fn new(
         policy_name: String,

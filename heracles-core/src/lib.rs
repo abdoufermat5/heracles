@@ -31,6 +31,9 @@
 //! }
 //! ```
 
+// PyO3 `#[pymethods]` macro generates non-local impl definitions
+#![allow(non_local_definitions)]
+
 pub mod acl;
 pub mod crypto;
 pub mod errors;

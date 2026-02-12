@@ -155,9 +155,9 @@ export function ExportPage() {
     })
   }
 
-  const requiredFields = fieldsQuery.data?.required_fields ?? []
-  const optionalFields = fieldsQuery.data?.optional_fields ?? []
-  const pluginFieldGroups = fieldsQuery.data?.plugin_fields ?? []
+  const requiredFields = useMemo(() => fieldsQuery.data?.required_fields ?? [], [fieldsQuery.data])
+  const optionalFields = useMemo(() => fieldsQuery.data?.optional_fields ?? [], [fieldsQuery.data])
+  const pluginFieldGroups = useMemo(() => fieldsQuery.data?.plugin_fields ?? [], [fieldsQuery.data])
 
   // Summary counts
   const totalFieldCount = useMemo(() => {

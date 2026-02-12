@@ -51,7 +51,7 @@ impl AttributeFilter {
     /// # Arguments
     ///
     /// * `allowed` - If Some, only these attributes are permitted (whitelist).
-    ///               If None, all attributes are allowed except denied ones.
+    ///   If None, all attributes are allowed except denied ones.
     /// * `denied` - These attributes are always blocked, regardless of allowed.
     pub fn new(allowed: Option<HashSet<String>>, denied: HashSet<String>) -> Self {
         // Normalize to lowercase for case-insensitive comparison

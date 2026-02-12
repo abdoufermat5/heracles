@@ -28,7 +28,7 @@ import { userCreateSchema, type UserCreateFormData } from '@/lib/schemas'
 import { AppError } from '@/lib/errors'
 import { ROUTES } from '@/config/constants'
 import { useDepartmentStore } from '@/stores'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 
 /** Maps LDAP attribute names from template defaults to form field names */
 const TEMPLATE_FIELD_MAP: Record<string, keyof UserCreateFormData> = {
@@ -96,7 +96,7 @@ export function UserCreatePage() {
   const { currentBase } = useDepartmentStore()
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
   const { data: templateList } = useTemplates(currentBase || undefined)
-  const templates = templateList?.templates ?? []
+  const templates = useMemo(() => templateList?.templates ?? [], [templateList])
   const prevTemplateId = useRef<string>('')
 
   const form = useForm<UserCreateFormData>({

@@ -70,6 +70,7 @@ impl LdapFilter {
     }
 
     /// Creates a negation: (!(filter))
+    #[allow(clippy::should_implement_trait)]
     pub fn not(filter: LdapFilter) -> Self {
         Self::Not(Box::new(filter))
     }

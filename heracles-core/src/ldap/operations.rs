@@ -136,13 +136,14 @@ impl LdapModification {
 }
 
 /// Search scope for LDAP queries.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SearchScope {
     /// Search only the base object.
     Base,
     /// Search only immediate children.
     OneLevel,
     /// Search the entire subtree.
+    #[default]
     Subtree,
 }
 
@@ -156,11 +157,6 @@ impl From<SearchScope> for ldap3::Scope {
     }
 }
 
-impl Default for SearchScope {
-    fn default() -> Self {
-        Self::Subtree
-    }
-}
 
 /// Builder for LDAP search queries.
 #[derive(Debug, Clone)]

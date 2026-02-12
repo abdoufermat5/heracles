@@ -122,16 +122,15 @@ impl LdapConnection {
 
         let entries: Vec<LdapEntry> = results
             .into_iter()
-            .filter_map(|entry| {
+            .map(|entry| {
                 let search_entry = SearchEntry::construct(entry);
-                Some(LdapEntry {
+                LdapEntry {
                     dn: search_entry.dn,
                     attributes: search_entry
                         .attrs
                         .into_iter()
-                        .map(|(k, v)| (k, v))
                         .collect(),
-                })
+                }
             })
             .collect();
 

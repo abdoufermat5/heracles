@@ -5,7 +5,7 @@
  * including MAC address, fixed IP, and configuration options.
  */
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -85,18 +85,16 @@ export function DhcpHostDetailPage() {
   const updateMutation = useUpdateDhcpHost(serviceCn || '')
   const deleteMutation = useDeleteDhcpHost(serviceCn || '')
 
-  // Initialize form when host data loads
-  useEffect(() => {
-    if (host && !isEditing) {
-      setFormData({
-        macAddress: formatMacAddress(host.dhcpHWAddress),
-        fixedAddress: host.fixedAddress || '',
-        statements: host.dhcpStatements?.filter(s => !s.startsWith('fixed-address ')).join('\n') || '',
-        options: host.dhcpOption?.join('\n') || '',
-        comments: host.dhcpComments || '',
-      })
-    }
-  }, [host, isEditing])
+  const handleStartEdit = () => {
+    setFormData({
+      macAddress: formatMacAddress(host?.dhcpHWAddress),
+      fixedAddress: host?.fixedAddress || '',
+      statements: host?.dhcpStatements?.filter(s => !s.startsWith('fixed-address ')).join('\n') || '',
+      options: host?.dhcpOption?.join('\n') || '',
+      comments: host?.dhcpComments || '',
+    })
+    setIsEditing(true)
+  }
 
   const handleSave = async () => {
     if (!serviceCn || !hostCn || !dn) return
@@ -180,7 +178,7 @@ export function DhcpHostDetailPage() {
               </>
             ) : (
               <>
-                <Button onClick={() => setIsEditing(true)}>Edit</Button>
+                <Button onClick={handleStartEdit}>Edit</Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="destructive">

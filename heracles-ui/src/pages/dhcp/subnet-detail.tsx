@@ -5,7 +5,7 @@
  * including pools and configuration options.
  */
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -67,18 +67,16 @@ export function DhcpSubnetDetailPage() {
   const updateMutation = useUpdateDhcpSubnet(serviceCn || '')
   const deleteMutation = useDeleteDhcpSubnet(serviceCn || '')
 
-  // Initialize form when subnet data loads
-  useEffect(() => {
-    if (subnet && !isEditing) {
-      setFormData({
-        netmask: subnet.dhcpNetMask,
-        range: subnet.dhcpRange?.join('\n') || '',
-        statements: subnet.dhcpStatements?.join('\n') || '',
-        options: subnet.dhcpOption?.join('\n') || '',
-        comments: subnet.dhcpComments || '',
-      })
-    }
-  }, [subnet, isEditing])
+  const handleStartEdit = () => {
+    setFormData({
+      netmask: subnet?.dhcpNetMask ?? 24,
+      range: subnet?.dhcpRange?.join('\n') || '',
+      statements: subnet?.dhcpStatements?.join('\n') || '',
+      options: subnet?.dhcpOption?.join('\n') || '',
+      comments: subnet?.dhcpComments || '',
+    })
+    setIsEditing(true)
+  }
 
   const handleSave = async () => {
     if (!serviceCn || !subnetCn || !dn) return
@@ -161,7 +159,7 @@ export function DhcpSubnetDetailPage() {
               </>
             ) : (
               <>
-                <Button onClick={() => setIsEditing(true)}>Edit</Button>
+                <Button onClick={handleStartEdit}>Edit</Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="destructive">

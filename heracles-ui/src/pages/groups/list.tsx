@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Plus, UsersRound, Terminal, Layers, Shield } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -28,27 +27,17 @@ type GroupType = 'ldap' | 'posix' | 'mixed' | 'roles'
 export function GroupsListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
 
-  // Get active tab from URL or default to 'ldap'
-  const initialTab = (searchParams.get('tab') as GroupType) || 'ldap'
-  const [activeTab, setActiveTab] = useState<GroupType>(initialTab)
+  // Derive active tab directly from URL
+  const activeTab = (searchParams.get('tab') as GroupType) || 'ldap'
 
   // Update URL when tab changes
   const handleTabChange = (value: string) => {
     const newTab = value as GroupType
-    setActiveTab(newTab)
     setSearchParams(prev => {
       prev.set('tab', newTab)
       return prev
     }, { replace: true })
   }
-
-  // Sync state if URL changes externally
-  useEffect(() => {
-    const tabFromUrl = (searchParams.get('tab') as GroupType) || 'ldap'
-    if (tabFromUrl !== activeTab) {
-      setActiveTab(tabFromUrl)
-    }
-  }, [searchParams])
 
   const { currentBase, currentPath } = useDepartmentStore()
 
