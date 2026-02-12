@@ -74,6 +74,18 @@ cmd_init() {
     fi
 
     echo "[*] Creating organizational units..."
+
+    # Load pw-argon2 module for Argon2id password hashing support
+    echo "[*] Loading pw-argon2 module..."
+    if docker exec "$LDAP_CONTAINER" ldapsearch -Q -Y EXTERNAL -H ldapi:/// -b "cn=config" "(objectClass=olcModuleList)" olcModuleLoad 2>/dev/null | grep -q "pw-argon2"; then
+        echo "[i] pw-argon2 module already loaded."
+    else
+        docker exec "$LDAP_CONTAINER" bash -c 'echo "dn: cn=module{0},cn=config
+changetype: modify
+add: olcModuleLoad
+olcModuleLoad: pw-argon2.so" | ldapmodify -Q -Y EXTERNAL -H ldapi:///' && echo "[+] pw-argon2 module loaded." || echo "[!] Failed to load pw-argon2 module (may already be loaded)."
+    fi
+
     for ou in people groups roles systems aclroles sudoers dns dhcp; do
         ldapadd -x -H "ldap://${LDAP_HOST}:${LDAP_PORT}" -D "$LDAP_ADMIN_DN" -w "$LDAP_ADMIN_PASSWORD" <<EOF
 dn: ou=$ou,$LDAP_BASE_DN
