@@ -9,7 +9,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, status, Query
 
-from heracles_api.core.dependencies import CurrentUser, UserRepoDep, GroupRepoDep, AclGuardDep
+from heracles_api.core.dependencies import CurrentUser, UserRepoDep, GroupRepoDep, AclGuardDep, AclRepoDep
 from heracles_api.core.password_policy import validate_password_policy
 from heracles_api.schemas import (
     UserCreate,
@@ -177,6 +177,7 @@ async def create_user(
     current_user: CurrentUser,
     guard: AclGuardDep,
     user_repo: UserRepoDep,
+    acl_repo: AclRepoDep,
 ):
     """
     Create a new user.
@@ -209,6 +210,34 @@ async def create_user(
         entry = await user_repo.create(user, department_dn=user.department_dn)
 
         logger.info("user_created", uid=user.uid, department_dn=user.department_dn, by=current_user.uid)
+
+        # Auto-assign Self Service ACL policy to every new user
+        try:
+            self_service_policy = await acl_repo.get_policy_by_name("Self Service")
+            if self_service_policy:
+                already = await acl_repo.assignment_exists(
+                    policy_id=self_service_policy.id,
+                    subject_type="user",
+                    subject_dn=entry.dn,
+                    scope_dn=entry.dn,
+                    self_only=True,
+                )
+                if not already:
+                    await acl_repo.create_assignment(
+                        policy_id=self_service_policy.id,
+                        subject_type="user",
+                        subject_dn=entry.dn,
+                        scope_dn=entry.dn,
+                        scope_type="base",
+                        self_only=True,
+                        deny=False,
+                        priority=0,
+                    )
+                    logger.info("self_service_assigned", uid=user.uid, dn=entry.dn)
+            else:
+                logger.warning("self_service_policy_not_found", uid=user.uid)
+        except Exception as e:
+            logger.warning("self_service_assignment_failed", uid=user.uid, error=str(e))
 
         # Apply template plugin activations if a template was specified
         if user.template_id:
