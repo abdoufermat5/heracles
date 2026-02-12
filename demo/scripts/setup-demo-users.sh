@@ -519,6 +519,56 @@ echo "$result" | jq -r '.active // .detail // .' 2>/dev/null || echo "$result"
 
 echo ""
 echo "=========================================================================="
+echo "[*] STEP 12: Assign ACL Policies to Demo Users"
+echo "=========================================================================="
+
+# Fetch built-in policy IDs
+echo "[*] Fetching ACL policy IDs..."
+VIEWER_ID=$(api_call GET "/api/v1/acl/policies" | jq -r '.policies[] | select(.name=="Viewer") | .id')
+USER_MANAGER_ID=$(api_call GET "/api/v1/acl/policies" | jq -r '.policies[] | select(.name=="User Manager") | .id')
+HELPDESK_ID=$(api_call GET "/api/v1/acl/policies" | jq -r '.policies[] | select(.name=="Helpdesk") | .id')
+
+echo "[*] Assigning Viewer policy to testuser..."
+result=$(api_call POST "/api/v1/acl/assignments" "{
+    \"policyId\": \"$VIEWER_ID\",
+    \"subjectType\": \"user\",
+    \"subjectDn\": \"uid=testuser,ou=people,$LDAP_BASE_DN\",
+    \"scopeDn\": \"\",
+    \"scopeType\": \"subtree\",
+    \"selfOnly\": false,
+    \"deny\": false,
+    \"priority\": 0
+}")
+echo "$result" | jq -r '.id // .detail // .' 2>/dev/null || echo "$result"
+
+echo "[*] Assigning User Manager policy to devuser..."
+result=$(api_call POST "/api/v1/acl/assignments" "{
+    \"policyId\": \"$USER_MANAGER_ID\",
+    \"subjectType\": \"user\",
+    \"subjectDn\": \"uid=devuser,ou=people,$LDAP_BASE_DN\",
+    \"scopeDn\": \"\",
+    \"scopeType\": \"subtree\",
+    \"selfOnly\": false,
+    \"deny\": false,
+    \"priority\": 0
+}")
+echo "$result" | jq -r '.id // .detail // .' 2>/dev/null || echo "$result"
+
+echo "[*] Assigning Helpdesk policy to opsuser..."
+result=$(api_call POST "/api/v1/acl/assignments" "{
+    \"policyId\": \"$HELPDESK_ID\",
+    \"subjectType\": \"user\",
+    \"subjectDn\": \"uid=opsuser,ou=people,$LDAP_BASE_DN\",
+    \"scopeDn\": \"\",
+    \"scopeType\": \"subtree\",
+    \"selfOnly\": false,
+    \"deny\": false,
+    \"priority\": 0
+}")
+echo "$result" | jq -r '.id // .detail // .' 2>/dev/null || echo "$result"
+
+echo ""
+echo "=========================================================================="
 echo "[+] Demo Setup Complete!"
 echo "=========================================================================="
 echo ""
