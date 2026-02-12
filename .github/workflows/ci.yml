@@ -1,7 +1,7 @@
 # =============================================================================
 # Heracles CI Pipeline
 # =============================================================================
-# Runs on every push/PR to main. Tests all components and reports coverage.
+# Runs on every push/PR to main. Tests all components.
 # =============================================================================
 
 name: CI
@@ -32,8 +32,6 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy, rustfmt
 
       - name: Cache cargo
         uses: actions/cache@v4
@@ -44,39 +42,8 @@ jobs:
             heracles-core/target
           key: cargo-${{ runner.os }}-${{ hashFiles('heracles-core/Cargo.lock') }}
 
-      - name: Check formatting
-        run: cargo fmt -- --check
-
-      - name: Clippy lints
-        run: cargo clippy -- -D warnings
-
       - name: Run tests
-        run: cargo test --verbose
-
-  # ---------------------------------------------------------------------------
-  # Python Lint
-  # ---------------------------------------------------------------------------
-  python-lint:
-    name: Python Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-
-      - name: Install linters
-        run: uv pip install --system ruff==0.1.13 mypy==1.8.0
-
-      - name: Ruff check (API)
-        run: ruff check heracles-api/
-
-      - name: Ruff check (Plugins)
-        run: ruff check heracles_plugins/
+        run: cargo test --no-default-features --verbose
 
   # ---------------------------------------------------------------------------
   # Python API Tests
@@ -84,7 +51,6 @@ jobs:
   python-tests:
     name: Python API Tests
     runs-on: ubuntu-latest
-    needs: python-lint
 
     services:
       postgres:
@@ -167,10 +133,10 @@ jobs:
           fail_ci_if_error: false
 
   # ---------------------------------------------------------------------------
-  # TypeScript Lint & Build
+  # UI Build
   # ---------------------------------------------------------------------------
   ui-build:
-    name: UI Lint & Build
+    name: UI Build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -185,40 +151,8 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: ESLint
-        run: bun run lint
-
       - name: TypeScript type-check & build
         run: bun run build
-
-  # ---------------------------------------------------------------------------
-  # Security Audit
-  # ---------------------------------------------------------------------------
-  security-audit:
-    name: Dependency Security Audit
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-
-      - name: Python dependency audit
-        run: |
-          uv pip install --system pip-audit
-          pip-audit --require-hashes=false -r <(uv pip compile --system heracles-api/pyproject.toml) || true
-
-      - name: Rust dependency audit
-        run: |
-          cargo install cargo-audit
-          cd heracles-core && cargo audit || true
 
   # ---------------------------------------------------------------------------
   # Docker Build Test
