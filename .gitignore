@@ -82,5 +82,4 @@ demo/keys/
 *.bak
 *.tmp
 *.temp
-/docs/
 .claude

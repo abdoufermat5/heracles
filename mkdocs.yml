@@ -1,0 +1,38 @@
+site_name: Heracles Identity Management
+site_url: https://docs.heracles.local
+repo_url: https://github.com/abdoufermat5/heracles
+repo_name: abdoufermat5/heracles
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - toc.integrate
+    - content.code.copy
+  palette:
+    - scheme: default
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+nav:
+  - Home: index.md
+  - Identity: identity.md
+  - Infrastructure: infrastructure.md
+  - Security: security.md
+  - Administration: administration.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - attr_list
