@@ -19,5 +19,16 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // Allow underscore-prefixed variables/args to be unused (common convention)
+      '@typescript-eslint/no-unused-vars': ['error', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+      }],
+      // Downgrade new react-hooks 7.x experimental rules to warnings
+      'react-hooks/set-state-in-effect': 'warn',
+      // Allow non-component exports alongside components (common pattern)
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+    },
   },
 ])
