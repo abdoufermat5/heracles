@@ -5,7 +5,7 @@ This directory contains **core LDAP schemas** and **symlinks** to plugin schemas
 ## Directory Structure
 
 ```
-docker/ldap/schemas/
+deploy/docker/ldap/schemas/
 ├── core/                          # Heracles core configuration schemas
 │   ├── hrc-conf.schema            # Main configuration object (hrcConfig)
 │   └── hrc-conf.ldif              # LDIF format for cn=config
@@ -21,7 +21,7 @@ docker/ldap/schemas/
 
 Heracles follows a **distributed schema pattern** where each plugin owns its schemas:
 
-### 1. Core Configuration Schemas (`docker/ldap/schemas/core/`)
+### 1. Core Configuration Schemas (`deploy/docker/ldap/schemas/core/`)
 Centralized schemas for Heracles application configuration:
 - `hrc-conf` - RDN paths, UID/GID ranges, default settings
 
@@ -64,9 +64,9 @@ make ldap-schemas
 ```
 
 **Loading order:**
-1. Core schemas (`docker/ldap/schemas/core/`)
+1. Core schemas (`deploy/docker/ldap/schemas/core/`)
 2. Plugin schemas (`heracles_plugins/heracles_plugins/*/ldap/`)
-3. Compatibility schemas (`docker/ldap/schemas/` - symlinks skipped)
+3. Compatibility schemas (`deploy/docker/ldap/schemas/` - symlinks skipped)
 
 ## File Formats
 
@@ -89,26 +89,26 @@ Both formats are provided for flexibility:
 
 ## Symlinks for Backward Compatibility
 
-Files in `docker/ldap/schemas/` that correspond to plugin schemas are **symlinks** pointing to the plugin source:
+Files in `deploy/docker/ldap/schemas/` that correspond to plugin schemas are **symlinks** pointing to the plugin source:
 
 ```
-docker/ldap/schemas/
-├── openssh-lpk.ldif    → ../../heracles_plugins/heracles_plugins/ssh/ldap/openssh-lpk.ldif
-├── openssh-lpk.schema  → ../../heracles_plugins/heracles_plugins/ssh/ldap/openssh-lpk.schema
-├── sudo.ldif           → ../../heracles_plugins/heracles_plugins/sudo/ldap/sudo.ldif
-├── sudo.schema         → ../../heracles_plugins/heracles_plugins/sudo/ldap/sudo.schema
-├── dnszone.ldif        → ../../heracles_plugins/heracles_plugins/dns/ldap/dnszone.ldif
-├── dnszone.schema      → ../../heracles_plugins/heracles_plugins/dns/ldap/dnszone.schema
-├── hrc-dhcp.ldif       → ../../heracles_plugins/heracles_plugins/dhcp/ldap/hrc-dhcp.ldif
-├── hrc-dhcp.schema     → ../../heracles_plugins/heracles_plugins/dhcp/ldap/hrc-dhcp.schema
-├── hrc-systems.ldif    → ../../heracles_plugins/heracles_plugins/systems/ldap/hrc-systems.ldif
-├── hrc-systems.schema  → ../../heracles_plugins/heracles_plugins/systems/ldap/hrc-systems.schema
-├── hrc-aux.ldif        → ../../heracles_plugins/heracles_plugins/posix/ldap/hrc-aux.ldif
-└── hrc-aux.schema      → ../../heracles_plugins/heracles_plugins/posix/ldap/hrc-aux.schema
+deploy/docker/ldap/schemas/
+├── openssh-lpk.ldif    → ../../../../heracles_plugins/heracles_plugins/ssh/ldap/openssh-lpk.ldif
+├── openssh-lpk.schema  → ../../../../heracles_plugins/heracles_plugins/ssh/ldap/openssh-lpk.schema
+├── sudo.ldif           → ../../../../heracles_plugins/heracles_plugins/sudo/ldap/sudo.ldif
+├── sudo.schema         → ../../../../heracles_plugins/heracles_plugins/sudo/ldap/sudo.schema
+├── dnszone.ldif        → ../../../../heracles_plugins/heracles_plugins/dns/ldap/dnszone.ldif
+├── dnszone.schema      → ../../../../heracles_plugins/heracles_plugins/dns/ldap/dnszone.schema
+├── hrc-dhcp.ldif       → ../../../../heracles_plugins/heracles_plugins/dhcp/ldap/hrc-dhcp.ldif
+├── hrc-dhcp.schema     → ../../../../heracles_plugins/heracles_plugins/dhcp/ldap/hrc-dhcp.schema
+├── hrc-systems.ldif    → ../../../../heracles_plugins/heracles_plugins/systems/ldap/hrc-systems.ldif
+├── hrc-systems.schema  → ../../../../heracles_plugins/heracles_plugins/systems/ldap/hrc-systems.schema
+├── hrc-aux.ldif        → ../../../../heracles_plugins/heracles_plugins/posix/ldap/hrc-aux.ldif
+└── hrc-aux.schema      → ../../../../heracles_plugins/heracles_plugins/posix/ldap/hrc-aux.schema
 ```
 
 **Why symlinks?**
-- Scripts/docs that reference `docker/ldap/schemas/` continue to work
+- Scripts/docs that reference `deploy/docker/ldap/schemas/` continue to work
 - Single source of truth in plugin directories
 - Bootstrap script auto-discovers from plugins and skips duplicate symlinks
 
