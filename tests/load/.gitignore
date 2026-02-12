@@ -1,0 +1,5 @@
+# Locust generated files
+results_*.csv
+report_*.html
+locust.log
+__pycache__/

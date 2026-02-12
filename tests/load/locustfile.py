@@ -1,142 +1,115 @@
 """
-Heracles — Load Testing with Locust
-=====================================
+Heracles — Enterprise Load Testing Suite
+==========================================
+
+Entry point for Locust load tests.
+Locust auto-discovers HttpUser subclasses from the imports below.
 
 Usage:
-  uv pip install locust
-  locust -f tests/load/locustfile.py --host http://localhost:8000
+  # Web UI (default) — http://localhost:8089
+  cd tests/load && locust
 
-Web UI will be at http://localhost:8089
+  # With class picker (select personas from the UI)
+  cd tests/load && locust --class-picker
+
+  # Autostart with Web UI (starts immediately, UI stays open)
+  cd tests/load && locust --autostart --autoquit 10
+
+  # Headless — enterprise scale
+  cd tests/load && locust --headless -u 200 -r 10 -t 5m
+
+  # Run only specific tags
+  cd tests/load && locust --headless -u 50 -t 1m --tags users posix
+
+  # Debug a single user (no Locust runtime)
+  cd tests/load && python locustfile.py
+
+Configuration:
+  Settings are loaded from locust.conf in this directory.
+  Override any value via CLI flags or LOCUST_* environment variables.
+  See: https://docs.locust.io/en/stable/configuration.html
 """
 
-import json
-import random
-import string
+import logging
+from datetime import datetime, timezone
 
-from locust import HttpUser, between, task
+from locust import events
+from locust.runners import MasterRunner, WorkerRunner
+
+# ── User personas (auto-discovered by Locust) ──────────────────────────────
+from users.admin import HeraclesAdminUser  # noqa: F401
+from users.readonly import HeraclesReadOnlyUser  # noqa: F401
+from users.api_consumer import HeraclesAPIConsumer  # noqa: F401
+
+# ── Load shapes (selectable from UI with --class-picker) ───────────────────
+from shapes.enterprise import (  # noqa: F401
+    EnterpriseRampShape,
+    SpikeTestShape,
+    SoakTestShape,
+)
+
+logger = logging.getLogger("heracles.loadtest")
 
 
-def random_string(length: int = 8) -> str:
-    return "".join(random.choices(string.ascii_lowercase, k=length))
+# ── Event hooks ────────────────────────────────────────────────────────────
+
+@events.init.add_listener
+def on_locust_init(environment, **kwargs):
+    """Called when each Locust process starts. Log runner type."""
+    if isinstance(environment.runner, MasterRunner):
+        logger.info("Heracles load test — master node initialized")
+    elif isinstance(environment.runner, WorkerRunner):
+        logger.info("Heracles load test — worker node initialized")
+    else:
+        logger.info("Heracles load test — standalone mode initialized")
 
 
-class HeraclesUser(HttpUser):
-    """Simulates a typical Heracles admin user."""
+@events.test_start.add_listener
+def on_test_start(environment, **kwargs):
+    """Called when a test run starts."""
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    user_count = environment.runner.target_user_count if environment.runner else "?"
+    logger.info(
+        "══════════════════════════════════════════════════════════════\n"
+        "  HERACLES LOAD TEST STARTED\n"
+        "  Time:   %s\n"
+        "  Host:   %s\n"
+        "  Users:  %s\n"
+        "══════════════════════════════════════════════════════════════",
+        ts, environment.host, user_count,
+    )
 
-    wait_time = between(1, 3)
-    token: str = ""
 
-    def on_start(self):
-        """Login and obtain JWT token."""
-        resp = self.client.post(
-            "/api/v1/auth/login",
-            json={
-                "username": "hrc-admin",
-                "password": "admin_secret",
-            },
+@events.test_stop.add_listener
+def on_test_stop(environment, **kwargs):
+    """Called when a test run stops. Print summary."""
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    stats = environment.runner.stats.total if environment.runner else None
+    if stats:
+        logger.info(
+            "══════════════════════════════════════════════════════════════\n"
+            "  HERACLES LOAD TEST COMPLETED\n"
+            "  Time:       %s\n"
+            "  Requests:   %d total, %d failures (%.1f%%)\n"
+            "  RPS:        %.1f req/s\n"
+            "  Latency:    p50=%dms  p95=%dms  p99=%dms\n"
+            "══════════════════════════════════════════════════════════════",
+            ts,
+            stats.num_requests,
+            stats.num_failures,
+            (stats.num_failures / stats.num_requests * 100) if stats.num_requests else 0,
+            stats.total_rps,
+            stats.get_response_time_percentile(0.50) or 0,
+            stats.get_response_time_percentile(0.95) or 0,
+            stats.get_response_time_percentile(0.99) or 0,
         )
-        if resp.status_code == 200:
-            # Token is set via HttpOnly cookie, requests session handles it
-            pass
-        else:
-            self.environment.runner.quit()
-
-    # ── User Operations ────────────────────────────────────────────────────
-
-    @task(10)
-    def list_users(self):
-        self.client.get("/api/v1/users?page=1&page_size=20")
-
-    @task(5)
-    def search_users(self):
-        self.client.get(f"/api/v1/users?search={random_string(3)}")
-
-    @task(2)
-    def create_user(self):
-        uid = f"loadtest-{random_string(6)}"
-        self.client.post(
-            "/api/v1/users",
-            json={
-                "uid": uid,
-                "cn": f"Load Test {uid}",
-                "sn": "Test",
-                "givenName": "Load",
-                "mail": f"{uid}@example.com",
-                "userPassword": "TestPassword123!",
-            },
-            name="/api/v1/users [create]",
-        )
-
-    # ── Group Operations ───────────────────────────────────────────────────
-
-    @task(8)
-    def list_groups(self):
-        self.client.get("/api/v1/groups?page=1&page_size=20")
-
-    @task(3)
-    def list_departments(self):
-        self.client.get("/api/v1/departments")
-
-    # ── Audit ──────────────────────────────────────────────────────────────
-
-    @task(4)
-    def list_audit_logs(self):
-        self.client.get("/api/v1/audit/logs?pageSize=20")
-
-    # ── Templates ──────────────────────────────────────────────────────────
-
-    @task(3)
-    def list_templates(self):
-        self.client.get("/api/v1/templates")
-
-    # ── Health & Dashboard ──────────────────────────────────────────────────
-
-    @task(6)
-    def dashboard_stats(self):
-        self.client.get("/api/v1/stats")
-
-    @task(2)
-    def health_check(self):
-        self.client.get("/api/v1/health")
-
-    # ── ACL ────────────────────────────────────────────────────────────────
-
-    @task(3)
-    def list_acl_policies(self):
-        self.client.get("/api/v1/acl/policies")
-
-    @task(2)
-    def list_plugins(self):
-        self.client.get("/api/v1/plugins")
+    else:
+        logger.info("Heracles load test stopped at %s", ts)
 
 
-class HeraclesReadOnlyUser(HttpUser):
-    """Simulates a read-only user browsing the system."""
-
-    wait_time = between(2, 5)
-    weight = 3  # 3x more read-only users than admin users
-
-    def on_start(self):
-        resp = self.client.post(
-            "/api/v1/auth/login",
-            json={
-                "username": "hrc-admin",
-                "password": "admin_secret",
-            },
-        )
-
-    @task(10)
-    def browse_users(self):
-        self.client.get("/api/v1/users?page=1&page_size=50")
-
-    @task(5)
-    def browse_groups(self):
-        self.client.get("/api/v1/groups")
-
-    @task(3)
-    def view_audit(self):
-        self.client.get("/api/v1/audit/logs?pageSize=50")
-
-    @task(2)
-    def dashboard(self):
-        self.client.get("/api/v1/stats")
+# ── Debug support ──────────────────────────────────────────────────────────
+# Run directly: python locustfile.py
+# This launches a single user with request logging — no full Locust runtime.
+if __name__ == "__main__":
+    from locust import run_single_user
+    run_single_user(HeraclesAdminUser)
