@@ -88,11 +88,9 @@ export class AppError extends Error {
     this.timestamp = new Date()
 
     // Maintains proper stack trace for where error was thrown (V8 only)
-    const ErrorWithCapture = Error as typeof Error & {
-      captureStackTrace?: (targetObject: object, constructorOpt?: Function) => void
-    }
-    if (typeof ErrorWithCapture.captureStackTrace === 'function') {
-      ErrorWithCapture.captureStackTrace(this, AppError)
+    if ('captureStackTrace' in Error) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+      (Error as { captureStackTrace: (target: object, ctor?: Function) => void }).captureStackTrace(this, AppError)
     }
   }
 
