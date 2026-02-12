@@ -26,6 +26,7 @@ theme:
 
 nav:
   - Home: index.md
+  - Architecture: architecture.md
   - Identity: identity.md
   - Infrastructure: infrastructure.md
   - Security: security.md
@@ -34,5 +35,5 @@ nav:
 markdown_extensions:
   - admonition
   - pymdownx.details
-  - pymdownx.superfences
+
   - attr_list
