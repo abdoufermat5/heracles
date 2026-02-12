@@ -6,7 +6,7 @@ Database operations for the audit_logs table.
 """
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 from sqlalchemy import func, select
@@ -29,15 +29,15 @@ class AuditRepository:
         actor_dn: str,
         action: str,
         entity_type: str,
-        actor_name: Optional[str] = None,
-        entity_id: Optional[str] = None,
-        entity_name: Optional[str] = None,
-        changes: Optional[dict[str, Any]] = None,
-        department_dn: Optional[str] = None,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
+        actor_name: str | None = None,
+        entity_id: str | None = None,
+        entity_name: str | None = None,
+        changes: dict[str, Any] | None = None,
+        department_dn: str | None = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
         status: str = "success",
-        error_message: Optional[str] = None,
+        error_message: str | None = None,
     ) -> AuditLog:
         """Insert a new audit log entry."""
         entry = AuditLog(
@@ -63,15 +63,15 @@ class AuditRepository:
         *,
         page: int = 1,
         page_size: int = 50,
-        actor_dn: Optional[str] = None,
-        action: Optional[str] = None,
-        entity_type: Optional[str] = None,
-        entity_id: Optional[str] = None,
-        department_dn: Optional[str] = None,
-        status: Optional[str] = None,
-        from_ts: Optional[datetime] = None,
-        to_ts: Optional[datetime] = None,
-        search: Optional[str] = None,
+        actor_dn: str | None = None,
+        action: str | None = None,
+        entity_type: str | None = None,
+        entity_id: str | None = None,
+        department_dn: str | None = None,
+        status: str | None = None,
+        from_ts: datetime | None = None,
+        to_ts: datetime | None = None,
+        search: str | None = None,
     ) -> tuple[list[AuditLog], int]:
         """List audit entries with filtering and pagination."""
         query = select(AuditLog)
@@ -92,9 +92,7 @@ class AuditRepository:
             count_query = count_query.where(AuditLog.entity_id.ilike(f"%{entity_id}%"))
         if department_dn:
             query = query.where(AuditLog.department_dn.ilike(f"%{department_dn}%"))
-            count_query = count_query.where(
-                AuditLog.department_dn.ilike(f"%{department_dn}%")
-            )
+            count_query = count_query.where(AuditLog.department_dn.ilike(f"%{department_dn}%"))
         if status:
             query = query.where(AuditLog.status == status)
             count_query = count_query.where(AuditLog.status == status)

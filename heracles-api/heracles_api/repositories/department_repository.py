@@ -5,24 +5,23 @@ Department Repository
 Data access layer for department/OU LDAP operations.
 """
 
-from typing import Optional, List
 from dataclasses import dataclass
 
-from heracles_api.services.ldap_service import (
-    LdapService,
-    LdapEntry,
-    LdapOperationError,
-    SearchScope,
-)
+import structlog
+
+from heracles_api.config import settings
 from heracles_api.schemas.department import (
     DepartmentCreate,
-    DepartmentUpdate,
     DepartmentResponse,
     DepartmentTreeNode,
+    DepartmentUpdate,
 )
-from heracles_api.config import settings
-
-import structlog
+from heracles_api.services.ldap_service import (
+    LdapEntry,
+    LdapOperationError,
+    LdapService,
+    SearchScope,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -30,7 +29,8 @@ logger = structlog.get_logger(__name__)
 @dataclass
 class DepartmentSearchResult:
     """Department search result."""
-    departments: List[LdapEntry]
+
+    departments: list[LdapEntry]
     total: int
 
 
@@ -57,7 +57,7 @@ class DepartmentRepository:
         self.ldap = ldap
         self.base_dn = settings.LDAP_BASE_DN
 
-    def _build_department_dn(self, ou: str, parent_dn: Optional[str] = None) -> str:
+    def _build_department_dn(self, ou: str, parent_dn: str | None = None) -> str:
         """Build department DN from OU name."""
         if parent_dn:
             return f"ou={ou},{parent_dn}"
@@ -95,7 +95,7 @@ class DepartmentRepository:
         parts.reverse()
         return "/" + "/".join(parts) if parts else "/"
 
-    def _get_parent_dn(self, dn: str) -> Optional[str]:
+    def _get_parent_dn(self, dn: str) -> str | None:
         """Get parent DN from a DN."""
         parts = dn.split(",", 1)
         if len(parts) > 1:
@@ -118,7 +118,7 @@ class DepartmentRepository:
         ou_count = sum(1 for p in relative.split(",") if p.strip().lower().startswith("ou="))
         return ou_count - 1  # -1 because root departments have depth 0
 
-    async def get_root_containers(self) -> List[str]:
+    async def get_root_containers(self) -> list[str]:
         """
         Discover container OUs at root level (those without hrcDepartment).
 
@@ -140,7 +140,7 @@ class DepartmentRepository:
             logger.warning("failed_to_get_root_containers")
             return []
 
-    async def find_by_dn(self, dn: str) -> Optional[LdapEntry]:
+    async def find_by_dn(self, dn: str) -> LdapEntry | None:
         """
         Find department by DN.
 
@@ -162,8 +162,8 @@ class DepartmentRepository:
 
     async def search(
         self,
-        parent_dn: Optional[str] = None,
-        search_term: Optional[str] = None,
+        parent_dn: str | None = None,
+        search_term: str | None = None,
         limit: int = 0,
     ) -> DepartmentSearchResult:
         """
@@ -200,7 +200,7 @@ class DepartmentRepository:
 
         return DepartmentSearchResult(departments=entries, total=len(entries))
 
-    async def get_tree(self) -> List[DepartmentTreeNode]:
+    async def get_tree(self) -> list[DepartmentTreeNode]:
         """
         Build hierarchical department tree.
 
@@ -313,7 +313,7 @@ class DepartmentRepository:
 
         return await self.find_by_dn(dept_dn)
 
-    async def update(self, dn: str, updates: DepartmentUpdate) -> Optional[LdapEntry]:
+    async def update(self, dn: str, updates: DepartmentUpdate) -> LdapEntry | None:
         """
         Update department attributes.
 
@@ -378,9 +378,7 @@ class DepartmentRepository:
         )
 
         if children and not recursive:
-            raise LdapOperationError(
-                f"Department has {len(children)} children. Use recursive=true to delete."
-            )
+            raise LdapOperationError(f"Department has {len(children)} children. Use recursive=true to delete.")
 
         if recursive and children:
             # Delete children recursively (depth-first)

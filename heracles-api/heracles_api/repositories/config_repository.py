@@ -6,9 +6,9 @@ Data access layer for config_categories and config_settings tables.
 """
 
 import uuid
-from typing import Any, Optional
+from typing import Any
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from heracles_api.models.config import ConfigCategory, ConfigHistory, ConfigSetting
@@ -21,15 +21,11 @@ class ConfigRepository:
         self.session = session
 
     async def get_all_categories(self) -> list[ConfigCategory]:
-        stmt = select(ConfigCategory).order_by(
-            ConfigCategory.display_order, ConfigCategory.name
-        )
+        stmt = select(ConfigCategory).order_by(ConfigCategory.display_order, ConfigCategory.name)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def get_settings_for_category(
-        self, category_id: uuid.UUID
-    ) -> list[ConfigSetting]:
+    async def get_settings_for_category(self, category_id: uuid.UUID) -> list[ConfigSetting]:
         stmt = (
             select(ConfigSetting)
             .where(ConfigSetting.category_id == category_id)
@@ -38,9 +34,7 @@ class ConfigRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def get_setting(
-        self, category_name: str, key: str
-    ) -> Optional[ConfigSetting]:
+    async def get_setting(self, category_name: str, key: str) -> ConfigSetting | None:
         """Get a setting by category name and key (with join)."""
         stmt = (
             select(ConfigSetting)
@@ -50,9 +44,7 @@ class ConfigRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def get_setting_with_category_name(
-        self, category_name: str, key: str
-    ) -> Optional[tuple[ConfigSetting, str]]:
+    async def get_setting_with_category_name(self, category_name: str, key: str) -> tuple[ConfigSetting, str] | None:
         """Get a setting along with its category name."""
         stmt = (
             select(ConfigSetting, ConfigCategory.name)
@@ -82,7 +74,7 @@ class ConfigRepository:
         old_value: Any,
         new_value: Any,
         changed_by: str,
-        reason: Optional[str],
+        reason: str | None,
     ) -> None:
         history = ConfigHistory(
             setting_id=setting_id,

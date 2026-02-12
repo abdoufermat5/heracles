@@ -5,19 +5,18 @@ User Repository
 Data access layer for user LDAP operations.
 """
 
-from typing import Optional, List
 from dataclasses import dataclass
 
-from heracles_api.services.ldap_service import LdapService, LdapEntry, LdapOperationError
-from heracles_api.schemas.user import UserCreate, UserUpdate
-from heracles_api.config import settings
-from heracles_api.core.password_policy import get_password_hash_algorithm
-from heracles_api.core.ldap_config import (
-    get_users_rdn,
-    get_default_user_objectclasses,
-)
-
 import structlog
+
+from heracles_api.config import settings
+from heracles_api.core.ldap_config import (
+    get_default_user_objectclasses,
+    get_users_rdn,
+)
+from heracles_api.core.password_policy import get_password_hash_algorithm
+from heracles_api.schemas.user import UserCreate, UserUpdate
+from heracles_api.services.ldap_service import LdapEntry, LdapOperationError, LdapService
 
 logger = structlog.get_logger(__name__)
 
@@ -25,44 +24,67 @@ logger = structlog.get_logger(__name__)
 @dataclass
 class UserSearchResult:
     """User search result with pagination info."""
-    users: List[LdapEntry]
+
+    users: list[LdapEntry]
     total: int
 
 
 class UserRepository:
     """
     Repository for user LDAP operations.
-    
+
     Provides a clean interface for CRUD operations on users.
     """
-    
+
     OBJECT_CLASSES = ["inetOrgPerson", "organizationalPerson", "person"]
     USER_ATTRIBUTES = [
-        "uid", "cn", "sn", "givenName", "mail",
-        "telephoneNumber", "title", "description",
+        "uid",
+        "cn",
+        "sn",
+        "givenName",
+        "mail",
+        "telephoneNumber",
+        "title",
+        "description",
         # Personal
-        "displayName", "labeledURI", "preferredLanguage", "jpegPhoto",
+        "displayName",
+        "labeledURI",
+        "preferredLanguage",
+        "jpegPhoto",
         # Contact
-        "mobile", "facsimileTelephoneNumber",
+        "mobile",
+        "facsimileTelephoneNumber",
         # Address
-        "street", "postalAddress", "l", "st", "postalCode", "c", "roomNumber",
+        "street",
+        "postalAddress",
+        "l",
+        "st",
+        "postalCode",
+        "c",
+        "roomNumber",
         # Organization
-        "o", "ou", "departmentNumber", "employeeNumber", "employeeType", "manager",
+        "o",
+        "ou",
+        "departmentNumber",
+        "employeeNumber",
+        "employeeType",
+        "manager",
         # Metadata
-        "createTimestamp", "modifyTimestamp",
+        "createTimestamp",
+        "modifyTimestamp",
     ]
     # Include userPassword for lock status checks
     USER_ATTRIBUTES_WITH_PASSWORD = USER_ATTRIBUTES + ["userPassword"]
     LOCK_PREFIX = "{LOCKED}"  # Password prefix for locked accounts
-    
+
     def __init__(self, ldap: LdapService):
         self.ldap = ldap
         self.base_dn = settings.LDAP_BASE_DN
-    
+
     async def _get_users_container(self) -> str:
         """
         Get the users container OU from config.
-        
+
         Returns:
             Users OU (e.g., 'ou=people')
         """
@@ -71,8 +93,8 @@ class UserRepository:
         if not rdn.startswith("ou="):
             return f"ou={rdn}"
         return rdn
-    
-    async def _build_user_dn(self, uid: str, ou: Optional[str] = None, department_dn: Optional[str] = None) -> str:
+
+    async def _build_user_dn(self, uid: str, ou: str | None = None, department_dn: str | None = None) -> str:
         """
         Build user DN from UID.
 
@@ -89,18 +111,19 @@ class UserRepository:
             users_container = await self._get_users_container()
         else:
             users_container = f"ou={ou}" if not ou.startswith("ou=") else ou
-        
+
         if department_dn:
             # Create under users container within the department
             # e.g., uid=john,ou=people,ou=Engineering,dc=heracles,dc=local
             return f"uid={uid},{users_container},{department_dn}"
         return f"uid={uid},{users_container},{self.base_dn}"
-    
+
     def _entry_to_dict(self, entry: LdapEntry) -> dict:
         """Convert LDAP entry to dictionary."""
         photo_raw = entry.get_first("jpegPhoto")
         if photo_raw:
             import base64
+
             if isinstance(photo_raw, bytes):
                 photo_b64 = base64.b64encode(photo_raw).decode("ascii")
             else:
@@ -142,35 +165,35 @@ class UserRepository:
             "employeeType": entry.get_first("employeeType"),
             "manager": entry.get_first("manager"),
         }
-    
-    async def find_by_uid(self, uid: str) -> Optional[LdapEntry]:
+
+    async def find_by_uid(self, uid: str) -> LdapEntry | None:
         """Find user by UID."""
         entries = await self.ldap.search(
             search_filter=f"(&(objectClass=inetOrgPerson)(uid={self.ldap._escape_filter(uid)}))",
             attributes=self.USER_ATTRIBUTES,
         )
         return entries[0] if entries else None
-    
-    async def find_by_uid_with_password(self, uid: str) -> Optional[LdapEntry]:
+
+    async def find_by_uid_with_password(self, uid: str) -> LdapEntry | None:
         """Find user by UID including password attribute (for lock checks)."""
         entries = await self.ldap.search(
             search_filter=f"(&(objectClass=inetOrgPerson)(uid={self.ldap._escape_filter(uid)}))",
             attributes=self.USER_ATTRIBUTES_WITH_PASSWORD,
         )
         return entries[0] if entries else None
-    
-    async def find_by_dn(self, dn: str) -> Optional[LdapEntry]:
+
+    async def find_by_dn(self, dn: str) -> LdapEntry | None:
         """Find user by DN."""
         return await self.ldap.get_by_dn(dn, attributes=self.USER_ATTRIBUTES)
-    
-    async def find_by_mail(self, mail: str) -> Optional[LdapEntry]:
+
+    async def find_by_mail(self, mail: str) -> LdapEntry | None:
         """Find user by email."""
         entries = await self.ldap.search(
             search_filter=f"(&(objectClass=inetOrgPerson)(mail={self.ldap._escape_filter(mail)}))",
             attributes=self.USER_ATTRIBUTES,
         )
         return entries[0] if entries else None
-    
+
     async def exists(self, uid: str) -> bool:
         """Check if user exists."""
         entries = await self.ldap.search(
@@ -178,12 +201,12 @@ class UserRepository:
             attributes=["uid"],
         )
         return len(entries) > 0
-    
+
     async def search(
         self,
-        search_term: Optional[str] = None,
-        ou: Optional[str] = None,
-        base_dn: Optional[str] = None,
+        search_term: str | None = None,
+        ou: str | None = None,
+        base_dn: str | None = None,
         limit: int = 0,
     ) -> UserSearchResult:
         """
@@ -210,7 +233,7 @@ class UserRepository:
             people_container = f"ou={ou}" if not ou.startswith("ou=") else ou
         else:
             people_container = await self._get_users_container()
-        
+
         if base_dn:
             # Search within department's people container
             # e.g., ou=people,ou=Test,dc=heracles,dc=local
@@ -228,8 +251,8 @@ class UserRepository:
         )
 
         return UserSearchResult(users=entries, total=len(entries))
-    
-    async def create(self, user: UserCreate, department_dn: Optional[str] = None) -> LdapEntry:
+
+    async def create(self, user: UserCreate, department_dn: str | None = None) -> LdapEntry:
         """
         Create a new user.
 
@@ -245,24 +268,22 @@ class UserRepository:
         """
         # Use config-based OU if user.ou not specified
         user_dn = await self._build_user_dn(
-            user.uid, 
-            ou=user.ou if user.ou and user.ou != "people" else None, 
-            department_dn=department_dn
+            user.uid, ou=user.ou if user.ou and user.ou != "people" else None, department_dn=department_dn
         )
-        
+
         # Get hash algorithm from config
         hash_algorithm = await get_password_hash_algorithm()
-        
+
         # Get objectClasses from config
         object_classes = await get_default_user_objectclasses()
-        
+
         # Build attributes
         attrs = {
             "cn": user.cn,
             "sn": user.sn,
             "userPassword": self.ldap._hash_password(user.password, hash_algorithm),
         }
-        
+
         if user.given_name:
             attrs["givenName"] = user.given_name
         if user.mail:
@@ -313,37 +334,37 @@ class UserRepository:
             attrs["employeeType"] = user.employee_type
         if user.manager:
             attrs["manager"] = user.manager
-        
+
         await self.ldap.add(
             dn=user_dn,
             object_classes=object_classes,
             attributes=attrs,
         )
-        
+
         logger.info("user_created", uid=user.uid, dn=user_dn, hash_algorithm=hash_algorithm)
-        
+
         # Return the created entry
         return await self.find_by_dn(user_dn)
-    
-    async def update(self, uid: str, updates: UserUpdate) -> Optional[LdapEntry]:
+
+    async def update(self, uid: str, updates: UserUpdate) -> LdapEntry | None:
         """
         Update user attributes.
-        
+
         Args:
             uid: User UID
             updates: Fields to update
-            
+
         Returns:
             Updated user entry or None if not found
         """
         entry = await self.find_by_uid(uid)
         if not entry:
             return None
-        
+
         # Build changes
         changes = {}
         update_data = updates.model_dump(exclude_unset=True, by_alias=True)
-        
+
         attr_mapping = {
             "cn": "cn",
             "sn": "sn",
@@ -375,7 +396,7 @@ class UserRepository:
             "employeeType": "employeeType",
             "manager": "manager",
         }
-        
+
         for field, ldap_attr in attr_mapping.items():
             if field in update_data:
                 value = update_data[field]
@@ -384,79 +405,79 @@ class UserRepository:
                     changes[ldap_attr] = ("replace", [value])
                 else:
                     changes[ldap_attr] = ("delete", [])
-        
+
         if changes:
             await self.ldap.modify(entry.dn, changes)
             logger.info("user_updated", uid=uid, changes=list(changes.keys()))
-        
+
         return await self.find_by_uid(uid)
-    
+
     async def delete(self, uid: str) -> bool:
         """
         Delete a user.
-        
+
         Args:
             uid: User UID
-            
+
         Returns:
             True if deleted, False if not found
         """
         entry = await self.find_by_uid(uid)
         if not entry:
             return False
-        
+
         await self.ldap.delete(entry.dn)
         logger.info("user_deleted", uid=uid)
-        
+
         return True
-    
+
     async def set_password(self, uid: str, password: str) -> bool:
         """
         Set user password.
-        
+
         Args:
             uid: User UID
             password: New password
-            
+
         Returns:
             True if successful, False if user not found
         """
         entry = await self.find_by_uid(uid)
         if not entry:
             return False
-        
+
         # Get hash algorithm from config
         hash_algorithm = await get_password_hash_algorithm()
-        
+
         await self.ldap.set_password(
             entry.dn,
             password,
             method=hash_algorithm,
         )
-        
+
         logger.info("user_password_set", uid=uid, hash_algorithm=hash_algorithm)
         return True
-    
-    async def authenticate(self, username: str, password: str) -> Optional[LdapEntry]:
+
+    async def authenticate(self, username: str, password: str) -> LdapEntry | None:
         """
         Authenticate user.
-        
+
         Args:
             username: User UID or DN
             password: User password
-            
+
         Returns:
             User entry if authentication successful, None otherwise
         """
         return await self.ldap.authenticate(username, password)
-    
-    async def get_groups(self, user_dn: str) -> List[str]:
+
+    async def get_groups(self, user_dn: str) -> list[str]:
         """
         Get groups a user belongs to.
-        
+
         Args:
             user_dn: User DN
-            
+
         Returns:
             List of group CNs
         """
@@ -469,20 +490,20 @@ class UserRepository:
         except LdapOperationError:
             return []
 
-    async def is_locked(self, uid: str) -> Optional[bool]:
+    async def is_locked(self, uid: str) -> bool | None:
         """
         Check if user account is locked.
-        
+
         Args:
             uid: User UID
-            
+
         Returns:
             True if locked, False if not, None if user not found
         """
         entry = await self.find_by_uid_with_password(uid)
         if not entry:
             return None
-        
+
         # Check password prefix (simplest method, works everywhere)
         password = entry.get_first("userPassword")
         if password:
@@ -490,39 +511,37 @@ class UserRepository:
             password_str = password.decode() if isinstance(password, bytes) else str(password)
             if password_str.startswith(self.LOCK_PREFIX):
                 return True
-        
+
         return False
 
     async def lock(self, uid: str) -> bool:
         """
         Lock a user account by prefixing the password hash.
-        
+
         Args:
             uid: User UID
-            
+
         Returns:
             True if successful, False if user not found or already locked
         """
         entry = await self.find_by_uid_with_password(uid)
         if not entry:
             return False
-        
+
         # Check if already locked
         password = entry.get_first("userPassword")
         if not password:
             logger.warning("user_has_no_password", uid=uid)
             return False
-        
+
         # Handle both str and bytes
         password_str = password.decode() if isinstance(password, bytes) else str(password)
         if password_str.startswith(self.LOCK_PREFIX):
             return True  # Already locked
-        
+
         # Prefix password with {LOCKED}
         locked_password = f"{self.LOCK_PREFIX}{password_str}"
-        changes = {
-            "userPassword": ("replace", [locked_password])
-        }
+        changes = {"userPassword": ("replace", [locked_password])}
         await self.ldap.modify(entry.dn, changes)
         logger.info("user_locked", uid=uid)
         return True
@@ -530,32 +549,30 @@ class UserRepository:
     async def unlock(self, uid: str) -> bool:
         """
         Unlock a user account by removing the password prefix.
-        
+
         Args:
             uid: User UID
-            
+
         Returns:
             True if successful, False if user not found or not locked
         """
         entry = await self.find_by_uid_with_password(uid)
         if not entry:
             return False
-        
+
         # Check if locked
         password = entry.get_first("userPassword")
         if not password:
             return True  # No password = not locked
-        
+
         # Handle both str and bytes
         password_str = password.decode() if isinstance(password, bytes) else str(password)
         if not password_str.startswith(self.LOCK_PREFIX):
             return True  # Already unlocked
-        
+
         # Remove {LOCKED} prefix
-        unlocked_password = password_str[len(self.LOCK_PREFIX):]
-        changes = {
-            "userPassword": ("replace", [unlocked_password])
-        }
+        unlocked_password = password_str[len(self.LOCK_PREFIX) :]
+        changes = {"userPassword": ("replace", [unlocked_password])}
         await self.ldap.modify(entry.dn, changes)
         logger.info("user_unlocked", uid=uid)
         return True

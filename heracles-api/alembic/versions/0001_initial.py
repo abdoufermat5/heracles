@@ -8,21 +8,23 @@ Creates every table defined in heracles_api.models.
 Seed data is managed separately via ``heracles_api.core.seed``.
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+
+from sqlalchemy import inspect
 
 from alembic import op
-from sqlalchemy import inspect
 
 # revision identifiers, used by Alembic.
 revision: str = "0001"
-down_revision: Union[str, None] = None
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = None
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _tables_exist(connection) -> bool:
     """Check if core tables already exist (e.g. from legacy init.sql)."""
@@ -33,6 +35,7 @@ def _tables_exist(connection) -> bool:
 # ---------------------------------------------------------------------------
 # Upgrade
 # ---------------------------------------------------------------------------
+
 
 def upgrade() -> None:
     """Create all tables from ORM models."""
@@ -49,6 +52,7 @@ def upgrade() -> None:
 # ---------------------------------------------------------------------------
 # Downgrade
 # ---------------------------------------------------------------------------
+
 
 def downgrade() -> None:
     """Drop all model-managed tables (reverse order for FK deps)."""

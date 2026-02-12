@@ -97,9 +97,7 @@ async def seed_config(seed_path: Path | None = None) -> dict[str, int]:
                 # Already exists — fetch its id
                 cat_id = (
                     await session.execute(
-                        text(
-                            "SELECT id FROM config_categories WHERE name = :name"
-                        ),
+                        text("SELECT id FROM config_categories WHERE name = :name"),
                         {"name": cat_name},
                     )
                 ).scalar_one()
@@ -133,9 +131,7 @@ async def seed_config(seed_path: Path | None = None) -> dict[str, int]:
                             "validation_rules": json.dumps(s["validation_rules"])
                             if s.get("validation_rules")
                             else None,
-                            "options": json.dumps(s["options"])
-                            if s.get("options")
-                            else None,
+                            "options": json.dumps(s["options"]) if s.get("options") else None,
                             "section": s.get("section"),
                             "display_order": s.get("display_order", 0),
                         },
@@ -155,6 +151,7 @@ async def seed_config(seed_path: Path | None = None) -> dict[str, int]:
 # ---------------------------------------------------------------------------
 # CLI entry-point: python -m heracles_api.core.seed [path]
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     path = Path(sys.argv[1]) if len(sys.argv) > 1 else None

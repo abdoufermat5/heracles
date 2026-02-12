@@ -10,10 +10,10 @@ and are stable across restarts.
 """
 
 import json
-import structlog
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
+import structlog
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from heracles_api.repositories.acl_repository import AclRepository
@@ -54,7 +54,7 @@ class PermissionRegistry:
     async def load(
         self,
         session_factory: async_sessionmaker[AsyncSession],
-        plugins: Optional[list[Any]] = None,
+        plugins: list[Any] | None = None,
     ) -> None:
         """
         Load ACL definitions from JSON files and sync to PostgreSQL.
@@ -102,11 +102,11 @@ class PermissionRegistry:
         self,
         session_factory: async_sessionmaker[AsyncSession],
         path: Path,
-        plugin_name: Optional[str],
+        plugin_name: str | None,
     ) -> None:
         """Load a single ACL JSON file and sync to database."""
         try:
-            with open(path, "r") as f:
+            with open(path) as f:
                 data = json.load(f)
         except Exception as e:
             logger.error("acl_json_load_failed", path=str(path), error=str(e))
@@ -160,7 +160,7 @@ class PermissionRegistry:
         self,
         repo: AclRepository,
         policy: dict,
-        plugin: Optional[str],
+        plugin: str | None,
     ) -> None:
         """Upsert a built-in policy with its permission bitmap."""
         name = policy["name"]
@@ -254,9 +254,7 @@ class PermissionRegistry:
             subject_dn=subject_dn,
         )
 
-    async def _recompile_wildcard_policies(
-        self, session_factory: async_sessionmaker[AsyncSession]
-    ) -> None:
+    async def _recompile_wildcard_policies(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         """Recompile bitmaps for policies that used the "*" wildcard."""
         async with session_factory() as session:
             repo = AclRepository(session)
@@ -268,9 +266,7 @@ class PermissionRegistry:
             perm_low, perm_high = await self._calculate_bitmap(repo, all_perm_names)
 
             for policy_name in self._wildcard_policies:
-                await repo.update_wildcard_policy_bitmap(
-                    policy_name, perm_low, perm_high
-                )
+                await repo.update_wildcard_policy_bitmap(policy_name, perm_low, perm_high)
                 logger.info(
                     "acl_wildcard_policy_recompiled",
                     policy=policy_name,
@@ -305,9 +301,7 @@ class PermissionRegistry:
 
         return (low, high)
 
-    async def _rebuild_lookups(
-        self, session_factory: async_sessionmaker[AsyncSession]
-    ) -> None:
+    async def _rebuild_lookups(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         """Rebuild in-memory lookups from database."""
         async with session_factory() as session:
             repo = AclRepository(session)

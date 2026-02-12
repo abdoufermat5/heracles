@@ -8,10 +8,10 @@ IMPORTANT: These tests require running infrastructure.
 Use `make up-infra` before running integration tests.
 """
 
-import pytest
 import os
-from typing import Generator
+from collections.abc import Generator
 
+import pytest
 from fastapi.testclient import TestClient
 
 from heracles_api.main import app
@@ -51,6 +51,7 @@ def redis_connection(integration_test_enabled):
     Requires Redis server to be running.
     """
     from redis import Redis
+
     from heracles_api.config import settings
 
     redis = Redis.from_url(settings.REDIS_URL)
@@ -77,10 +78,7 @@ def authenticated_client(integration_client, ldap_connection):
     Logs in with test user and returns client with auth headers.
     """
     # Login with test user
-    response = integration_client.post(
-        "/api/v1/auth/login",
-        json={"username": "admin", "password": "admin_secret"}
-    )
+    response = integration_client.post("/api/v1/auth/login", json={"username": "admin", "password": "admin_secret"})
 
     if response.status_code != 200:
         pytest.skip("Could not authenticate. Check LDAP credentials.")

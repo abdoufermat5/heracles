@@ -6,7 +6,7 @@ Business logic for audit logging and retrieval.
 Provides a simple API for logging actions from any service layer.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -34,15 +34,15 @@ class AuditService:
         actor_dn: str,
         action: str,
         entity_type: str,
-        actor_name: Optional[str] = None,
-        entity_id: Optional[str] = None,
-        entity_name: Optional[str] = None,
-        changes: Optional[dict[str, Any]] = None,
-        department_dn: Optional[str] = None,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
+        actor_name: str | None = None,
+        entity_id: str | None = None,
+        entity_name: str | None = None,
+        changes: dict[str, Any] | None = None,
+        department_dn: str | None = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
         status: str = "success",
-        error_message: Optional[str] = None,
+        error_message: str | None = None,
     ) -> None:
         """
         Log an audit event.
@@ -88,9 +88,7 @@ class AuditService:
                 error=str(e),
             )
 
-    async def get_logs(
-        self, filters: AuditLogFilters
-    ) -> AuditLogListResponse:
+    async def get_logs(self, filters: AuditLogFilters) -> AuditLogListResponse:
         """Query audit logs with filtering and pagination."""
         async with self._session_factory() as session:
             repo = AuditRepository(session)
@@ -172,7 +170,7 @@ class AuditService:
 # ---------------------------------------------------------------------------
 # Module-level singleton
 # ---------------------------------------------------------------------------
-_audit_service: Optional[AuditService] = None
+_audit_service: AuditService | None = None
 
 
 def init_audit_service(

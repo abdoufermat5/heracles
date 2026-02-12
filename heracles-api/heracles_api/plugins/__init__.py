@@ -8,8 +8,8 @@ provide entirely new object management capabilities.
 """
 
 from .base import Plugin, PluginInfo, TabDefinition, TabService
-from .registry import PluginRegistry
 from .loader import discover_plugins, load_enabled_plugins
+from .registry import PluginRegistry
 
 __all__ = [
     "Plugin",

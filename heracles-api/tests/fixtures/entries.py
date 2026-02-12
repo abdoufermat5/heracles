@@ -5,14 +5,15 @@ LDAP Entry Fixtures
 Mock LDAP entries for testing.
 """
 
-import pytest
+from typing import Any
 from unittest.mock import MagicMock
-from typing import Dict, Any, List, Optional
+
+import pytest
 
 
 def create_mock_entry(
     dn: str,
-    attributes: Dict[str, Any],
+    attributes: dict[str, Any],
 ) -> MagicMock:
     """
     Create a mock LDAP entry with the given attributes.
@@ -30,7 +31,7 @@ def create_mock_entry(
     # Store attributes for reference
     entry._attributes = attributes
 
-    def get_first(attr: str, default: Optional[str] = None) -> Optional[str]:
+    def get_first(attr: str, default: str | None = None) -> str | None:
         value = attributes.get(attr)
         if value is None:
             return default
@@ -38,7 +39,7 @@ def create_mock_entry(
             return value[0] if value else default
         return value
 
-    def get(attr: str, default: Optional[List[str]] = None) -> Optional[List[str]]:
+    def get(attr: str, default: list[str] | None = None) -> list[str] | None:
         value = attributes.get(attr)
         if value is None:
             return default
@@ -56,6 +57,7 @@ def create_mock_entry(
 # User Entry Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_user_entry():
     """Create a standard mock user entry."""
@@ -68,7 +70,7 @@ def mock_user_entry():
             "givenName": "Test",
             "mail": "testuser@example.com",
             "objectClass": ["inetOrgPerson", "organizationalPerson", "person"],
-        }
+        },
     )
 
 
@@ -84,7 +86,7 @@ def mock_admin_entry():
             "givenName": "System",
             "mail": "admin@example.com",
             "objectClass": ["inetOrgPerson", "organizationalPerson", "person"],
-        }
+        },
     )
 
 
@@ -104,13 +106,14 @@ def mock_posix_user_entry():
             "homeDirectory": "/home/posixuser",
             "loginShell": "/bin/bash",
             "objectClass": ["inetOrgPerson", "posixAccount", "shadowAccount"],
-        }
+        },
     )
 
 
 # ============================================================================
 # Group Entry Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def mock_group_entry():
@@ -125,7 +128,7 @@ def mock_group_entry():
                 "uid=user2,ou=people,dc=heracles,dc=local",
             ],
             "objectClass": ["groupOfNames", "top"],
-        }
+        },
     )
 
 
@@ -140,7 +143,7 @@ def mock_posix_group_entry():
             "gidNumber": "10001",
             "memberUid": ["user1", "user2"],
             "objectClass": ["posixGroup", "top"],
-        }
+        },
     )
 
 
@@ -158,13 +161,14 @@ def mock_mixed_group_entry():
             ],
             "memberUid": ["user1"],
             "objectClass": ["groupOfNames", "posixGroupAux", "top"],
-        }
+        },
     )
 
 
 # ============================================================================
 # System Entry Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def mock_system_entry():
@@ -176,13 +180,14 @@ def mock_system_entry():
             "description": "Web Server 01",
             "ipHostNumber": "192.168.1.10",
             "objectClass": ["device", "ipHost", "top"],
-        }
+        },
     )
 
 
 # ============================================================================
 # Sudo Entry Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def mock_sudo_entry():
@@ -196,13 +201,14 @@ def mock_sudo_entry():
             "sudoCommand": ["ALL"],
             "sudoOption": ["!authenticate"],
             "objectClass": ["sudoRole", "top"],
-        }
+        },
     )
 
 
 # ============================================================================
 # DNS Entry Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def mock_dns_zone_entry():
@@ -217,13 +223,14 @@ def mock_dns_zone_entry():
             "sOARecord": "ns1.example.com. admin.example.com. 2024010101 3600 900 604800 86400",
             "nSRecord": ["ns1.example.com.", "ns2.example.com."],
             "objectClass": ["dNSZone", "top"],
-        }
+        },
     )
 
 
 # ============================================================================
 # Factory Functions
 # ============================================================================
+
 
 @pytest.fixture
 def user_entry_factory():
@@ -234,12 +241,9 @@ def user_entry_factory():
         def test_something(user_entry_factory):
             user = user_entry_factory(uid="custom", cn="Custom User")
     """
+
     def factory(
-        uid: str = "testuser",
-        cn: str = "Test User",
-        sn: str = "User",
-        mail: str = None,
-        **extra_attrs
+        uid: str = "testuser", cn: str = "Test User", sn: str = "User", mail: str = None, **extra_attrs
     ) -> MagicMock:
         attributes = {
             "uid": uid,
@@ -247,12 +251,10 @@ def user_entry_factory():
             "sn": sn,
             "mail": mail or f"{uid}@example.com",
             "objectClass": ["inetOrgPerson", "organizationalPerson", "person"],
-            **extra_attrs
+            **extra_attrs,
         }
-        return create_mock_entry(
-            dn=f"uid={uid},ou=people,dc=heracles,dc=local",
-            attributes=attributes
-        )
+        return create_mock_entry(dn=f"uid={uid},ou=people,dc=heracles,dc=local", attributes=attributes)
+
     return factory
 
 
@@ -265,25 +267,18 @@ def group_entry_factory():
         def test_something(group_entry_factory):
             group = group_entry_factory(cn="custom-group", members=["user1", "user2"])
     """
+
     def factory(
-        cn: str = "testgroup",
-        description: str = "Test Group",
-        members: List[str] = None,
-        **extra_attrs
+        cn: str = "testgroup", description: str = "Test Group", members: list[str] = None, **extra_attrs
     ) -> MagicMock:
-        member_dns = [
-            f"uid={m},ou=people,dc=heracles,dc=local"
-            for m in (members or [])
-        ]
+        member_dns = [f"uid={m},ou=people,dc=heracles,dc=local" for m in (members or [])]
         attributes = {
             "cn": cn,
             "description": description,
             "member": member_dns or ["cn=placeholder,dc=heracles,dc=local"],
             "objectClass": ["groupOfNames", "top"],
-            **extra_attrs
+            **extra_attrs,
         }
-        return create_mock_entry(
-            dn=f"cn={cn},ou=groups,dc=heracles,dc=local",
-            attributes=attributes
-        )
+        return create_mock_entry(dn=f"cn={cn},ou=groups,dc=heracles,dc=local", attributes=attributes)
+
     return factory

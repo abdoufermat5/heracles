@@ -5,34 +5,33 @@ Authentication Endpoints
 Handles user authentication (login, logout, password reset).
 """
 
-from typing import Annotated, Optional
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, status, Response, Cookie, Request
+import structlog
+from fastapi import APIRouter, Cookie, HTTPException, Request, Response, status
 
+from heracles_api.config import settings
 from heracles_api.core.dependencies import (
+    AuthDep,
     CurrentUser,
     LdapDep,
-    AuthDep,
-    UserRepoDep,
     RoleRepoDep,
+    UserRepoDep,
 )
 from heracles_api.core.password_policy import validate_password_policy
 from heracles_api.schemas import (
     LoginRequest,
-    TokenResponse,
-    RefreshRequest,
-    UserInfoResponse,
     PasswordChangeRequest,
     PasswordResetRequest,
+    RefreshRequest,
+    TokenResponse,
+    UserInfoResponse,
 )
 from heracles_api.services import (
     LdapAuthenticationError,
     LdapOperationError,
     TokenError,
 )
-from heracles_api.config import settings
-
-import structlog
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
@@ -50,9 +49,10 @@ async def login(
 ):
     """
     Authenticate user with LDAP credentials.
-    
+
     Sets HttpOnly cookies for session management.
     """
+
     # Helper for client IP
     def _client_ip() -> str | None:
         fwd = http_request.headers.get("x-forwarded-for")
@@ -65,12 +65,13 @@ async def login(
     try:
         # Authenticate with LDAP
         user = await user_repo.authenticate(request.username, request.password)
-        
+
         if user is None:
             logger.warning("login_failed", username=request.username)
             # Audit failed login
             try:
                 from heracles_api.services.audit_service import get_audit_service
+
                 audit = get_audit_service()
                 await audit.log_action(
                     actor_dn=f"uid={request.username},ou=people,{settings.LDAP_BASE_DN}",
@@ -88,33 +89,33 @@ async def login(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid username or password",
             )
-        
+
         # Extract user info
         uid = user.get_first("uid", request.username)
         display_name = user.get_first("cn", uid)
         mail = user.get_first("mail")
-        
+
         # Get user's groups
         groups = await user_repo.get_groups(user.dn)
         group_dns = [f"cn={g},ou=groups,{settings.LDAP_BASE_DN}" for g in groups]
-        
+
         # Get user's roles
         role_entries = await role_repo.get_user_roles(user.dn)
         role_dns = [r.dn for r in role_entries]
-        
+
         # Create tokens
         access_token, access_jti = await auth.create_access_token(
             user_dn=user.dn,
             uid=uid,
             additional_claims={"groups": groups},
         )
-        
+
         refresh_token, refresh_jti = await auth.create_refresh_token(
             user_dn=user.dn,
             uid=uid,
         )
         refresh_ttl_seconds = await auth.get_refresh_token_expire_days() * 24 * 60 * 60
-        
+
         # Create session
         await auth.create_session(
             user_dn=user.dn,
@@ -127,12 +128,13 @@ async def login(
             refresh_jti=refresh_jti,
             refresh_ttl_seconds=refresh_ttl_seconds,
         )
-        
+
         logger.info("login_success", uid=uid, user_dn=user.dn)
 
         # Audit successful login
         try:
             from heracles_api.services.audit_service import get_audit_service
+
             audit = get_audit_service()
             await audit.log_action(
                 actor_dn=user.dn,
@@ -146,20 +148,20 @@ async def login(
             )
         except Exception:
             pass
-        
+
         # Set cookies
         access_cookie = await auth.get_cookie_settings("access")
         refresh_cookie = await auth.get_cookie_settings("refresh")
         csrf_cookie = await auth.get_csrf_cookie_settings()
         csrf_token = auth.create_csrf_token()
-        
+
         response.set_cookie(value=access_token, **access_cookie)
         response.set_cookie(value=refresh_token, **refresh_cookie)
         response.set_cookie(value=csrf_token, **csrf_cookie)
-        
+
         # Get expires_in from config
         expires_in_minutes = await auth.get_access_token_expire_minutes()
-        
+
         # Return tokens in body for non-browser clients (scripts/CLI)
         # UI will use cookies and ignore these
         return TokenResponse(
@@ -167,7 +169,7 @@ async def login(
             refresh_token=refresh_token,
             expires_in=expires_in_minutes * 60,
         )
-        
+
     except LdapAuthenticationError as e:
         logger.error("login_ldap_error", error=str(e))
         raise HTTPException(
@@ -182,8 +184,8 @@ async def refresh_token(
     user_repo: UserRepoDep,
     role_repo: RoleRepoDep,
     response: Response,
-    refresh_token: Annotated[Optional[str], Cookie()] = None,
-    body: Optional[RefreshRequest] = None,
+    refresh_token: Annotated[str | None, Cookie()] = None,
+    body: RefreshRequest | None = None,
 ):
     """
     Refresh access token using refresh token from cookie or body.
@@ -192,9 +194,9 @@ async def refresh_token(
         token_to_verify = refresh_token
         if not token_to_verify and body:
             token_to_verify = body.refresh_token
-            
+
         if not token_to_verify:
-             raise HTTPException(
+            raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Refresh token missing",
             )
@@ -209,7 +211,7 @@ async def refresh_token(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Refresh token has been revoked",
             )
-        
+
         # Get fresh user data from LDAP
         user = await user_repo.find_by_dn(payload.sub)
         if user is None:
@@ -217,32 +219,32 @@ async def refresh_token(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User no longer exists",
             )
-        
+
         uid = user.get_first("uid", payload.uid)
         display_name = user.get_first("cn", uid)
         mail = user.get_first("mail")
-        
+
         # Get user's groups
         groups = await user_repo.get_groups(user.dn)
         group_dns = [f"cn={g},ou=groups,{settings.LDAP_BASE_DN}" for g in groups]
-        
+
         # Get user's roles
         role_entries = await role_repo.get_user_roles(user.dn)
         role_dns = [r.dn for r in role_entries]
-        
+
         # Create new tokens
         access_token, new_access_jti = await auth.create_access_token(
             user_dn=user.dn,
             uid=uid,
             additional_claims={"groups": groups},
         )
-        
+
         refresh_token, refresh_jti = await auth.create_refresh_token(
             user_dn=user.dn,
             uid=uid,
         )
         refresh_ttl_seconds = await auth.get_refresh_token_expire_days() * 24 * 60 * 60
-        
+
         # Create new session
         await auth.create_session(
             user_dn=user.dn,
@@ -257,28 +259,28 @@ async def refresh_token(
         )
 
         await auth.invalidate_session(access_jti)
-        
+
         logger.info("token_refreshed", uid=uid)
-        
+
         # Set new cookies
         access_cookie = await auth.get_cookie_settings("access")
         refresh_cookie = await auth.get_cookie_settings("refresh")
         csrf_cookie = await auth.get_csrf_cookie_settings()
         csrf_token = auth.create_csrf_token()
-        
+
         response.set_cookie(value=access_token, **access_cookie)
         response.set_cookie(value=refresh_token, **refresh_cookie)
         response.set_cookie(value=csrf_token, **csrf_cookie)
-        
+
         # Get expires_in from config
         expires_in_minutes = await auth.get_access_token_expire_minutes()
-        
+
         return TokenResponse(
             access_token=access_token,
             refresh_token=refresh_token,
             expires_in=expires_in_minutes * 60,
         )
-        
+
     except TokenError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -294,7 +296,7 @@ async def logout(
 ):
     """
     Logout current user.
-    
+
     Invalidates the current session and clears cookies.
     """
     await auth.invalidate_session(current_user.token_jti)
@@ -303,7 +305,7 @@ async def logout(
     response.delete_cookie("access_token")
     response.delete_cookie("refresh_token")
     response.delete_cookie("csrf_token")
-    
+
     logger.info("logout_success", uid=current_user.uid)
 
 
@@ -315,7 +317,7 @@ async def logout_all_sessions(
 ):
     """
     Logout from all sessions.
-    
+
     Invalidates all sessions for the current user and clears cookies.
     """
     count = await auth.invalidate_all_user_sessions(current_user.uid)
@@ -324,7 +326,7 @@ async def logout_all_sessions(
     response.delete_cookie("access_token")
     response.delete_cookie("refresh_token")
     response.delete_cookie("csrf_token")
-    
+
     logger.info("logout_all_success", uid=current_user.uid, sessions_invalidated=count)
 
 
@@ -351,7 +353,7 @@ async def change_password(
 ):
     """
     Change current user's password.
-    
+
     Requires current password for verification.
     """
     # Verify current password
@@ -361,7 +363,7 @@ async def change_password(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Current password is incorrect",
         )
-    
+
     # Validate new password against policy
     is_valid, errors = await validate_password_policy(request.new_password)
     if not is_valid:
@@ -372,16 +374,16 @@ async def change_password(
                 "errors": errors,
             },
         )
-    
+
     # Set new password
     try:
         await user_repo.set_password(current_user.uid, request.new_password)
-        
+
         # Invalidate all other sessions
         await auth.invalidate_all_user_sessions(current_user.uid)
-        
+
         logger.info("password_changed", uid=current_user.uid)
-        
+
     except LdapOperationError as e:
         logger.error("password_change_failed", uid=current_user.uid, error=str(e))
         raise HTTPException(
@@ -397,21 +399,21 @@ async def request_password_reset(
 ):
     """
     Request a password reset.
-    
+
     Sends a reset link to the user's email (if found).
     Always returns 202 to prevent email enumeration.
     """
     try:
         user = await user_repo.find_by_mail(request.email)
-        
+
         if user:
             # TODO: Send reset email
             logger.info("password_reset_requested", uid=user.get_first("uid"), email=request.email)
         else:
             logger.info("password_reset_unknown_email", email=request.email)
-            
+
     except LdapOperationError:
         pass
-    
+
     # Always return success to prevent enumeration
     return {"message": "If the email exists, a reset link will be sent"}

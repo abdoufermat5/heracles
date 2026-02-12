@@ -5,32 +5,32 @@ Configuration Service Package
 Modular configuration management for Heracles.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from heracles_api.services.config.base import ConfigService
-from heracles_api.services.config.settings import SettingsManager
-from heracles_api.services.config.plugins import PluginConfigManager
-from heracles_api.services.config.history import HistoryManager
 from heracles_api.services.config.cache import (
     get_config_value,
-    get_plugin_config_value,
     get_full_plugin_config,
+    get_plugin_config_value,
     invalidate_config_cache,
     invalidate_plugin_config_cache,
     set_config_service,
 )
+from heracles_api.services.config.history import HistoryManager
+from heracles_api.services.config.plugins import PluginConfigManager
+from heracles_api.services.config.settings import SettingsManager
 from heracles_api.services.config.validators import (
+    convert_sections_to_response,
     parse_json_value,
     parse_options,
     parse_validation,
     validate_value,
-    convert_sections_to_response,
 )
 
 # Global service instance
-_config_service: Optional[ConfigService] = None
+_config_service: ConfigService | None = None
 
 
 def get_config_service() -> ConfigService:

@@ -6,16 +6,16 @@ Manages plugin-specific configuration with migration support.
 """
 
 import json
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from heracles_api.plugins.base import Plugin
 from heracles_api.repositories.plugin_config_repository import PluginConfigRepository
 from heracles_api.schemas.config import PluginConfigResponse
-from heracles_api.plugins.base import Plugin
-from heracles_api.services.config.validators import convert_sections_to_response
 from heracles_api.services.config.cache import invalidate_plugin_config_cache
+from heracles_api.services.config.validators import convert_sections_to_response
 
 if TYPE_CHECKING:
     from heracles_api.services.config.base import ConfigService
@@ -29,19 +29,19 @@ class PluginConfigManager:
     def __init__(
         self,
         session_factory: async_sessionmaker[AsyncSession],
-        plugin_registry: Dict[str, Plugin],
+        plugin_registry: dict[str, Plugin],
     ):
         self._session_factory = session_factory
         self._plugin_registry = plugin_registry
 
-    async def get_all_plugin_configs(self) -> List[PluginConfigResponse]:
+    async def get_all_plugin_configs(self) -> list[PluginConfigResponse]:
         """
         Get all plugin configurations.
 
         Returns plugins from database, augmented with registered plugins that
         aren't yet stored in the database.
         """
-        db_plugins: Dict[str, PluginConfigResponse] = {}
+        db_plugins: dict[str, PluginConfigResponse] = {}
 
         async with self._session_factory() as session:
             repo = PluginConfigRepository(session)
@@ -71,7 +71,7 @@ class PluginConfigManager:
                 db_plugins[row.plugin_name] = PluginConfigResponse(
                     name=row.plugin_name,
                     enabled=row.enabled,
-                    version=row.version or '',
+                    version=row.version or "",
                     description=row.description,
                     sections=sections,
                     config=config_data,
@@ -107,7 +107,7 @@ class PluginConfigManager:
 
         return sorted(db_plugins.values(), key=lambda p: p.name)
 
-    async def get_plugin_config(self, plugin_name: str) -> Optional[PluginConfigResponse]:
+    async def get_plugin_config(self, plugin_name: str) -> PluginConfigResponse | None:
         """Get a single plugin's configuration."""
         async with self._session_factory() as session:
             repo = PluginConfigRepository(session)
@@ -139,7 +139,7 @@ class PluginConfigManager:
             return PluginConfigResponse(
                 name=row.plugin_name,
                 enabled=row.enabled,
-                version=row.version or '',
+                version=row.version or "",
                 description=row.description,
                 sections=sections,
                 config=config_data,
@@ -150,10 +150,10 @@ class PluginConfigManager:
     async def update_plugin_config(
         self,
         plugin_name: str,
-        config: Dict[str, Any],
+        config: dict[str, Any],
         changed_by: str,
-        reason: Optional[str] = None,
-    ) -> Tuple[bool, List[str]]:
+        reason: str | None = None,
+    ) -> tuple[bool, list[str]]:
         """Update plugin configuration."""
         # Get registered plugin for validation
         plugin = self._plugin_registry.get(plugin_name)
@@ -201,7 +201,8 @@ class PluginConfigManager:
 
             # Trigger hot-reload on plugin
             changed_keys = [
-                key for key in set(list(old_config.keys()) + list(merged_config.keys()))
+                key
+                for key in set(list(old_config.keys()) + list(merged_config.keys()))
                 if old_config.get(key) != merged_config.get(key)
             ]
 
@@ -224,19 +225,20 @@ class PluginConfigManager:
     async def update_plugin_config_with_migration(
         self,
         plugin_name: str,
-        config: Dict[str, Any],
+        config: dict[str, Any],
         changed_by: str,
         config_service: "ConfigService",
-        reason: Optional[str] = None,
+        reason: str | None = None,
         confirmed: bool = False,
         migrate_entries: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Update plugin configuration with RDN migration support."""
-        from heracles_api.services.ldap_service import get_ldap_service
         from heracles_api.services.ldap_migration_service import LdapMigrationService, MigrationMode
+        from heracles_api.services.ldap_service import get_ldap_service
 
         # RDN settings that may require migration
-        PLUGIN_RDN_SETTINGS = {
+        # RDN settings that may require migration
+        plugin_rdn_settings = {
             ("dns", "dns_rdn"): "dNSZone",
             ("dhcp", "dhcp_rdn"): "dhcpService",
             ("sudo", "sudoers_rdn"): "sudoRole",
@@ -263,7 +265,7 @@ class PluginConfigManager:
         # Check each RDN setting that might be changing
         for key, new_value in config.items():
             setting_key = (plugin_name, key)
-            if setting_key not in PLUGIN_RDN_SETTINGS:
+            if setting_key not in plugin_rdn_settings:
                 continue
 
             current_value = current_config.get(key)
@@ -275,7 +277,7 @@ class PluginConfigManager:
                 ldap_service = get_ldap_service()
                 migration_service = LdapMigrationService(ldap_service, config_service)
 
-                object_class_filter = PLUGIN_RDN_SETTINGS[setting_key]
+                object_class_filter = plugin_rdn_settings[setting_key]
 
                 check_result = await migration_service.check_rdn_change(
                     old_rdn=str(current_value),
@@ -311,12 +313,14 @@ class PluginConfigManager:
                         mode=mode,
                     )
 
-                    migration_results.append({
-                        "key": key,
-                        "entries_migrated": result.entries_migrated,
-                        "entries_failed": result.entries_failed,
-                        "mode": result.mode.value,
-                    })
+                    migration_results.append(
+                        {
+                            "key": key,
+                            "entries_migrated": result.entries_migrated,
+                            "entries_failed": result.entries_failed,
+                            "mode": result.mode.value,
+                        }
+                    )
 
                     logger.info(
                         "plugin_rdn_migration_complete",
@@ -361,8 +365,8 @@ class PluginConfigManager:
         plugin_name: str,
         enabled: bool,
         changed_by: str,
-        reason: Optional[str] = None,
-    ) -> Tuple[bool, List[str]]:
+        reason: str | None = None,
+    ) -> tuple[bool, list[str]]:
         """Enable or disable a plugin."""
         async with self._session_factory() as session:
             repo = PluginConfigRepository(session)

@@ -5,43 +5,47 @@ Group Schemas
 Pydantic models for group-related requests and responses.
 """
 
-from typing import Optional, List
 from pydantic import BaseModel, Field
 
 
 class GroupBase(BaseModel):
     """Base group model."""
+
     cn: str = Field(..., min_length=1, max_length=64, pattern=r"^[a-zA-Z0-9._-]+$")
-    description: Optional[str] = Field(None, max_length=256)
+    description: str | None = Field(None, max_length=256)
 
 
 class GroupCreate(GroupBase):
     """Group creation model."""
+
     ou: str = Field(default="groups", description="Container OU name (default: groups)")
-    department_dn: Optional[str] = Field(
+    department_dn: str | None = Field(
         None,
         alias="departmentDn",
-        description="Department DN (group will be created under ou=groups within this department)"
+        description="Department DN (group will be created under ou=groups within this department)",
     )
-    members: List[str] = Field(default_factory=list, description="List of member UIDs")
+    members: list[str] = Field(default_factory=list, description="List of member UIDs")
 
 
 class GroupUpdate(BaseModel):
     """Group update model."""
-    description: Optional[str] = Field(None, max_length=256)
+
+    description: str | None = Field(None, max_length=256)
 
 
 class GroupResponse(BaseModel):
     """Group response model."""
+
     dn: str
     cn: str
-    description: Optional[str] = None
-    members: List[str] = Field(default_factory=list, description="List of member UIDs")
+    description: str | None = None
+    members: list[str] = Field(default_factory=list, description="List of member UIDs")
 
 
 class GroupListResponse(BaseModel):
     """Paginated group list response."""
-    groups: List[GroupResponse]
+
+    groups: list[GroupResponse]
     total: int
     page: int
     page_size: int
@@ -50,4 +54,5 @@ class GroupListResponse(BaseModel):
 
 class MemberOperation(BaseModel):
     """Add/remove member operation."""
+
     uid: str = Field(..., description="User UID to add/remove")

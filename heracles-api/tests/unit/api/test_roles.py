@@ -186,9 +186,7 @@ class TestCreateRole:
         )
         assert response.status_code == 401
 
-    def test_create_role_success(
-        self, test_client, auth_headers, mock_role_repository, mock_user_repository
-    ):
+    def test_create_role_success(self, test_client, auth_headers, mock_role_repository, mock_user_repository):
         """Test creating a new role."""
         entry = create_mock_role_entry(cn="newrole", description="New role")
         mock_role_repository.exists.return_value = False
@@ -208,9 +206,7 @@ class TestCreateRole:
         assert data["cn"] == "newrole"
         mock_role_repository.create.assert_called_once()
 
-    def test_create_role_with_members(
-        self, test_client, auth_headers, mock_role_repository, mock_user_repository
-    ):
+    def test_create_role_with_members(self, test_client, auth_headers, mock_role_repository, mock_user_repository):
         """Test creating a role with initial members."""
         user_entry = MagicMock(spec=LdapEntry)
         user_entry.dn = "uid=jdoe,ou=people,dc=heracles,dc=local"
@@ -234,9 +230,7 @@ class TestCreateRole:
         mock_user_repository.find_by_uid.assert_called_once_with("jdoe")
         mock_role_repository.create.assert_called_once()
 
-    def test_create_role_conflict(
-        self, test_client, auth_headers, mock_role_repository
-    ):
+    def test_create_role_conflict(self, test_client, auth_headers, mock_role_repository):
         """Test creating a role that already exists returns 409."""
         mock_role_repository.exists.return_value = True
 
@@ -248,9 +242,7 @@ class TestCreateRole:
 
         assert response.status_code == 409
 
-    def test_create_role_member_not_found(
-        self, test_client, auth_headers, mock_role_repository, mock_user_repository
-    ):
+    def test_create_role_member_not_found(self, test_client, auth_headers, mock_role_repository, mock_user_repository):
         """Test creating a role with non-existent member returns 400."""
         mock_role_repository.exists.return_value = False
         mock_user_repository.find_by_uid.return_value = None
@@ -286,9 +278,7 @@ class TestCreateRole:
 
         assert response.status_code == 422
 
-    def test_create_role_with_department(
-        self, test_client, auth_headers, mock_role_repository, mock_user_repository
-    ):
+    def test_create_role_with_department(self, test_client, auth_headers, mock_role_repository, mock_user_repository):
         """Test creating a role within a department."""
         entry = create_mock_role_entry(
             dn="cn=teamlead,ou=roles,ou=Engineering,dc=heracles,dc=local",
@@ -389,9 +379,7 @@ class TestAddRoleMember:
         )
         assert response.status_code == 401
 
-    def test_add_member_success(
-        self, test_client, auth_headers, mock_role_repository, mock_user_repository
-    ):
+    def test_add_member_success(self, test_client, auth_headers, mock_role_repository, mock_user_repository):
         """Test adding a member to a role."""
         role_entry = create_mock_role_entry(cn="sysadmin")
         mock_role_repository.find_by_cn.return_value = role_entry
@@ -406,13 +394,9 @@ class TestAddRoleMember:
         )
 
         assert response.status_code == 204
-        mock_role_repository.add_member.assert_called_once_with(
-            "sysadmin", user_entry.dn
-        )
+        mock_role_repository.add_member.assert_called_once_with("sysadmin", user_entry.dn)
 
-    def test_add_member_role_not_found(
-        self, test_client, auth_headers, mock_role_repository
-    ):
+    def test_add_member_role_not_found(self, test_client, auth_headers, mock_role_repository):
         """Test adding member to non-existent role returns 404."""
         mock_role_repository.find_by_cn.return_value = None
 
@@ -424,9 +408,7 @@ class TestAddRoleMember:
 
         assert response.status_code == 404
 
-    def test_add_member_user_not_found(
-        self, test_client, auth_headers, mock_role_repository, mock_user_repository
-    ):
+    def test_add_member_user_not_found(self, test_client, auth_headers, mock_role_repository, mock_user_repository):
         """Test adding non-existent user to role returns 404."""
         role_entry = create_mock_role_entry(cn="sysadmin")
         mock_role_repository.find_by_cn.return_value = role_entry
@@ -440,18 +422,14 @@ class TestAddRoleMember:
 
         assert response.status_code == 404
 
-    def test_add_member_already_exists(
-        self, test_client, auth_headers, mock_role_repository, mock_user_repository
-    ):
+    def test_add_member_already_exists(self, test_client, auth_headers, mock_role_repository, mock_user_repository):
         """Test adding a member that already exists returns 409."""
         role_entry = create_mock_role_entry(cn="sysadmin")
         mock_role_repository.find_by_cn.return_value = role_entry
         user_entry = MagicMock(spec=LdapEntry)
         user_entry.dn = "uid=jdoe,ou=people,dc=heracles,dc=local"
         mock_user_repository.find_by_uid.return_value = user_entry
-        mock_role_repository.add_member.side_effect = LdapOperationError(
-            "Member already exists in role"
-        )
+        mock_role_repository.add_member.side_effect = LdapOperationError("Member already exists in role")
 
         response = test_client.post(
             "/api/v1/roles/sysadmin/members",
@@ -470,9 +448,7 @@ class TestRemoveRoleMember:
         response = test_client.delete("/api/v1/roles/sysadmin/members/jdoe")
         assert response.status_code == 401
 
-    def test_remove_member_success(
-        self, test_client, auth_headers, mock_role_repository, mock_user_repository
-    ):
+    def test_remove_member_success(self, test_client, auth_headers, mock_role_repository, mock_user_repository):
         """Test removing a member from a role."""
         role_entry = create_mock_role_entry(cn="sysadmin")
         mock_role_repository.find_by_cn.return_value = role_entry
@@ -486,13 +462,9 @@ class TestRemoveRoleMember:
         )
 
         assert response.status_code == 204
-        mock_role_repository.remove_member.assert_called_once_with(
-            "sysadmin", user_entry.dn
-        )
+        mock_role_repository.remove_member.assert_called_once_with("sysadmin", user_entry.dn)
 
-    def test_remove_member_role_not_found(
-        self, test_client, auth_headers, mock_role_repository
-    ):
+    def test_remove_member_role_not_found(self, test_client, auth_headers, mock_role_repository):
         """Test removing member from non-existent role returns 404."""
         mock_role_repository.find_by_cn.return_value = None
 
@@ -503,9 +475,7 @@ class TestRemoveRoleMember:
 
         assert response.status_code == 404
 
-    def test_remove_member_user_not_found(
-        self, test_client, auth_headers, mock_role_repository, mock_user_repository
-    ):
+    def test_remove_member_user_not_found(self, test_client, auth_headers, mock_role_repository, mock_user_repository):
         """Test removing non-existent user from role returns 404."""
         role_entry = create_mock_role_entry(cn="sysadmin")
         mock_role_repository.find_by_cn.return_value = role_entry
@@ -518,18 +488,14 @@ class TestRemoveRoleMember:
 
         assert response.status_code == 404
 
-    def test_remove_member_not_in_role(
-        self, test_client, auth_headers, mock_role_repository, mock_user_repository
-    ):
+    def test_remove_member_not_in_role(self, test_client, auth_headers, mock_role_repository, mock_user_repository):
         """Test removing a member that is not in the role returns 404."""
         role_entry = create_mock_role_entry(cn="sysadmin")
         mock_role_repository.find_by_cn.return_value = role_entry
         user_entry = MagicMock(spec=LdapEntry)
         user_entry.dn = "uid=jdoe,ou=people,dc=heracles,dc=local"
         mock_user_repository.find_by_uid.return_value = user_entry
-        mock_role_repository.remove_member.side_effect = LdapOperationError(
-            "Member not found in role"
-        )
+        mock_role_repository.remove_member.side_effect = LdapOperationError("Member not found in role")
 
         response = test_client.delete(
             "/api/v1/roles/sysadmin/members/jdoe",

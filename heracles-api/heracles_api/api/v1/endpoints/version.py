@@ -5,13 +5,10 @@ Version Endpoint
 Exposes version information for all Heracles components.
 """
 
-from typing import Dict, List, Optional
-
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from heracles_api import __version__ as api_version
-
 
 router = APIRouter(prefix="/version", tags=["Version"])
 
@@ -21,31 +18,21 @@ class PluginVersionInfo(BaseModel):
 
     name: str = Field(..., description="Plugin name")
     version: str = Field(..., description="Plugin version (semver)")
-    minimum_api_version: Optional[str] = Field(
-        None, description="Minimum API version required"
-    )
+    minimum_api_version: str | None = Field(None, description="Minimum API version required")
 
 
 class ComponentVersions(BaseModel):
     """Version information for all Heracles components."""
 
     api: str = Field(..., description="Heracles API version")
-    core: Optional[str] = Field(None, description="Heracles Core (Rust) version")
-    ui: Optional[str] = Field(
-        None, description="Heracles UI version (set by frontend)"
-    )
-    plugins_package: Optional[str] = Field(
-        None, description="Heracles plugins package version"
-    )
-    plugins: List[PluginVersionInfo] = Field(
-        default_factory=list, description="Individual plugin versions"
-    )
-    supported_api_versions: List[str] = Field(
-        default_factory=lambda: ["v1"], description="Supported API versions"
-    )
+    core: str | None = Field(None, description="Heracles Core (Rust) version")
+    ui: str | None = Field(None, description="Heracles UI version (set by frontend)")
+    plugins_package: str | None = Field(None, description="Heracles plugins package version")
+    plugins: list[PluginVersionInfo] = Field(default_factory=list, description="Individual plugin versions")
+    supported_api_versions: list[str] = Field(default_factory=lambda: ["v1"], description="Supported API versions")
 
 
-def _get_core_version() -> Optional[str]:
+def _get_core_version() -> str | None:
     """Get heracles-core version if available."""
     try:
         import heracles_core
@@ -55,7 +42,7 @@ def _get_core_version() -> Optional[str]:
         return None
 
 
-def _get_plugins_package_version() -> Optional[str]:
+def _get_plugins_package_version() -> str | None:
     """Get heracles_plugins package version."""
     try:
         from importlib.metadata import version
@@ -71,7 +58,7 @@ def _get_plugins_package_version() -> Optional[str]:
             return None
 
 
-def _get_loaded_plugins() -> List[PluginVersionInfo]:
+def _get_loaded_plugins() -> list[PluginVersionInfo]:
     """Get version info for all loaded plugins."""
     plugins = []
     try:
@@ -116,9 +103,9 @@ async def get_versions() -> ComponentVersions:
 
 @router.get("/compatibility")
 async def check_compatibility(
-    client_version: Optional[str] = None,
-    client_type: Optional[str] = None,
-) -> Dict:
+    client_version: str | None = None,
+    client_type: str | None = None,
+) -> dict:
     """
     Check if a client version is compatible with this API.
 
@@ -153,9 +140,7 @@ async def check_compatibility(
         # Major version mismatch is incompatible
         if api_ver.major != client_ver.major:
             result["compatible"] = False
-            result["errors"].append(
-                f"Major version mismatch: API {api_version}, client {client_version}"
-            )
+            result["errors"].append(f"Major version mismatch: API {api_version}, client {client_version}")
         # Minor version: warn if client is newer
         elif client_ver.minor > api_ver.minor:
             result["warnings"].append(

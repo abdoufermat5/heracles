@@ -31,9 +31,7 @@ class TestListGroups:
         assert data["total"] == 0
         assert data["groups"] == []
 
-    def test_list_groups_with_results(
-        self, test_client, auth_headers, mock_group_repository, group_entry_factory
-    ):
+    def test_list_groups_with_results(self, test_client, auth_headers, mock_group_repository, group_entry_factory):
         """Test listing groups returns paginated results."""
         entry1 = group_entry_factory(cn="admins", description="Administrators")
         entry2 = group_entry_factory(cn="users", description="Standard Users")
@@ -52,9 +50,7 @@ class TestListGroups:
         assert len(data["groups"]) == 2
         assert data["groups"][0]["cn"] == "admins"
 
-    def test_list_groups_with_search(
-        self, test_client, auth_headers, mock_group_repository, group_entry_factory
-    ):
+    def test_list_groups_with_search(self, test_client, auth_headers, mock_group_repository, group_entry_factory):
         """Test listing groups with search filter."""
         entry = group_entry_factory(cn="developers", description="Development Team")
 
@@ -64,11 +60,7 @@ class TestListGroups:
         mock_group_repository.search.return_value = search_result
         mock_group_repository.get_members.return_value = []
 
-        response = test_client.get(
-            "/api/v1/groups/",
-            params={"search": "dev"},
-            headers=auth_headers
-        )
+        response = test_client.get("/api/v1/groups/", params={"search": "dev"}, headers=auth_headers)
 
         assert response.status_code == 200
         mock_group_repository.search.assert_called_once()
@@ -77,9 +69,7 @@ class TestListGroups:
 class TestGetGroup:
     """Tests for GET /api/v1/groups/{cn}"""
 
-    def test_get_group_success(
-        self, test_client, auth_headers, mock_group_repository, mock_group_entry
-    ):
+    def test_get_group_success(self, test_client, auth_headers, mock_group_repository, mock_group_entry):
         """Test getting a group by CN."""
         mock_group_repository.find_by_cn.return_value = mock_group_entry
         mock_group_repository.get_members.return_value = [
@@ -112,9 +102,7 @@ class TestGetGroup:
 class TestCreateGroup:
     """Tests for POST /api/v1/groups/"""
 
-    def test_create_group_success(
-        self, test_client, auth_headers, mock_group_repository, mock_group_entry
-    ):
+    def test_create_group_success(self, test_client, auth_headers, mock_group_repository, mock_group_entry):
         """Test creating a new group."""
         mock_group_repository.exists.return_value = False
         mock_group_repository.create.return_value = mock_group_entry
@@ -126,15 +114,13 @@ class TestCreateGroup:
                 "cn": "newgroup",
                 "description": "New Group",
             },
-            headers=auth_headers
+            headers=auth_headers,
         )
 
         assert response.status_code == 201
         mock_group_repository.create.assert_called_once()
 
-    def test_create_group_already_exists(
-        self, test_client, auth_headers, mock_group_repository, mock_group_entry
-    ):
+    def test_create_group_already_exists(self, test_client, auth_headers, mock_group_repository, mock_group_entry):
         """Test creating a group that already exists returns 409."""
         mock_group_repository.exists.return_value = True
 
@@ -144,7 +130,7 @@ class TestCreateGroup:
                 "cn": "developers",
                 "description": "Already exists",
             },
-            headers=auth_headers
+            headers=auth_headers,
         )
 
         assert response.status_code == 409
@@ -154,7 +140,7 @@ class TestCreateGroup:
         response = test_client.post(
             "/api/v1/groups/",
             json={},  # Missing cn
-            headers=auth_headers
+            headers=auth_headers,
         )
 
         assert response.status_code == 422
@@ -163,18 +149,14 @@ class TestCreateGroup:
 class TestUpdateGroup:
     """Tests for PATCH /api/v1/groups/{cn}"""
 
-    def test_update_group_success(
-        self, test_client, auth_headers, mock_group_repository, mock_group_entry
-    ):
+    def test_update_group_success(self, test_client, auth_headers, mock_group_repository, mock_group_entry):
         """Test updating a group."""
         mock_group_repository.find_by_cn.return_value = mock_group_entry
         mock_group_repository.update.return_value = mock_group_entry
         mock_group_repository.get_members.return_value = []
 
         response = test_client.patch(
-            "/api/v1/groups/developers",
-            json={"description": "Updated Description"},
-            headers=auth_headers
+            "/api/v1/groups/developers", json={"description": "Updated Description"}, headers=auth_headers
         )
 
         assert response.status_code == 200
@@ -184,20 +166,13 @@ class TestUpdateGroup:
         """Test updating a non-existent group returns 404."""
         mock_group_repository.update.return_value = None
 
-        response = test_client.patch(
-            "/api/v1/groups/nonexistent",
-            json={"description": "test"},
-            headers=auth_headers
-        )
+        response = test_client.patch("/api/v1/groups/nonexistent", json={"description": "test"}, headers=auth_headers)
 
         assert response.status_code == 404
 
     def test_update_group_unauthorized(self, test_client):
         """Test updating a group without auth returns 401."""
-        response = test_client.patch(
-            "/api/v1/groups/developers",
-            json={"description": "test"}
-        )
+        response = test_client.patch("/api/v1/groups/developers", json={"description": "test"})
 
         assert response.status_code == 401
 
@@ -205,9 +180,7 @@ class TestUpdateGroup:
 class TestDeleteGroup:
     """Tests for DELETE /api/v1/groups/{cn}"""
 
-    def test_delete_group_success(
-        self, test_client, auth_headers, mock_group_repository
-    ):
+    def test_delete_group_success(self, test_client, auth_headers, mock_group_repository):
         """Test deleting a group."""
         # Now endpoint uses find_by_cn for ACL check
         entry = MagicMock()
@@ -248,26 +221,16 @@ class TestGroupMembers:
         mock_user_repository.find_by_uid.return_value = mock_user_entry
         mock_group_repository.get_members.return_value = []
 
-        response = test_client.post(
-            "/api/v1/groups/developers/members",
-            json={"uid": "newuser"},
-            headers=auth_headers
-        )
+        response = test_client.post("/api/v1/groups/developers/members", json={"uid": "newuser"}, headers=auth_headers)
 
         assert response.status_code == 204
         mock_group_repository.add_member.assert_called_once()
 
-    def test_add_member_group_not_found(
-        self, test_client, auth_headers, mock_group_repository
-    ):
+    def test_add_member_group_not_found(self, test_client, auth_headers, mock_group_repository):
         """Test adding a member to non-existent group returns 404."""
         mock_group_repository.find_by_cn.return_value = None
 
-        response = test_client.post(
-            "/api/v1/groups/nonexistent/members",
-            json={"uid": "user"},
-            headers=auth_headers
-        )
+        response = test_client.post("/api/v1/groups/nonexistent/members", json={"uid": "user"}, headers=auth_headers)
 
         assert response.status_code == 404
 
@@ -281,10 +244,7 @@ class TestGroupMembers:
         mock_group_repository.find_by_cn.return_value = entry
         mock_user_repository.find_by_uid.return_value = mock_user_entry
 
-        response = test_client.delete(
-            "/api/v1/groups/developers/members/user1",
-            headers=auth_headers
-        )
+        response = test_client.delete("/api/v1/groups/developers/members/user1", headers=auth_headers)
 
         assert response.status_code == 204
         mock_group_repository.remove_member.assert_called_once()

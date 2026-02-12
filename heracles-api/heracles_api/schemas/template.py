@@ -1,3 +1,4 @@
+# ruff: noqa: N815
 """
 Template Pydantic Schemas
 ==========================
@@ -7,10 +8,9 @@ Request/response models for user templates.
 
 import uuid
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
-
 
 # ---------------------------------------------------------------------------
 # Request Schemas
@@ -21,11 +21,11 @@ class TemplateCreate(BaseModel):
     """Create a new user template."""
 
     name: str = Field(..., min_length=1, max_length=128)
-    description: Optional[str] = None
+    description: str | None = None
     defaults: dict[str, Any] = Field(default_factory=dict)
-    variables: Optional[dict[str, Any]] = None
-    pluginActivations: Optional[dict[str, Any]] = Field(None, alias="plugin_activations")
-    departmentDn: Optional[str] = Field(None, alias="department_dn")
+    variables: dict[str, Any] | None = None
+    pluginActivations: dict[str, Any] | None = Field(None, alias="plugin_activations")
+    departmentDn: str | None = Field(None, alias="department_dn")
     displayOrder: int = Field(0, alias="display_order")
 
     class Config:
@@ -35,13 +35,13 @@ class TemplateCreate(BaseModel):
 class TemplateUpdate(BaseModel):
     """Update an existing template."""
 
-    name: Optional[str] = Field(None, min_length=1, max_length=128)
-    description: Optional[str] = None
-    defaults: Optional[dict[str, Any]] = None
-    variables: Optional[dict[str, Any]] = None
-    pluginActivations: Optional[dict[str, Any]] = Field(None, alias="plugin_activations")
-    departmentDn: Optional[str] = Field(None, alias="department_dn")
-    displayOrder: Optional[int] = Field(None, alias="display_order")
+    name: str | None = Field(None, min_length=1, max_length=128)
+    description: str | None = None
+    defaults: dict[str, Any] | None = None
+    variables: dict[str, Any] | None = None
+    pluginActivations: dict[str, Any] | None = Field(None, alias="plugin_activations")
+    departmentDn: str | None = Field(None, alias="department_dn")
+    displayOrder: int | None = Field(None, alias="display_order")
 
     class Config:
         populate_by_name = True
@@ -57,13 +57,13 @@ class TemplateResponse(BaseModel):
 
     id: uuid.UUID
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     defaults: dict[str, Any]
-    variables: Optional[dict[str, Any]] = None
-    pluginActivations: Optional[dict[str, Any]] = Field(None, alias="plugin_activations")
-    departmentDn: Optional[str] = Field(None, alias="department_dn")
+    variables: dict[str, Any] | None = None
+    pluginActivations: dict[str, Any] | None = Field(None, alias="plugin_activations")
+    departmentDn: str | None = Field(None, alias="department_dn")
     displayOrder: int = Field(0, alias="display_order")
-    createdBy: Optional[str] = Field(None, alias="created_by")
+    createdBy: str | None = Field(None, alias="created_by")
     createdAt: datetime = Field(alias="created_at")
     updatedAt: datetime = Field(alias="updated_at")
 

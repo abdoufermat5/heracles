@@ -5,22 +5,19 @@ Groups Endpoints
 Group management endpoints (CRUD operations).
 """
 
-from typing import Optional
-
-from fastapi import APIRouter, HTTPException, status, Query
+import structlog
+from fastapi import APIRouter, HTTPException, Query, status
 
 from heracles_api.config import settings
-from heracles_api.core.dependencies import CurrentUser, UserRepoDep, GroupRepoDep, AclGuardDep
+from heracles_api.core.dependencies import AclGuardDep, CurrentUser, GroupRepoDep, UserRepoDep
 from heracles_api.schemas import (
     GroupCreate,
-    GroupUpdate,
-    GroupResponse,
     GroupListResponse,
+    GroupResponse,
+    GroupUpdate,
     MemberOperation,
 )
 from heracles_api.services import LdapOperationError
-
-import structlog
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
@@ -43,34 +40,34 @@ async def list_groups(
     group_repo: GroupRepoDep,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
-    search: Optional[str] = Query(None, description="Search in cn, description"),
-    ou: Optional[str] = Query(None, description="Filter by organizational unit"),
-    base: Optional[str] = Query(None, description="Base DN (e.g., department DN) for scoped search"),
+    search: str | None = Query(None, description="Search in cn, description"),
+    ou: str | None = Query(None, description="Filter by organizational unit"),
+    base: str | None = Query(None, description="Base DN (e.g., department DN) for scoped search"),
 ):
     """
     List all groups with pagination.
-    
+
     Requires: group:read
     """
     # ACL check - group:read on ou=groups
     target_dn = f"ou=groups,{settings.LDAP_BASE_DN}"
     guard.require(target_dn, "group:read")
-    
+
     try:
         result = await group_repo.search(search_term=search, ou=ou, base_dn=base)
-        
+
         total = result.total
-        
+
         # Apply pagination
         start = (page - 1) * page_size
         end = start + page_size
         page_entries = result.groups[start:end]
-        
+
         groups = []
         for entry in page_entries:
             members = await group_repo.get_members(entry.get_first("cn", ""))
             groups.append(_entry_to_response(entry, members))
-        
+
         return GroupListResponse(
             groups=groups,
             total=total,
@@ -78,7 +75,7 @@ async def list_groups(
             page_size=page_size,
             has_more=end < total,
         )
-        
+
     except LdapOperationError as e:
         logger.error("list_groups_failed", error=str(e))
         raise HTTPException(
@@ -96,24 +93,24 @@ async def get_group(
 ):
     """
     Get group by CN.
-    
+
     Requires: group:read
     """
     try:
         entry = await group_repo.find_by_cn(cn)
-        
+
         if not entry:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Group '{cn}' not found",
             )
-        
+
         # ACL check - group:read on the specific group
         guard.require(entry.dn, "group:read")
-        
+
         members = await group_repo.get_members(cn)
         return _entry_to_response(entry, members)
-        
+
     except LdapOperationError as e:
         logger.error("get_group_failed", cn=cn, error=str(e))
         raise HTTPException(
@@ -132,20 +129,20 @@ async def create_group(
 ):
     """
     Create a new group.
-    
+
     Requires: group:create
     """
     # ACL check - group:create on target OU
     target_dn = group.department_dn if group.department_dn else f"ou=groups,{settings.LDAP_BASE_DN}"
     guard.require(target_dn, "group:create")
-    
+
     # Check if group already exists
     if await group_repo.exists(group.cn):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Group '{group.cn}' already exists",
         )
-    
+
     # Resolve member UIDs to DNs
     member_dns = []
     for uid in group.members:
@@ -157,7 +154,7 @@ async def create_group(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"User '{uid}' not found",
             )
-    
+
     try:
         entry = await group_repo.create(
             group=group,
@@ -167,10 +164,10 @@ async def create_group(
         )
 
         logger.info("group_created", cn=group.cn, department_dn=group.department_dn, by=current_user.uid)
-        
+
         members = group.members if group.members else [current_user.uid]
         return _entry_to_response(entry, members)
-        
+
     except LdapOperationError as e:
         logger.error("create_group_failed", cn=group.cn, error=str(e))
         raise HTTPException(
@@ -189,7 +186,7 @@ async def update_group(
 ):
     """
     Update group attributes.
-    
+
     Requires: group:write
     """
     entry = await group_repo.find_by_cn(cn)
@@ -198,18 +195,18 @@ async def update_group(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Group '{cn}' not found",
         )
-    
+
     # ACL check - group:write on the specific group
     guard.require(entry.dn, "group:write")
-    
+
     try:
         entry = await group_repo.update(cn, updates)
-        
+
         logger.info("group_updated", cn=cn, by=current_user.uid)
-        
+
         members = await group_repo.get_members(cn)
         return _entry_to_response(entry, members)
-        
+
     except LdapOperationError as e:
         logger.error("update_group_failed", cn=cn, error=str(e))
         raise HTTPException(
@@ -227,7 +224,7 @@ async def delete_group(
 ):
     """
     Delete a group.
-    
+
     Requires: group:delete
     """
     entry = await group_repo.find_by_cn(cn)
@@ -236,15 +233,15 @@ async def delete_group(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Group '{cn}' not found",
         )
-    
+
     # ACL check - group:delete on the specific group
     guard.require(entry.dn, "group:delete")
-    
+
     try:
         await group_repo.delete(cn)
-        
+
         logger.info("group_deleted", cn=cn, by=current_user.uid)
-        
+
     except LdapOperationError as e:
         logger.error("delete_group_failed", cn=cn, error=str(e))
         raise HTTPException(
@@ -264,7 +261,7 @@ async def add_group_member(
 ):
     """
     Add a member to a group.
-    
+
     Requires: group:manage
     """
     entry = await group_repo.find_by_cn(cn)
@@ -273,10 +270,10 @@ async def add_group_member(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Group '{cn}' not found",
         )
-    
+
     # ACL check - group:manage on the specific group
     guard.require(entry.dn, "group:manage")
-    
+
     # Get user DN
     user = await user_repo.find_by_uid(member.uid)
     if not user:
@@ -284,12 +281,12 @@ async def add_group_member(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User '{member.uid}' not found",
         )
-    
+
     try:
         await group_repo.add_member(cn, user.dn)
-        
+
         logger.info("group_member_added", cn=cn, uid=member.uid, by=current_user.uid)
-        
+
     except LdapOperationError as e:
         if "already exists" in str(e).lower():
             raise HTTPException(
@@ -314,7 +311,7 @@ async def remove_group_member(
 ):
     """
     Remove a member from a group.
-    
+
     Requires: group:manage
     """
     entry = await group_repo.find_by_cn(cn)
@@ -323,10 +320,10 @@ async def remove_group_member(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Group '{cn}' not found",
         )
-    
+
     # ACL check - group:manage on the specific group
     guard.require(entry.dn, "group:manage")
-    
+
     # Get user DN
     user = await user_repo.find_by_uid(uid)
     if not user:
@@ -334,12 +331,12 @@ async def remove_group_member(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User '{uid}' not found",
         )
-    
+
     try:
         await group_repo.remove_member(cn, user.dn)
-        
+
         logger.info("group_member_removed", cn=cn, uid=uid, by=current_user.uid)
-        
+
     except LdapOperationError as e:
         error_msg = str(e).lower()
         if "not found" in error_msg:

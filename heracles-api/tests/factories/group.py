@@ -6,7 +6,6 @@ Factory for creating group test data.
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional
 
 
 @dataclass
@@ -30,10 +29,10 @@ class GroupFactory:
 
     cn: str = ""
     description: str = ""
-    members: List[str] = field(default_factory=list)
-    member_uids: List[str] = field(default_factory=list)
-    gid_number: Optional[int] = None
-    object_classes: List[str] = field(default_factory=lambda: ["groupOfNames", "top"])
+    members: list[str] = field(default_factory=list)
+    member_uids: list[str] = field(default_factory=list)
+    gid_number: int | None = None
+    object_classes: list[str] = field(default_factory=lambda: ["groupOfNames", "top"])
 
     _counter: int = field(default=0, repr=False)
 
@@ -53,7 +52,7 @@ class GroupFactory:
         return cls(**defaults)
 
     @classmethod
-    def create_batch(cls, count: int, **kwargs) -> List["GroupFactory"]:
+    def create_batch(cls, count: int, **kwargs) -> list["GroupFactory"]:
         """Create multiple groups."""
         return [cls.create(**kwargs) for _ in range(count)]
 
@@ -116,12 +115,9 @@ class GroupFactory:
         return f"cn={self.cn},ou=groups,dc=heracles,dc=local"
 
     @property
-    def member_dns(self) -> List[str]:
+    def member_dns(self) -> list[str]:
         """Generate member DNs."""
-        return [
-            f"uid={m},ou=people,dc=heracles,dc=local"
-            for m in self.members
-        ]
+        return [f"uid={m},ou=people,dc=heracles,dc=local" for m in self.members]
 
     def to_dict(self) -> dict:
         """Convert to dictionary (API request format)."""

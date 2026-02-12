@@ -20,7 +20,6 @@ a regex for each one.
 
 import json
 import re
-from typing import Optional
 
 import structlog
 from fastapi import Request
@@ -105,17 +104,27 @@ _ACTION_OVERRIDES: list[tuple[re.Pattern, str, str]] = [
 
 # Segments that are "sub-resources" rather than entity types or ids
 _SUB_ACTIONS = {
-    "members", "member-uids", "keys", "records",
-    "subnets", "pools", "hosts", "shared-networks",
-    "groups", "classes", "tsig-keys", "dns-zones",
-    "failover-peers", "attr-rules",
+    "members",
+    "member-uids",
+    "keys",
+    "records",
+    "subnets",
+    "pools",
+    "hosts",
+    "shared-networks",
+    "groups",
+    "classes",
+    "tsig-keys",
+    "dns-zones",
+    "failover-peers",
+    "attr-rules",
 }
 
 # Segments that look like an entity type (alpha + hyphens/underscores)
 _ENTITY_SEGMENT_RE = re.compile(r"^[a-z][a-z0-9_-]+$")
 
 
-def _parse_path(path: str) -> tuple[str, Optional[str], Optional[str]]:
+def _parse_path(path: str) -> tuple[str, str | None, str | None]:
     """
     Best-effort extraction of (entity_type, entity_id, action_override)
     from an arbitrary ``/api/v1/…`` path.
@@ -140,7 +149,7 @@ def _parse_path(path: str) -> tuple[str, Optional[str], Optional[str]]:
     parts = stripped.split("/")
 
     entity_type: str = parts[0]  # e.g. "users", "groups", "dhcp", "dns"
-    entity_id: Optional[str] = None
+    entity_id: str | None = None
 
     # Normalise common plurals → singular
     entity_type = _singularise(entity_type)
@@ -214,7 +223,7 @@ def _singularise(segment: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _get_client_ip(request: Request) -> Optional[str]:
+def _get_client_ip(request: Request) -> str | None:
     """Best-effort client IP extraction."""
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
@@ -224,7 +233,7 @@ def _get_client_ip(request: Request) -> Optional[str]:
     return None
 
 
-def _decode_jwt_claims(token: str) -> Optional[dict]:
+def _decode_jwt_claims(token: str) -> dict | None:
     """Decode JWT payload without verification (used only to read sub/uid)."""
     try:
         import base64
@@ -291,13 +300,11 @@ class AuditMiddleware(BaseHTTPMiddleware):
 
         # Parse entity info from URL
         entity_type, entity_id, action_override = _parse_path(path)
-        action = action_override or _METHOD_ACTION.get(
-            request.method, request.method.lower()
-        )
+        action = action_override or _METHOD_ACTION.get(request.method, request.method.lower())
 
         # Current user from JWT cookie
-        actor_dn: Optional[str] = None
-        actor_name: Optional[str] = None
+        actor_dn: str | None = None
+        actor_name: str | None = None
         token = request.cookies.get("access_token")
         if token:
             claims = _decode_jwt_claims(token)
@@ -327,7 +334,5 @@ class AuditMiddleware(BaseHTTPMiddleware):
             ip_address=ip_address,
             user_agent=user_agent,
             status=audit_status,
-            error_message=(
-                f"HTTP {response.status_code}" if audit_status == "failure" else None
-            ),
+            error_message=(f"HTTP {response.status_code}" if audit_status == "failure" else None),
         )

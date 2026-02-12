@@ -6,23 +6,23 @@ Fixtures specific to unit tests.
 All dependencies are mocked - no external services required.
 """
 
-import pytest
-from typing import Generator
+from collections.abc import Generator
 from unittest.mock import MagicMock
 
+import pytest
 from fastapi.testclient import TestClient
 
-from heracles_api.main import app
 from heracles_api.core.dependencies import (
-    get_ldap,
-    get_auth,
-    get_user_repository,
-    get_group_repository,
-    get_role_repository,
-    get_department_repository,
-    get_redis,
     get_acl_guard,
+    get_auth,
+    get_department_repository,
+    get_group_repository,
+    get_ldap,
+    get_redis,
+    get_role_repository,
+    get_user_repository,
 )
+from heracles_api.main import app
 
 
 @pytest.fixture

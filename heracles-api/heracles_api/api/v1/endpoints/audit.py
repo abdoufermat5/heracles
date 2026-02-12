@@ -6,12 +6,11 @@ Unified audit log endpoint for querying all entity operations.
 """
 
 from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, Query
 
-from heracles_api.services.audit_service import get_audit_service
 from heracles_api.schemas.audit import AuditLogFilters, AuditLogListResponse
+from heracles_api.services.audit_service import get_audit_service
 
 router = APIRouter(prefix="/audit", tags=["Audit"])
 
@@ -20,15 +19,15 @@ router = APIRouter(prefix="/audit", tags=["Audit"])
 async def list_audit_logs(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(50, ge=1, le=200, alias="pageSize", description="Items per page"),
-    actor_dn: Optional[str] = Query(None, alias="actorDn", description="Filter by actor DN"),
-    action: Optional[str] = Query(None, description="Filter by action (create, update, delete, login, etc.)"),
-    entity_type: Optional[str] = Query(None, alias="entityType", description="Filter by entity type (user, group, etc.)"),
-    entity_id: Optional[str] = Query(None, alias="entityId", description="Filter by entity ID/DN"),
-    department_dn: Optional[str] = Query(None, alias="departmentDn", description="Filter by department DN"),
-    status: Optional[str] = Query(None, description="Filter by status (success, failure)"),
-    from_ts: Optional[datetime] = Query(None, alias="fromTs", description="Start of date range"),
-    to_ts: Optional[datetime] = Query(None, alias="toTs", description="End of date range"),
-    search: Optional[str] = Query(None, description="Free-text search in entity name/actor"),
+    actor_dn: str | None = Query(None, alias="actorDn", description="Filter by actor DN"),
+    action: str | None = Query(None, description="Filter by action (create, update, delete, login, etc.)"),
+    entity_type: str | None = Query(None, alias="entityType", description="Filter by entity type (user, group, etc.)"),
+    entity_id: str | None = Query(None, alias="entityId", description="Filter by entity ID/DN"),
+    department_dn: str | None = Query(None, alias="departmentDn", description="Filter by department DN"),
+    status: str | None = Query(None, description="Filter by status (success, failure)"),
+    from_ts: datetime | None = Query(None, alias="fromTs", description="Start of date range"),
+    to_ts: datetime | None = Query(None, alias="toTs", description="End of date range"),
+    search: str | None = Query(None, description="Free-text search in entity name/actor"),
 ) -> AuditLogListResponse:
     """
     Query the unified audit log.

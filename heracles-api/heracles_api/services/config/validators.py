@@ -6,10 +6,11 @@ Validation utilities for configuration values.
 """
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import structlog
 
+from heracles_api.plugins.base import ConfigSection
 from heracles_api.schemas.config import (
     ConfigFieldOption,
     ConfigFieldResponse,
@@ -17,7 +18,6 @@ from heracles_api.schemas.config import (
     ConfigFieldValidation,
     ConfigSectionResponse,
 )
-from heracles_api.plugins.base import ConfigSection
 
 logger = structlog.get_logger(__name__)
 
@@ -39,7 +39,7 @@ def parse_json_value(value: Any) -> Any:
     return value
 
 
-def parse_validation(rules: Optional[Any]) -> Optional[ConfigFieldValidation]:
+def parse_validation(rules: Any | None) -> ConfigFieldValidation | None:
     """Parse validation rules from JSON/JSONB."""
     if not rules:
         return None
@@ -57,16 +57,16 @@ def parse_validation(rules: Optional[Any]) -> Optional[ConfigFieldValidation]:
         return None
 
     return ConfigFieldValidation(
-        required=rules.get('required', True),
-        min_value=rules.get('min'),
-        max_value=rules.get('max'),
-        min_length=rules.get('minLength'),
-        max_length=rules.get('maxLength'),
-        pattern=rules.get('pattern'),
+        required=rules.get("required", True),
+        min_value=rules.get("min"),
+        max_value=rules.get("max"),
+        min_length=rules.get("minLength"),
+        max_length=rules.get("maxLength"),
+        pattern=rules.get("pattern"),
     )
 
 
-def parse_options(options: Optional[Any]) -> Optional[List[ConfigFieldOption]]:
+def parse_options(options: Any | None) -> list[ConfigFieldOption] | None:
     """Parse options from JSON/JSONB."""
     if not options:
         return None
@@ -86,9 +86,9 @@ def parse_options(options: Optional[Any]) -> Optional[List[ConfigFieldOption]]:
 
     return [
         ConfigFieldOption(
-            value=opt['value'],
-            label=opt['label'],
-            description=opt.get('description'),
+            value=opt["value"],
+            label=opt["label"],
+            description=opt.get("description"),
         )
         for opt in options
     ]
@@ -97,21 +97,21 @@ def parse_options(options: Optional[Any]) -> Optional[List[ConfigFieldOption]]:
 def validate_value(
     value: Any,
     data_type: str,
-    validation_rules: Optional[Dict],
-) -> List[str]:
+    validation_rules: dict | None,
+) -> list[str]:
     """Validate a value against its type and rules."""
     errors = []
     rules = validation_rules or {}
 
     # Type validation
     type_validators = {
-        'string': lambda v: isinstance(v, str),
-        'integer': lambda v: isinstance(v, int) and not isinstance(v, bool),
-        'boolean': lambda v: isinstance(v, bool),
-        'float': lambda v: isinstance(v, (int, float)) and not isinstance(v, bool),
-        'list': lambda v: isinstance(v, list),
-        'select': lambda v: True,
-        'multiselect': lambda v: isinstance(v, list),
+        "string": lambda v: isinstance(v, str),
+        "integer": lambda v: isinstance(v, int) and not isinstance(v, bool),
+        "boolean": lambda v: isinstance(v, bool),
+        "float": lambda v: isinstance(v, (int, float)) and not isinstance(v, bool),
+        "list": lambda v: isinstance(v, list),
+        "select": lambda v: True,
+        "multiselect": lambda v: isinstance(v, list),
     }
 
     validator = type_validators.get(data_type)
@@ -120,26 +120,26 @@ def validate_value(
         return errors
 
     # Range validation
-    if data_type in ('integer', 'float'):
-        if 'min' in rules and value < rules['min']:
+    if data_type in ("integer", "float"):
+        if "min" in rules and value < rules["min"]:
             errors.append(f"Value must be at least {rules['min']}")
-        if 'max' in rules and value > rules['max']:
+        if "max" in rules and value > rules["max"]:
             errors.append(f"Value must be at most {rules['max']}")
 
     # Length validation
-    if data_type == 'string':
-        if 'minLength' in rules and len(value) < rules['minLength']:
+    if data_type == "string":
+        if "minLength" in rules and len(value) < rules["minLength"]:
             errors.append(f"Must be at least {rules['minLength']} characters")
-        if 'maxLength' in rules and len(value) > rules['maxLength']:
+        if "maxLength" in rules and len(value) > rules["maxLength"]:
             errors.append(f"Must be at most {rules['maxLength']} characters")
 
     return errors
 
 
 def convert_sections_to_response(
-    sections: List[ConfigSection],
-    current_config: Dict[str, Any],
-) -> List[ConfigSectionResponse]:
+    sections: list[ConfigSection],
+    current_config: dict[str, Any],
+) -> list[ConfigSectionResponse]:
     """Convert plugin ConfigSection objects to response format."""
     result = []
 
@@ -173,28 +173,32 @@ def convert_sections_to_response(
                     for opt in field.options
                 ]
 
-            fields.append(ConfigFieldResponse(
-                key=field.key,
-                label=field.label,
-                field_type=ConfigFieldType(field.field_type.value),
-                value=value,
-                default_value=field.default_value,
-                description=field.description,
-                validation=validation,
-                options=options,
-                requires_restart=field.requires_restart,
-                sensitive=field.sensitive,
-                depends_on=field.depends_on,
-                depends_on_value=field.depends_on_value,
-            ))
+            fields.append(
+                ConfigFieldResponse(
+                    key=field.key,
+                    label=field.label,
+                    field_type=ConfigFieldType(field.field_type.value),
+                    value=value,
+                    default_value=field.default_value,
+                    description=field.description,
+                    validation=validation,
+                    options=options,
+                    requires_restart=field.requires_restart,
+                    sensitive=field.sensitive,
+                    depends_on=field.depends_on,
+                    depends_on_value=field.depends_on_value,
+                )
+            )
 
-        result.append(ConfigSectionResponse(
-            id=section.id,
-            label=section.label,
-            description=section.description,
-            icon=section.icon,
-            fields=fields,
-            order=section.order,
-        ))
+        result.append(
+            ConfigSectionResponse(
+                id=section.id,
+                label=section.label,
+                description=section.description,
+                icon=section.icon,
+                fields=fields,
+                order=section.order,
+            )
+        )
 
     return result

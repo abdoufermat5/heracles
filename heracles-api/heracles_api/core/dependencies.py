@@ -5,39 +5,39 @@ FastAPI Dependencies
 Common dependencies for API endpoints.
 """
 
-from typing import Annotated, Optional
+from typing import Annotated
 
-from fastapi import Depends, HTTPException, status, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from heracles_api.services import (
-    get_ldap_service,
-    get_auth_service,
-    LdapService,
-    AuthService,
-    TokenError,
-    UserSession,
-)
-from heracles_api.repositories import (
-    UserRepository,
-    GroupRepository,
-    RoleRepository,
-    DepartmentRepository,
-    AclRepository,
-    ConfigRepository,
-    PluginConfigRepository,
-    ConfigHistoryRepository,
-)
 from heracles_api.acl.guard import AclGuard
 from heracles_api.core.database import get_db_session
+from heracles_api.repositories import (
+    AclRepository,
+    ConfigHistoryRepository,
+    ConfigRepository,
+    DepartmentRepository,
+    GroupRepository,
+    PluginConfigRepository,
+    RoleRepository,
+    UserRepository,
+)
+from heracles_api.services import (
+    AuthService,
+    LdapService,
+    TokenError,
+    UserSession,
+    get_auth_service,
+    get_ldap_service,
+)
 
 # HTTP Bearer token scheme
 security = HTTPBearer(auto_error=False)
 
 
-async def get_redis(request: Request) -> Optional[Redis]:
+async def get_redis(request: Request) -> Redis | None:
     """Get shared Redis connection from app state."""
     return getattr(request.app.state, "redis", None)
 
@@ -47,7 +47,7 @@ async def get_ldap() -> LdapService:
     return get_ldap_service()
 
 
-async def get_auth(redis: Annotated[Optional[Redis], Depends(get_redis)]) -> AuthService:
+async def get_auth(redis: Annotated[Redis | None, Depends(get_redis)]) -> AuthService:
     """Get Auth service dependency with Redis."""
     service = get_auth_service()
     service.redis = redis
@@ -108,29 +108,29 @@ async def get_config_history_repository(
 async def get_current_user(
     request: Request,
     auth: Annotated[AuthService, Depends(get_auth)],
-    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(security)] = None,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)] = None,
 ) -> UserSession:
     """
     Get current authenticated user from JWT token (Cookie or Bearer).
-    
+
     Raises HTTPException 401 if not authenticated.
     """
     token = request.cookies.get("access_token")
-    
+
     if not token and credentials:
         token = credentials.credentials
-        
+
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     try:
         # Verify token
         payload = auth.verify_token(token, token_type="access")
-        
+
         # Check if token is revoked
         if await auth.is_token_revoked(payload.jti):
             raise HTTPException(
@@ -138,7 +138,7 @@ async def get_current_user(
                 detail="Token has been revoked",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        
+
         # Get session
         session = await auth.get_session(payload.jti)
         if session is None:
@@ -147,12 +147,12 @@ async def get_current_user(
                 detail="Session not found",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        
+
         # Update activity
         await auth.update_session_activity(payload.jti)
-        
+
         return session
-        
+
     except TokenError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -164,43 +164,43 @@ async def get_current_user(
 async def get_optional_user(
     request: Request,
     auth: Annotated[AuthService, Depends(get_auth)],
-    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(security)] = None,
-) -> Optional[UserSession]:
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)] = None,
+) -> UserSession | None:
     """
     Get current user if authenticated, None otherwise.
-    
+
     Does not raise exception if not authenticated.
     """
     token = request.cookies.get("access_token")
-    
+
     if not token and credentials:
         token = credentials.credentials
-        
+
     if not token:
         return None
-    
+
     try:
         payload = auth.verify_token(token, token_type="access")
-        
+
         if await auth.is_token_revoked(payload.jti):
             return None
-        
+
         session = await auth.get_session(payload.jti)
         if session:
             await auth.update_session_activity(payload.jti)
-        
+
         return session
-        
+
     except TokenError:
         return None
 
 
 # Type aliases for cleaner endpoint signatures
 CurrentUser = Annotated[UserSession, Depends(get_current_user)]
-OptionalUser = Annotated[Optional[UserSession], Depends(get_optional_user)]
+OptionalUser = Annotated[UserSession | None, Depends(get_optional_user)]
 LdapDep = Annotated[LdapService, Depends(get_ldap)]
 AuthDep = Annotated[AuthService, Depends(get_auth)]
-RedisDep = Annotated[Optional[Redis], Depends(get_redis)]
+RedisDep = Annotated[Redis | None, Depends(get_redis)]
 UserRepoDep = Annotated[UserRepository, Depends(get_user_repository)]
 GroupRepoDep = Annotated[GroupRepository, Depends(get_group_repository)]
 RoleRepoDep = Annotated[RoleRepository, Depends(get_role_repository)]
@@ -221,18 +221,18 @@ async def get_acl_guard(
 ) -> AclGuard:
     """
     Build AclGuard for the current user.
-    
+
     Loads or compiles the user's ACL and returns a guard
     for permission checks in endpoints.
-    
+
     Args:
         request: The current request (for app state access).
         current_user: The authenticated user.
         redis: Redis connection for ACL cache.
-        
+
     Returns:
         AclGuard for permission checking.
-        
+
     Raises:
         HTTPException: 500 if ACL system not initialized.
     """
@@ -243,7 +243,7 @@ async def get_acl_guard(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="ACL system not initialized",
         )
-    
+
     # Try to load from request state (set by middleware) or cache
     user_acl = getattr(request.state, "user_acl", None)
 
@@ -266,7 +266,7 @@ async def get_acl_guard(
 
         # Cache on request state for subsequent calls
         request.state.user_acl = user_acl
-    
+
     return AclGuard(user_acl, registry, current_user.user_dn)
 
 

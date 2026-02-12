@@ -15,7 +15,7 @@ import csv
 import io
 import re
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 
@@ -30,9 +30,18 @@ logger = structlog.get_logger(__name__)
 
 # Known LDAP password scheme prefixes (case-insensitive check)
 _KNOWN_HASH_PREFIXES = (
-    "{ARGON2}", "{SSHA}", "{SSHA256}", "{SSHA512}",
-    "{SHA}", "{SHA256}", "{SHA512}", "{SMD5}", "{MD5}",
-    "{BCRYPT}", "{CRYPT}", "{LOCKED}",
+    "{ARGON2}",
+    "{SSHA}",
+    "{SSHA256}",
+    "{SSHA512}",
+    "{SHA}",
+    "{SHA256}",
+    "{SHA512}",
+    "{SMD5}",
+    "{MD5}",
+    "{BCRYPT}",
+    "{CRYPT}",
+    "{LOCKED}",
 )
 
 
@@ -104,19 +113,48 @@ class FixedValue:
 
 USER_REQUIRED_FIELDS = {"uid", "cn", "sn"}
 USER_ALLOWED_FIELDS = {
-    "uid", "cn", "sn", "givenName", "displayName", "mail",
-    "telephoneNumber", "title", "description", "userPassword",
-    "uidNumber", "gidNumber", "homeDirectory", "loginShell",
-    "employeeNumber", "employeeType", "departmentNumber",
-    "postalAddress", "street", "l", "st", "postalCode", "c",
-    "o", "ou", "mobile", "facsimileTelephoneNumber",
-    "jpegPhoto", "labeledURI", "preferredLanguage",
+    "uid",
+    "cn",
+    "sn",
+    "givenName",
+    "displayName",
+    "mail",
+    "telephoneNumber",
+    "title",
+    "description",
+    "userPassword",
+    "uidNumber",
+    "gidNumber",
+    "homeDirectory",
+    "loginShell",
+    "employeeNumber",
+    "employeeType",
+    "departmentNumber",
+    "postalAddress",
+    "street",
+    "l",
+    "st",
+    "postalCode",
+    "c",
+    "o",
+    "ou",
+    "mobile",
+    "facsimileTelephoneNumber",
+    "jpegPhoto",
+    "labeledURI",
+    "preferredLanguage",
 }
 
 GROUP_REQUIRED_FIELDS = {"cn"}
 GROUP_ALLOWED_FIELDS = {
-    "cn", "description", "member", "owner",
-    "businessCategory", "seeAlso", "ou", "o",
+    "cn",
+    "description",
+    "member",
+    "owner",
+    "businessCategory",
+    "seeAlso",
+    "ou",
+    "o",
 }
 
 # Legacy alias for backward compatibility
@@ -141,6 +179,7 @@ def get_fields_for_type(
     # Merge plugin-contributed fields
     try:
         from heracles_api.plugins.registry import plugin_registry
+
         for field_def in plugin_registry.get_import_fields_for_type(object_type):
             base_all.add(field_def.name)
     except Exception:
@@ -165,6 +204,7 @@ def get_export_fields_for_type(
 
     try:
         from heracles_api.plugins.registry import plugin_registry
+
         for field_def in plugin_registry.get_export_fields_for_type(object_type):
             base.add(field_def.name)
     except Exception:
@@ -209,8 +249,8 @@ def parse_csv(
 
 def validate_rows(
     rows: list[dict[str, str]],
-    column_mapping: Optional[list[ColumnMapping]] = None,
-    fixed_values: Optional[list[FixedValue]] = None,
+    column_mapping: list[ColumnMapping] | None = None,
+    fixed_values: list[FixedValue] | None = None,
     object_type: str = "user",
 ) -> list[ImportValidationError]:
     """
@@ -253,29 +293,17 @@ def validate_rows(
             # Validate uid format
             uid = mapped.get("uid", "")
             if uid and not re.match(r"^[a-zA-Z][a-zA-Z0-9._-]{0,63}$", uid):
-                errors.append(
-                    ImportValidationError(
-                        row=idx, field="uid", message="Invalid uid format"
-                    )
-                )
+                errors.append(ImportValidationError(row=idx, field="uid", message="Invalid uid format"))
 
             # Validate mail format
             mail = mapped.get("mail", "")
             if mail and not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", mail):
-                errors.append(
-                    ImportValidationError(
-                        row=idx, field="mail", message="Invalid email format"
-                    )
-                )
+                errors.append(ImportValidationError(row=idx, field="mail", message="Invalid email format"))
 
         elif object_type == "group":
             cn = mapped.get("cn", "")
             if cn and not re.match(r"^[a-zA-Z][a-zA-Z0-9._-]{0,63}$", cn):
-                errors.append(
-                    ImportValidationError(
-                        row=idx, field="cn", message="Invalid group cn format"
-                    )
-                )
+                errors.append(ImportValidationError(row=idx, field="cn", message="Invalid group cn format"))
 
     return errors
 
@@ -287,18 +315,18 @@ def validate_rows(
 
 async def import_users_from_csv(
     data: str | bytes,
-    column_mapping: Optional[list[ColumnMapping]] = None,
-    fixed_values: Optional[list[FixedValue]] = None,
-    default_password: Optional[str] = None,
-    department_dn: Optional[str] = None,
+    column_mapping: list[ColumnMapping] | None = None,
+    fixed_values: list[FixedValue] | None = None,
+    default_password: str | None = None,
+    department_dn: str | None = None,
     object_type: str = "user",
-    template_defaults: Optional[dict[str, str]] = None,
+    template_defaults: dict[str, str] | None = None,
     separator: str = ",",
-    actor_dn: Optional[str] = None,
+    actor_dn: str | None = None,
     ldap_service: Any = None,
-    object_classes: Optional[list[str]] = None,
-    rdn_attribute: Optional[str] = None,
-    template_plugin_activations: Optional[dict[str, Any]] = None,
+    object_classes: list[str] | None = None,
+    rdn_attribute: str | None = None,
+    template_plugin_activations: dict[str, Any] | None = None,
 ) -> ImportResult:
     """
     Parse, validate, and create entries from CSV data.
@@ -334,6 +362,7 @@ async def import_users_from_csv(
 
     if ldap_service is None:
         from heracles_api.services import get_ldap_service
+
         ldap_service = get_ldap_service()
 
     for idx, row in enumerate(rows, start=2):
@@ -364,10 +393,13 @@ async def import_users_from_csv(
                     raise ValueError("rdn_attribute is required for custom object type")
                 if default_password and "userPassword" not in attrs:
                     attrs["userPassword"] = await _hash_password_if_needed(
-                        default_password, ldap_service,
+                        default_password,
+                        ldap_service,
                     )
                 await _create_generic_entry(
-                    ldap_service, attrs, department_dn,
+                    ldap_service,
+                    attrs,
+                    department_dn,
                     object_classes=object_classes,
                     rdn_attribute=rdn_attribute,
                 )
@@ -379,7 +411,8 @@ async def import_users_from_csv(
                 if object_type == "user":
                     if default_password and "userPassword" not in attrs:
                         attrs["userPassword"] = await _hash_password_if_needed(
-                            default_password, ldap_service,
+                            default_password,
+                            ldap_service,
                         )
                     await _create_user_entry(ldap_service, attrs, department_dn)
                     entity_id = mapped.get("uid", "")
@@ -388,7 +421,10 @@ async def import_users_from_csv(
                     uid = mapped.get("uid", "")
                     user_dn = _build_user_dn(uid, department_dn)
                     await _activate_plugins_for_import(
-                        ldap_service, user_dn, uid, attrs,
+                        ldap_service,
+                        user_dn,
+                        uid,
+                        attrs,
                         plugin_activations=template_plugin_activations,
                     )
                 elif object_type == "group":
@@ -419,11 +455,7 @@ async def import_users_from_csv(
                 entity_id=entity_id,
                 error=str(e),
             )
-            result.errors.append(
-                ImportValidationError(
-                    row=idx, field=entity_id, message=str(e)
-                )
-            )
+            result.errors.append(ImportValidationError(row=idx, field=entity_id, message=str(e)))
             result.skipped += 1
 
             # Audit failure
@@ -445,7 +477,7 @@ async def import_users_from_csv(
     return result
 
 
-def _build_user_dn(uid: str, department_dn: Optional[str]) -> str:
+def _build_user_dn(uid: str, department_dn: str | None) -> str:
     """Build the DN for a user entry (reused by import + plugin activation)."""
     from heracles_api.config import settings
     from heracles_api.core.ldap_config import get_full_users_dn
@@ -469,7 +501,7 @@ async def _activate_plugins_for_import(
     dn: str,
     uid: str,
     attrs: dict[str, str],
-    plugin_activations: Optional[dict[str, Any]] = None,
+    plugin_activations: dict[str, Any] | None = None,
 ) -> None:
     """
     Activate plugins on a freshly imported user entry.
@@ -547,7 +579,7 @@ async def _activate_plugins_for_import(
 async def _create_user_entry(
     ldap_service: Any,
     attrs: dict[str, str],
-    department_dn: Optional[str],
+    department_dn: str | None,
 ) -> None:
     """Create a user entry in LDAP.
 
@@ -564,7 +596,8 @@ async def _create_user_entry(
     # --- Safety-net: hash any plaintext password before writing to LDAP ---
     if "userPassword" in attrs:
         attrs["userPassword"] = await _hash_password_if_needed(
-            attrs["userPassword"], ldap_service,
+            attrs["userPassword"],
+            ldap_service,
         )
 
     object_classes = ["inetOrgPerson", "organizationalPerson", "person"]
@@ -583,7 +616,7 @@ async def _create_user_entry(
 async def _create_group_entry(
     ldap_service: Any,
     attrs: dict[str, str],
-    department_dn: Optional[str],
+    department_dn: str | None,
 ) -> None:
     """Create a group entry in LDAP."""
     from heracles_api.config import settings
@@ -611,7 +644,7 @@ async def _create_group_entry(
 async def _create_generic_entry(
     ldap_service: Any,
     attrs: dict[str, str],
-    department_dn: Optional[str],
+    department_dn: str | None,
     object_classes: list[str],
     rdn_attribute: str,
 ) -> None:
@@ -662,7 +695,7 @@ def parse_ldif(data: str | bytes) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     current_lines: list[str] = []
 
-    def _flush_entry(lines: list[str]) -> Optional[dict[str, Any]]:
+    def _flush_entry(lines: list[str]) -> dict[str, Any] | None:
         if not lines:
             return None
 
@@ -733,7 +766,7 @@ def parse_ldif(data: str | bytes) -> list[dict[str, Any]]:
 async def import_from_ldif(
     data: str | bytes,
     overwrite: bool = False,
-    actor_dn: Optional[str] = None,
+    actor_dn: str | None = None,
     ldap_service: Any = None,
 ) -> ImportResult:
     """
@@ -750,16 +783,13 @@ async def import_from_ldif(
 
     if ldap_service is None:
         from heracles_api.services import get_ldap_service
+
         ldap_service = get_ldap_service()
 
     for idx, entry in enumerate(entries, start=1):
         dn = entry.pop("dn", "")
         if not dn:
-            result.errors.append(
-                ImportValidationError(
-                    row=idx, field="dn", message="Entry has no DN"
-                )
-            )
+            result.errors.append(ImportValidationError(row=idx, field="dn", message="Entry has no DN"))
             result.skipped += 1
             continue
 
@@ -768,10 +798,8 @@ async def import_from_ldif(
             if "userPassword" in entry:
                 pw_values = entry["userPassword"]
                 hashed_values = []
-                for pw in (pw_values if isinstance(pw_values, list) else [pw_values]):
-                    hashed_values.append(
-                        await _hash_password_if_needed(str(pw), ldap_service)
-                    )
+                for pw in pw_values if isinstance(pw_values, list) else [pw_values]:
+                    hashed_values.append(await _hash_password_if_needed(str(pw), ldap_service))
                 entry["userPassword"] = hashed_values
 
             # Check if entry already exists
@@ -820,11 +848,7 @@ async def import_from_ldif(
 
         except Exception as e:
             logger.warning("ldif_import_failed", dn=dn, error=str(e))
-            result.errors.append(
-                ImportValidationError(
-                    row=idx, field="dn", message=f"{dn}: {e}"
-                )
-            )
+            result.errors.append(ImportValidationError(row=idx, field="dn", message=f"{dn}: {e}"))
             result.skipped += 1
 
             # Audit failure
@@ -854,7 +878,7 @@ async def import_from_ldif(
 
 def export_users_to_csv(
     users: list[dict[str, Any]],
-    fields: Optional[list[str]] = None,
+    fields: list[str] | None = None,
 ) -> str:
     """Export entries to CSV format."""
     if not users:

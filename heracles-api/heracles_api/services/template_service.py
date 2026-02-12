@@ -7,7 +7,7 @@ Business logic for user templates.
 
 import re
 import uuid
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -50,10 +50,7 @@ def _resolve_variables(
                     missing.add(var)
             resolved[key] = new_val
         elif isinstance(val, list):
-            resolved[key] = [
-                _resolve_str(item, values, missing) if isinstance(item, str) else item
-                for item in val
-            ]
+            resolved[key] = [_resolve_str(item, values, missing) if isinstance(item, str) else item for item in val]
         else:
             resolved[key] = val
 
@@ -79,7 +76,7 @@ class TemplateService:
     async def create_template(
         self,
         data: TemplateCreate,
-        created_by: Optional[str] = None,
+        created_by: str | None = None,
     ) -> TemplateResponse:
         """Create a new template."""
         async with self._session_factory() as session:
@@ -108,7 +105,7 @@ class TemplateService:
             await session.refresh(tmpl)
             return TemplateResponse.model_validate(tmpl)
 
-    async def get_template(self, template_id: uuid.UUID) -> Optional[TemplateResponse]:
+    async def get_template(self, template_id: uuid.UUID) -> TemplateResponse | None:
         """Get a single template by ID."""
         async with self._session_factory() as session:
             repo = TemplateRepository(session)
@@ -119,7 +116,7 @@ class TemplateService:
 
     async def list_templates(
         self,
-        department_dn: Optional[str] = None,
+        department_dn: str | None = None,
     ) -> TemplateListResponse:
         """List all templates."""
         async with self._session_factory() as session:
@@ -134,7 +131,7 @@ class TemplateService:
         self,
         template_id: uuid.UUID,
         data: TemplateUpdate,
-    ) -> Optional[TemplateResponse]:
+    ) -> TemplateResponse | None:
         """Update an existing template."""
         async with self._session_factory() as session:
             repo = TemplateRepository(session)
@@ -179,7 +176,7 @@ class TemplateService:
         self,
         template_id: uuid.UUID,
         values: dict[str, str],
-    ) -> Optional[TemplatePreview]:
+    ) -> TemplatePreview | None:
         """
         Preview a template with given variable values.
 
@@ -203,7 +200,7 @@ class TemplateService:
 # ---------------------------------------------------------------------------
 # Module-level singleton
 # ---------------------------------------------------------------------------
-_template_service: Optional[TemplateService] = None
+_template_service: TemplateService | None = None
 
 
 def init_template_service(

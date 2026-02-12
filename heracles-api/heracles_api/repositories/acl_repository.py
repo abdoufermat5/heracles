@@ -6,7 +6,6 @@ Data access layer for ACL PostgreSQL operations.
 Replaces raw asyncpg queries with SQLAlchemy ORM.
 """
 
-from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import and_, delete, func, or_, select, update
@@ -34,18 +33,12 @@ class AclRepository:
     # =========================================================================
 
     async def get_all_permissions(self) -> list[AclPermission]:
-        stmt = (
-            select(AclPermission).order_by(AclPermission.scope, AclPermission.action)
-        )
+        stmt = select(AclPermission).order_by(AclPermission.scope, AclPermission.action)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def get_permission_by_scope_action(
-        self, scope: str, action: str
-    ) -> Optional[AclPermission]:
-        stmt = select(AclPermission).where(
-            AclPermission.scope == scope, AclPermission.action == action
-        )
+    async def get_permission_by_scope_action(self, scope: str, action: str) -> AclPermission | None:
+        stmt = select(AclPermission).where(AclPermission.scope == scope, AclPermission.action == action)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -59,8 +52,8 @@ class AclRepository:
         scope: str,
         action: str,
         description: str,
-        plugin: Optional[str],
-    ) -> Optional[int]:
+        plugin: str | None,
+    ) -> int | None:
         """Upsert a permission. Returns bit_position if newly created, else None."""
         existing = await self.get_permission_by_scope_action(scope, action)
 
@@ -102,9 +95,7 @@ class AclRepository:
         self,
     ) -> tuple[dict[str, int], dict[int, str]]:
         """Get by_name and by_bit lookup dicts."""
-        stmt = select(
-            AclPermission.bit_position, AclPermission.scope, AclPermission.action
-        )
+        stmt = select(AclPermission.bit_position, AclPermission.scope, AclPermission.action)
         result = await self.session.execute(stmt)
         by_name: dict[str, int] = {}
         by_bit: dict[int, str] = {}
@@ -118,15 +109,11 @@ class AclRepository:
     # Attribute Groups
     # =========================================================================
 
-    async def get_all_attribute_groups(
-        self, object_type: Optional[str] = None
-    ) -> list[AclAttributeGroup]:
+    async def get_all_attribute_groups(self, object_type: str | None = None) -> list[AclAttributeGroup]:
         stmt = select(AclAttributeGroup)
         if object_type:
             stmt = stmt.where(AclAttributeGroup.object_type == object_type)
-        stmt = stmt.order_by(
-            AclAttributeGroup.object_type, AclAttributeGroup.group_name
-        )
+        stmt = stmt.order_by(AclAttributeGroup.object_type, AclAttributeGroup.group_name)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
@@ -136,7 +123,7 @@ class AclRepository:
         group_name: str,
         label: str,
         attributes: list[str],
-        plugin: Optional[str],
+        plugin: str | None,
     ) -> None:
         stmt = pg_insert(AclAttributeGroup).values(
             object_type=object_type,
@@ -165,21 +152,18 @@ class AclRepository:
             AclAttributeGroup.attributes,
         )
         result = await self.session.execute(stmt)
-        return {
-            (row.object_type, row.group_name): list(row.attributes)
-            for row in result.all()
-        }
+        return {(row.object_type, row.group_name): list(row.attributes) for row in result.all()}
 
     # =========================================================================
     # Policies
     # =========================================================================
 
-    async def get_policy_by_id(self, policy_id: UUID) -> Optional[AclPolicy]:
+    async def get_policy_by_id(self, policy_id: UUID) -> AclPolicy | None:
         stmt = select(AclPolicy).where(AclPolicy.id == policy_id)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def get_policy_by_name(self, name: str) -> Optional[AclPolicy]:
+    async def get_policy_by_name(self, name: str) -> AclPolicy | None:
         stmt = select(AclPolicy).where(AclPolicy.name == name)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
@@ -193,7 +177,7 @@ class AclRepository:
         self,
         page: int,
         page_size: int,
-        builtin: Optional[bool] = None,
+        builtin: bool | None = None,
     ) -> tuple[list[AclPolicy], int]:
         count_stmt = select(func.count()).select_from(AclPolicy)
         query_stmt = select(AclPolicy).order_by(AclPolicy.name)
@@ -210,7 +194,7 @@ class AclRepository:
     async def create_policy(
         self,
         name: str,
-        description: Optional[str],
+        description: str | None,
         perm_low: int,
         perm_high: int,
         builtin: bool = False,
@@ -258,9 +242,7 @@ class AclRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one()
 
-    async def update_wildcard_policy_bitmap(
-        self, name: str, perm_low: int, perm_high: int
-    ) -> None:
+    async def update_wildcard_policy_bitmap(self, name: str, perm_low: int, perm_high: int) -> None:
         stmt = (
             update(AclPolicy)
             .where(AclPolicy.name == name, AclPolicy.builtin.is_(True))
@@ -272,9 +254,7 @@ class AclRepository:
     # Policy Attr Rules
     # =========================================================================
 
-    async def get_attr_rules_for_policy(
-        self, policy_id: UUID
-    ) -> list[AclPolicyAttrRule]:
+    async def get_attr_rules_for_policy(self, policy_id: UUID) -> list[AclPolicyAttrRule]:
         stmt = (
             select(AclPolicyAttrRule)
             .where(AclPolicyAttrRule.policy_id == policy_id)
@@ -311,9 +291,7 @@ class AclRepository:
         await self.session.execute(stmt)
 
     async def delete_all_attr_rules_for_policy(self, policy_id: UUID) -> None:
-        stmt = delete(AclPolicyAttrRule).where(
-            AclPolicyAttrRule.policy_id == policy_id
-        )
+        stmt = delete(AclPolicyAttrRule).where(AclPolicyAttrRule.policy_id == policy_id)
         await self.session.execute(stmt)
 
     async def attr_rule_exists(
@@ -336,9 +314,7 @@ class AclRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one() > 0
 
-    async def attr_rule_belongs_to_policy(
-        self, rule_id: UUID, policy_id: UUID
-    ) -> bool:
+    async def attr_rule_belongs_to_policy(self, rule_id: UUID, policy_id: UUID) -> bool:
         stmt = (
             select(func.count())
             .select_from(AclPolicyAttrRule)
@@ -354,9 +330,7 @@ class AclRepository:
     # Assignments
     # =========================================================================
 
-    async def get_assignment_by_id(
-        self, assignment_id: UUID
-    ) -> Optional[AclAssignment]:
+    async def get_assignment_by_id(self, assignment_id: UUID) -> AclAssignment | None:
         stmt = select(AclAssignment).where(AclAssignment.id == assignment_id)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
@@ -365,8 +339,8 @@ class AclRepository:
         self,
         page: int,
         page_size: int,
-        policy_id: Optional[UUID] = None,
-        subject_dn: Optional[str] = None,
+        policy_id: UUID | None = None,
+        subject_dn: str | None = None,
     ) -> tuple[list[tuple[AclAssignment, str]], int]:
         """Returns list of (assignment, policy_name) tuples and total count."""
         base_where = []
@@ -394,9 +368,7 @@ class AclRepository:
         rows = [(row[0], row[1]) for row in result.all()]
         return rows, total
 
-    async def get_assignment_with_policy_name(
-        self, assignment_id: UUID
-    ) -> Optional[tuple[AclAssignment, str]]:
+    async def get_assignment_with_policy_name(self, assignment_id: UUID) -> tuple[AclAssignment, str] | None:
         stmt = (
             select(AclAssignment, AclPolicy.name)
             .join(AclPolicy, AclAssignment.policy_id == AclPolicy.id)
@@ -491,11 +463,7 @@ class AclRepository:
         await self.session.execute(stmt)
 
     async def get_affected_subject_dns(self, policy_id: UUID) -> list[str]:
-        stmt = (
-            select(AclAssignment.subject_dn)
-            .where(AclAssignment.policy_id == policy_id)
-            .distinct()
-        )
+        stmt = select(AclAssignment.subject_dn).where(AclAssignment.policy_id == policy_id).distinct()
         result = await self.session.execute(stmt)
         return [row[0] for row in result.all()]
 
@@ -588,10 +556,10 @@ class AclRepository:
         self,
         user_dn: str,
         action: str,
-        target_dn: Optional[str],
-        permission: Optional[str],
-        result: Optional[bool],
-        details: Optional[dict],
+        target_dn: str | None,
+        permission: str | None,
+        result: bool | None,
+        details: dict | None,
     ) -> None:
         log = AclAuditLog(
             user_dn=user_dn,
@@ -607,12 +575,12 @@ class AclRepository:
         self,
         page: int,
         page_size: int,
-        user_dn: Optional[str] = None,
-        action: Optional[str] = None,
-        target_dn: Optional[str] = None,
-        result: Optional[bool] = None,
-        from_ts: Optional[str] = None,
-        to_ts: Optional[str] = None,
+        user_dn: str | None = None,
+        action: str | None = None,
+        target_dn: str | None = None,
+        result: bool | None = None,
+        from_ts: str | None = None,
+        to_ts: str | None = None,
     ) -> tuple[list[AclAuditLog], int]:
         conditions = []
         if user_dn:
@@ -633,12 +601,7 @@ class AclRepository:
             count_stmt = count_stmt.where(*conditions)
         total = (await self.session.execute(count_stmt)).scalar_one()
 
-        query_stmt = (
-            select(AclAuditLog)
-            .order_by(AclAuditLog.ts.desc())
-            .limit(page_size)
-            .offset((page - 1) * page_size)
-        )
+        query_stmt = select(AclAuditLog).order_by(AclAuditLog.ts.desc()).limit(page_size).offset((page - 1) * page_size)
         if conditions:
             query_stmt = query_stmt.where(*conditions)
 

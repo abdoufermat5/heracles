@@ -5,31 +5,29 @@ ACL Endpoints
 ACL management endpoints for policies, assignments, and permissions.
 """
 
-from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, status, Query, Request
+import structlog
+from fastapi import APIRouter, HTTPException, Query, Request, status
 
-from heracles_api.core.dependencies import CurrentUser, AclGuardDep, AclRepoDep, RedisDep
 from heracles_api.acl.schemas import (
-    PolicyResponse,
-    PolicyListResponse,
-    PolicyCreate,
-    PolicyUpdate,
-    AssignmentResponse,
-    AssignmentListResponse,
     AssignmentCreate,
+    AssignmentListResponse,
+    AssignmentResponse,
     AssignmentUpdate,
-    PermissionResponse,
     AttributeGroupResponse,
-    MyPermissionsResponse,
     AuditLogEntry,
     AuditLogListResponse,
-    PolicyAttrRuleResponse,
+    MyPermissionsResponse,
+    PermissionResponse,
     PolicyAttrRuleCreate,
+    PolicyAttrRuleResponse,
+    PolicyCreate,
+    PolicyListResponse,
+    PolicyResponse,
+    PolicyUpdate,
 )
-
-import structlog
+from heracles_api.core.dependencies import AclGuardDep, AclRepoDep, CurrentUser, RedisDep
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
@@ -78,7 +76,7 @@ async def list_attribute_groups(
     current_user: CurrentUser,
     guard: AclGuardDep,
     acl_repo: AclRepoDep,
-    object_type: Optional[str] = Query(None, description="Filter by object type"),
+    object_type: str | None = Query(None, description="Filter by object type"),
 ):
     """
     List all attribute groups.
@@ -112,6 +110,7 @@ def _resolve_perm_names(registry, perm_low: int, perm_high: int) -> list[str]:
     perm_names = []
     if registry:
         from heracles_core import PermissionBitmap
+
         bitmap = PermissionBitmap.from_halves(perm_low, perm_high)
         for name, bit_pos in registry._by_name.items():
             if bitmap.has_bit(bit_pos):
@@ -127,7 +126,7 @@ async def list_policies(
     request: Request,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
-    builtin: Optional[bool] = Query(None, description="Filter by builtin status"),
+    builtin: bool | None = Query(None, description="Filter by builtin status"),
 ):
     """
     List all ACL policies.
@@ -143,15 +142,17 @@ async def list_policies(
     result = []
     for p in policies:
         perm_names = _resolve_perm_names(registry, p.perm_low, p.perm_high)
-        result.append(PolicyResponse(
-            id=p.id,
-            name=p.name,
-            description=p.description,
-            permissions=perm_names,
-            builtin=p.builtin,
-            created_at=p.created_at,
-            updated_at=p.updated_at,
-        ))
+        result.append(
+            PolicyResponse(
+                id=p.id,
+                name=p.name,
+                description=p.description,
+                permissions=perm_names,
+                builtin=p.builtin,
+                created_at=p.created_at,
+                updated_at=p.updated_at,
+            )
+        )
 
     return PolicyListResponse(
         policies=result,
@@ -325,6 +326,7 @@ async def update_policy(
         )
 
     from sqlalchemy.sql import func
+
     policy.updated_at = func.now()
     await acl_repo.session.flush()
 
@@ -412,8 +414,8 @@ async def list_assignments(
     acl_repo: AclRepoDep,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
-    policy_id: Optional[UUID] = Query(None, description="Filter by policy ID"),
-    subject_dn: Optional[str] = Query(None, description="Filter by subject DN"),
+    policy_id: UUID | None = Query(None, description="Filter by policy ID"),
+    subject_dn: str | None = Query(None, description="Filter by subject DN"),
 ):
     """
     List all ACL assignments.
@@ -422,9 +424,7 @@ async def list_assignments(
     """
     guard.require(current_user.user_dn, "acl:read")
 
-    rows, total = await acl_repo.list_assignments(
-        page, page_size, policy_id=policy_id, subject_dn=subject_dn
-    )
+    rows, total = await acl_repo.list_assignments(page, page_size, policy_id=policy_id, subject_dn=subject_dn)
 
     assignments = [
         AssignmentResponse(
@@ -742,12 +742,12 @@ async def list_audit_logs(
     acl_repo: AclRepoDep,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
-    user_dn: Optional[str] = Query(None, description="Filter by user DN"),
-    action: Optional[str] = Query(None, description="Filter by action"),
-    target_dn: Optional[str] = Query(None, description="Filter by target DN"),
-    result: Optional[bool] = Query(None, description="Filter by result (true=allowed, false=denied)"),
-    from_ts: Optional[str] = Query(None, description="Filter from timestamp (ISO 8601)", alias="fromTs"),
-    to_ts: Optional[str] = Query(None, description="Filter to timestamp (ISO 8601)", alias="toTs"),
+    user_dn: str | None = Query(None, description="Filter by user DN"),
+    action: str | None = Query(None, description="Filter by action"),
+    target_dn: str | None = Query(None, description="Filter by target DN"),
+    result: bool | None = Query(None, description="Filter by result (true=allowed, false=denied)"),
+    from_ts: str | None = Query(None, description="Filter from timestamp (ISO 8601)", alias="fromTs"),
+    to_ts: str | None = Query(None, description="Filter to timestamp (ISO 8601)", alias="toTs"),
 ):
     """
     List audit log entries with optional filters.
@@ -824,7 +824,9 @@ async def list_policy_attr_rules(
     ]
 
 
-@router.post("/policies/{policy_id}/attr-rules", response_model=PolicyAttrRuleResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/policies/{policy_id}/attr-rules", response_model=PolicyAttrRuleResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_policy_attr_rule(
     policy_id: UUID,
     body: PolicyAttrRuleCreate,
@@ -848,9 +850,7 @@ async def create_policy_attr_rule(
         raise HTTPException(status_code=403, detail="Cannot modify built-in policies")
 
     # Check for duplicate
-    if await acl_repo.attr_rule_exists(
-        policy_id, body.object_type, body.action, body.rule_type
-    ):
+    if await acl_repo.attr_rule_exists(policy_id, body.object_type, body.action, body.rule_type):
         raise HTTPException(status_code=409, detail="Attribute rule already exists for this combination")
 
     rule = await acl_repo.create_attr_rule(

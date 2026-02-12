@@ -36,6 +36,7 @@ Usage:
 
 import os
 import sys
+
 import pytest
 
 # Override settings for testing - MUST happen before app imports
@@ -50,57 +51,49 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import all fixtures from fixtures module
 from tests.fixtures.auth import (  # noqa: F401, E402
+    admin_session,
+    auth_headers,
     mock_auth_service,
     mock_redis,
-    auth_headers,
-    admin_session,
     user_session,
 )
-
-from tests.fixtures.repositories import (  # noqa: F401, E402
-    mock_ldap_service,
-    mock_user_repository,
-    mock_group_repository,
-    mock_role_repository,
-    mock_department_repository,
-    mock_posix_service,
-    mock_sudo_service,
-    mock_ssh_service,
-    mock_dns_service,
-    mock_dhcp_service,
-)
-
 from tests.fixtures.entries import (  # noqa: F401, E402
     create_mock_entry,
-    mock_user_entry,
-    mock_admin_entry,
-    mock_posix_user_entry,
-    mock_group_entry,
-    mock_posix_group_entry,
-    mock_mixed_group_entry,
-    mock_system_entry,
-    mock_sudo_entry,
-    mock_dns_zone_entry,
-    user_entry_factory,
     group_entry_factory,
+    mock_admin_entry,
+    mock_dns_zone_entry,
+    mock_group_entry,
+    mock_mixed_group_entry,
+    mock_posix_group_entry,
+    mock_posix_user_entry,
+    mock_sudo_entry,
+    mock_system_entry,
+    mock_user_entry,
+    user_entry_factory,
 )
-
+from tests.fixtures.repositories import (  # noqa: F401, E402
+    mock_department_repository,
+    mock_dhcp_service,
+    mock_dns_service,
+    mock_group_repository,
+    mock_ldap_service,
+    mock_posix_service,
+    mock_role_repository,
+    mock_ssh_service,
+    mock_sudo_service,
+    mock_user_repository,
+)
 
 # ============================================================================
 # Pytest Configuration
 # ============================================================================
 
+
 def pytest_configure(config):
     """Configure pytest with custom markers."""
-    config.addinivalue_line(
-        "markers", "unit: mark test as unit test (no external services)"
-    )
-    config.addinivalue_line(
-        "markers", "integration: mark test as integration test (requires services)"
-    )
-    config.addinivalue_line(
-        "markers", "slow: mark test as slow running"
-    )
+    config.addinivalue_line("markers", "unit: mark test as unit test (no external services)")
+    config.addinivalue_line("markers", "integration: mark test as integration test (requires services)")
+    config.addinivalue_line("markers", "slow: mark test as slow running")
 
 
 def pytest_collection_modifyitems(config, items):
@@ -118,6 +111,7 @@ def pytest_collection_modifyitems(config, items):
 # ============================================================================
 # Common Fixtures
 # ============================================================================
+
 
 @pytest.fixture(autouse=True)
 def reset_app_state():

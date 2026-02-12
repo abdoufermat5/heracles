@@ -6,7 +6,7 @@ Caching layer for configuration values with hot-reload support.
 """
 
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 import structlog
 
@@ -16,13 +16,13 @@ if TYPE_CHECKING:
 logger = structlog.get_logger(__name__)
 
 # Global config cache
-_config_cache: Dict[str, Any] = {}
-_config_cache_time: Optional[datetime] = None
+_config_cache: dict[str, Any] = {}
+_config_cache_time: datetime | None = None
 _CONFIG_CACHE_TTL = 60  # seconds
 
 # Plugin config cache (separate from global config cache)
-_plugin_config_cache: Dict[str, Dict[str, Any]] = {}
-_plugin_config_cache_time: Dict[str, datetime] = {}
+_plugin_config_cache: dict[str, dict[str, Any]] = {}
+_plugin_config_cache_time: dict[str, datetime] = {}
 _PLUGIN_CONFIG_CACHE_TTL = 60  # seconds
 
 # Reference to the config service (set by init_config_service)
@@ -110,7 +110,7 @@ async def get_config_value(
         return default
 
 
-def invalidate_config_cache(category: Optional[str] = None, key: Optional[str] = None) -> None:
+def invalidate_config_cache(category: str | None = None, key: str | None = None) -> None:
     """
     Invalidate the config cache for hot-reload support.
 
@@ -209,9 +209,9 @@ async def get_plugin_config_value(
 
 async def get_full_plugin_config(
     plugin_name: str,
-    default: Optional[Dict[str, Any]] = None,
+    default: dict[str, Any] | None = None,
     use_cache: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get the full configuration dictionary for a plugin.
 
@@ -251,7 +251,7 @@ async def get_full_plugin_config(
         return default
 
 
-def invalidate_plugin_config_cache(plugin_name: Optional[str] = None) -> None:
+def invalidate_plugin_config_cache(plugin_name: str | None = None) -> None:
     """
     Invalidate the plugin config cache for hot-reload support.
 

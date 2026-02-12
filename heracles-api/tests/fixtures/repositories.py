@@ -5,8 +5,9 @@ Repository Fixtures
 Fixtures for repository and service mocks.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 
 @pytest.fixture
@@ -124,6 +125,7 @@ def mock_department_repository():
 # ============================================================================
 # Plugin Repository Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def mock_posix_service():

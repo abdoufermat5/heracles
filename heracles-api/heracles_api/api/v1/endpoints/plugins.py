@@ -5,8 +5,6 @@ Plugin Endpoints
 Endpoints for plugin management and plugin-provided routes.
 """
 
-from typing import Optional
-
 from fastapi import APIRouter, HTTPException, status
 
 from heracles_api.plugins.registry import plugin_registry
@@ -45,7 +43,7 @@ async def get_plugin(name: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Plugin '{name}' not found",
         )
-    
+
     info = plugin.info()
     return {
         "name": info.name,
@@ -82,11 +80,11 @@ async def get_tabs_for_object(object_type: str):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="object_type must be 'user' or 'group'",
         )
-    
+
     tabs = plugin_registry.get_tabs_for_object_type(object_type)
 
     # Resolve plugin name for each tab
-    def _plugin_name_for_tab(tab_id: str) -> Optional[str]:
+    def _plugin_name_for_tab(tab_id: str) -> str | None:
         for plugin in plugin_registry.get_all_plugins():
             for ptab in plugin.tabs():
                 if ptab.id == tab_id:

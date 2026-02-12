@@ -5,14 +5,12 @@ Configuration API Endpoints
 API routes for managing application and plugin configuration.
 """
 
-from typing import List, Optional
-
-from fastapi import APIRouter, Depends, HTTPException, Query, status
 import structlog
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from heracles_api.acl import AclGuard
 from heracles_api.config import settings
-from heracles_api.core.dependencies import get_acl_guard
+from heracles_api.core.dependencies import get_acl_guard, get_current_user
 from heracles_api.schemas.config import (
     ConfigBulkUpdateRequest,
     ConfigCategoryResponse,
@@ -27,11 +25,10 @@ from heracles_api.schemas.config import (
     RdnChangeCheckResponse,
     RdnMigrationRequest,
     RdnMigrationResponse,
-    SettingUpdateWithConfirmation,
     SettingUpdateResponse,
+    SettingUpdateWithConfirmation,
 )
-from heracles_api.services.config import get_config_service, ConfigService
-from heracles_api.core.dependencies import get_current_user
+from heracles_api.services.config import ConfigService, get_config_service
 
 logger = structlog.get_logger(__name__)
 
@@ -41,6 +38,7 @@ router = APIRouter(prefix="/config", tags=["Configuration"])
 # =============================================================================
 # Dependencies
 # =============================================================================
+
 
 async def get_config_svc() -> ConfigService:
     """Get the config service instance."""
@@ -58,6 +56,7 @@ async def get_config_svc() -> ConfigService:
 # Global Configuration
 # =============================================================================
 
+
 @router.get(
     "",
     response_model=GlobalConfigResponse,
@@ -71,7 +70,7 @@ async def get_all_config(
 ):
     """
     Get all configuration (categories + plugins).
-    
+
     Requires: config:read
     """
     guard.require(settings.LDAP_BASE_DN, "config:read")
@@ -80,7 +79,7 @@ async def get_all_config(
 
 @router.get(
     "/categories",
-    response_model=List[ConfigCategoryResponse],
+    response_model=list[ConfigCategoryResponse],
     summary="Get configuration categories",
     description="Get all configuration categories with their settings.",
 )
@@ -91,7 +90,7 @@ async def get_categories(
 ):
     """
     Get all configuration categories.
-    
+
     Requires: config:read
     """
     guard.require(settings.LDAP_BASE_DN, "config:read")
@@ -112,7 +111,7 @@ async def get_category(
 ):
     """
     Get a specific configuration category.
-    
+
     Requires: config:read
     """
     guard.require(settings.LDAP_BASE_DN, "config:read")
@@ -120,7 +119,7 @@ async def get_category(
     for cat in categories:
         if cat.name == category_name:
             return cat
-    
+
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
         detail=f"Category '{category_name}' not found",
@@ -142,7 +141,7 @@ async def update_setting(
 ):
     """
     Update a single configuration setting.
-    
+
     Requires: config:write
     """
     guard.require(settings.LDAP_BASE_DN, "config:write")
@@ -153,13 +152,13 @@ async def update_setting(
         changed_by=current_user.user_dn,
         reason=request.reason,
     )
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"errors": errors},
         )
-    
+
     return {"message": "Setting updated successfully"}
 
 
@@ -176,7 +175,7 @@ async def bulk_update_settings(
 ):
     """
     Bulk update configuration settings.
-    
+
     Requires: config:write
     """
     guard.require(settings.LDAP_BASE_DN, "config:write")
@@ -185,11 +184,11 @@ async def bulk_update_settings(
         changed_by=current_user.user_dn,
         reason=request.reason,
     )
-    
+
     result = {"updated": updated}
     if errors:
         result["errors"] = errors
-    
+
     return result
 
 
@@ -197,9 +196,10 @@ async def bulk_update_settings(
 # Plugin Configuration
 # =============================================================================
 
+
 @router.get(
     "/plugins",
-    response_model=List[PluginConfigResponse],
+    response_model=list[PluginConfigResponse],
     summary="Get all plugin configurations",
     description="Get configuration for all registered plugins.",
 )
@@ -210,7 +210,7 @@ async def get_all_plugin_configs(
 ):
     """
     Get all plugin configurations.
-    
+
     Requires: config:read
     """
     guard.require(settings.LDAP_BASE_DN, "config:read")
@@ -231,7 +231,7 @@ async def get_plugin_config(
 ):
     """
     Get a specific plugin's configuration.
-    
+
     Requires: config:read
     """
     guard.require(settings.LDAP_BASE_DN, "config:read")
@@ -259,10 +259,10 @@ async def update_plugin_config(
 ):
     """
     Update a plugin's configuration.
-    
+
     For RDN settings (like sudoers_rdn, dns_rdn, systems_rdn), this endpoint
     will check if existing entries would be affected and require confirmation.
-    
+
     Requires: config:write
     """
     guard.require(settings.LDAP_BASE_DN, "config:write")
@@ -274,17 +274,17 @@ async def update_plugin_config(
         confirmed=request.confirmed,
         migrate_entries=request.migrate_entries,
     )
-    
+
     # Check if migration confirmation is required
     if result.get("requires_confirmation"):
         return PluginConfigUpdateResponse(**result)
-    
+
     if not result.get("success", True):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"errors": result.get("errors", [])},
         )
-    
+
     return PluginConfigUpdateResponse(**result)
 
 
@@ -295,14 +295,14 @@ async def update_plugin_config(
 )
 async def enable_plugin(
     plugin_name: str,
-    request: Optional[PluginToggleRequest] = None,
+    request: PluginToggleRequest | None = None,
     current_user=Depends(get_current_user),
     guard: AclGuard = Depends(get_acl_guard),
     config_service: ConfigService = Depends(get_config_svc),
 ):
     """
     Enable a plugin.
-    
+
     Requires: config:write
     """
     guard.require(settings.LDAP_BASE_DN, "config:write")
@@ -313,13 +313,13 @@ async def enable_plugin(
         changed_by=current_user.user_dn,
         reason=reason,
     )
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"errors": errors},
         )
-    
+
     return {"message": f"Plugin '{plugin_name}' enabled successfully"}
 
 
@@ -330,14 +330,14 @@ async def enable_plugin(
 )
 async def disable_plugin(
     plugin_name: str,
-    request: Optional[PluginToggleRequest] = None,
+    request: PluginToggleRequest | None = None,
     current_user=Depends(get_current_user),
     guard: AclGuard = Depends(get_acl_guard),
     config_service: ConfigService = Depends(get_config_svc),
 ):
     """
     Disable a plugin.
-    
+
     Requires: config:write
     """
     guard.require(settings.LDAP_BASE_DN, "config:write")
@@ -348,19 +348,20 @@ async def disable_plugin(
         changed_by=current_user.user_dn,
         reason=reason,
     )
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"errors": errors},
         )
-    
+
     return {"message": f"Plugin '{plugin_name}' disabled successfully"}
 
 
 # =============================================================================
 # Configuration History
 # =============================================================================
+
 
 @router.get(
     "/history",
@@ -371,15 +372,15 @@ async def disable_plugin(
 async def get_config_history(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(50, ge=1, le=100, description="Items per page"),
-    category: Optional[str] = Query(None, description="Filter by category"),
-    plugin_name: Optional[str] = Query(None, description="Filter by plugin"),
+    category: str | None = Query(None, description="Filter by category"),
+    plugin_name: str | None = Query(None, description="Filter by plugin"),
     current_user=Depends(get_current_user),
     guard: AclGuard = Depends(get_acl_guard),
     config_service: ConfigService = Depends(get_config_svc),
 ):
     """
     Get configuration change history.
-    
+
     Requires: config:read
     """
     guard.require(settings.LDAP_BASE_DN, "config:read")
@@ -395,6 +396,7 @@ async def get_config_history(
 # RDN Change Validation
 # =============================================================================
 
+
 @router.post(
     "/rdn/check",
     response_model=RdnChangeCheckResponse,
@@ -408,27 +410,27 @@ async def check_rdn_change(
 ):
     """
     Check the impact of an RDN change.
-    
+
     This should be called before changing any RDN setting to warn the user
     about affected entries and migration options.
     """
-    from heracles_api.services.ldap_service import get_ldap_service
     from heracles_api.services.ldap_migration_service import LdapMigrationService
-    
+    from heracles_api.services.ldap_service import get_ldap_service
+
     try:
         ldap_service = get_ldap_service()
         migration_service = LdapMigrationService(ldap_service, config_service)
-        
+
         check_result = await migration_service.check_rdn_change(
             old_rdn=request.old_rdn,
             new_rdn=request.new_rdn,
             base_dn=request.base_dn,
             object_class_filter=request.object_class_filter,
         )
-        
+
         # Determine if confirmation is required
         requires_confirmation = check_result.entries_count > 0
-        
+
         return RdnChangeCheckResponse(
             old_rdn=check_result.old_rdn,
             new_rdn=check_result.new_rdn,
@@ -440,7 +442,7 @@ async def check_rdn_change(
             warnings=check_result.warnings,
             requires_confirmation=requires_confirmation,
         )
-        
+
     except Exception as e:
         logger.error("rdn_check_failed", error=str(e))
         raise HTTPException(
@@ -462,23 +464,23 @@ async def migrate_rdn_entries(
 ):
     """
     Migrate entries after an RDN change.
-    
+
     This should only be called after the user has confirmed the migration.
     """
-    from heracles_api.services.ldap_service import get_ldap_service
     from heracles_api.services.ldap_migration_service import LdapMigrationService, MigrationMode
-    
+    from heracles_api.services.ldap_service import get_ldap_service
+
     # Require confirmation
     if not request.confirmed:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Migration must be confirmed. Set 'confirmed: true' after reviewing warnings.",
         )
-    
+
     try:
         ldap_service = get_ldap_service()
         migration_service = LdapMigrationService(ldap_service, config_service)
-        
+
         # Parse mode
         try:
             mode = MigrationMode(request.mode)
@@ -487,7 +489,7 @@ async def migrate_rdn_entries(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid migration mode: {request.mode}. Use 'modrdn', 'copy_delete', or 'leave_orphaned'.",
             )
-        
+
         result = await migration_service.migrate_entries(
             old_rdn=request.old_rdn,
             new_rdn=request.new_rdn,
@@ -495,7 +497,7 @@ async def migrate_rdn_entries(
             mode=mode,
             object_class_filter=request.object_class_filter,
         )
-        
+
         # Log the migration
         logger.info(
             "rdn_migration_completed",
@@ -506,7 +508,7 @@ async def migrate_rdn_entries(
             failed=result.entries_failed,
             user=current_user.user_dn,
         )
-        
+
         return RdnMigrationResponse(
             success=result.success,
             mode=result.mode.value,
@@ -515,7 +517,7 @@ async def migrate_rdn_entries(
             failed_entries=result.failed_entries,
             warnings=result.warnings,
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -541,18 +543,18 @@ async def update_setting_with_migration(
 ):
     """
     Update a setting with RDN migration support.
-    
+
     For RDN settings (like user_rdn, group_rdn, etc.), this endpoint:
     1. Checks if entries exist in the old location
     2. If entries exist and not confirmed, returns warning with migration check
     3. If confirmed and migrate_entries is true, performs migration
     4. Updates the setting value
     """
-    from heracles_api.services.ldap_service import get_ldap_service
     from heracles_api.services.ldap_migration_service import LdapMigrationService, MigrationMode
-    
+    from heracles_api.services.ldap_service import get_ldap_service
+
     # List of RDN settings that may require migration
-    RDN_SETTINGS = {
+    rdn_settings = {
         ("ldap", "user_rdn"): None,
         ("ldap", "group_rdn"): None,
         ("dns", "dns_rdn"): "dNSZone",
@@ -560,32 +562,32 @@ async def update_setting_with_migration(
         ("sudo", "sudoers_rdn"): "sudoRole",
         ("systems", "systems_rdn"): "device",
     }
-    
+
     setting_key = (category, key)
-    is_rdn_setting = setting_key in RDN_SETTINGS or key.endswith("_rdn")
-    
+    is_rdn_setting = setting_key in rdn_settings or key.endswith("_rdn")
+
     migration_check = None
     migration_result = None
-    
+
     if is_rdn_setting:
         # Get current value
         current_value = await config_service.get_setting(category, key)
         new_value = request.value
-        
+
         # Only check if value is actually changing
         if current_value != new_value and current_value is not None:
             try:
                 ldap_service = get_ldap_service()
                 migration_service = LdapMigrationService(ldap_service, config_service)
-                
-                object_class_filter = RDN_SETTINGS.get(setting_key)
-                
+
+                object_class_filter = rdn_settings.get(setting_key)
+
                 check_result = await migration_service.check_rdn_change(
                     old_rdn=str(current_value),
                     new_rdn=str(new_value),
                     object_class_filter=object_class_filter,
                 )
-                
+
                 migration_check = RdnChangeCheckResponse(
                     old_rdn=check_result.old_rdn,
                     new_rdn=check_result.new_rdn,
@@ -597,7 +599,7 @@ async def update_setting_with_migration(
                     warnings=check_result.warnings,
                     requires_confirmation=check_result.entries_count > 0,
                 )
-                
+
                 # If entries exist and not confirmed, return warning
                 if check_result.entries_count > 0 and not request.confirmed:
                     return SettingUpdateResponse(
@@ -606,18 +608,18 @@ async def update_setting_with_migration(
                         requires_confirmation=True,
                         migration_check=migration_check,
                     )
-                
+
                 # If confirmed and should migrate, perform migration
                 if check_result.entries_count > 0 and request.confirmed and request.migrate_entries:
                     mode = MigrationMode.MODRDN if check_result.supports_modrdn else MigrationMode.COPY_DELETE
-                    
+
                     result = await migration_service.migrate_entries(
                         old_rdn=str(current_value),
                         new_rdn=str(new_value),
                         object_class_filter=object_class_filter,
                         mode=mode,
                     )
-                    
+
                     migration_result = RdnMigrationResponse(
                         success=result.success,
                         mode=result.mode.value,
@@ -626,7 +628,7 @@ async def update_setting_with_migration(
                         failed_entries=result.failed_entries,
                         warnings=result.warnings,
                     )
-                    
+
                     # If migration failed, don't update the setting
                     if not result.success:
                         return SettingUpdateResponse(
@@ -636,11 +638,11 @@ async def update_setting_with_migration(
                             migration_check=migration_check,
                             migration_result=migration_result,
                         )
-                        
+
             except Exception as e:
                 logger.error("rdn_check_error", error=str(e))
                 # Continue with update but log the error
-    
+
     # Update the setting
     success, errors = await config_service.update_setting(
         category=category,
@@ -649,7 +651,7 @@ async def update_setting_with_migration(
         changed_by=current_user.user_dn,
         reason=request.reason,
     )
-    
+
     if not success:
         return SettingUpdateResponse(
             success=False,
@@ -658,7 +660,7 @@ async def update_setting_with_migration(
             migration_check=migration_check,
             migration_result=migration_result,
         )
-    
+
     return SettingUpdateResponse(
         success=True,
         message="Setting updated successfully",

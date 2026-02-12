@@ -5,21 +5,21 @@ Stats Endpoints
 Returns aggregate counts for core entities.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import APIRouter, Depends
 
 from heracles_api.core.dependencies import (
-    get_user_repository,
+    get_department_repository,
     get_group_repository,
     get_role_repository,
-    get_department_repository,
+    get_user_repository,
 )
 from heracles_api.repositories import (
-    UserRepository,
+    DepartmentRepository,
     GroupRepository,
     RoleRepository,
-    DepartmentRepository,
+    UserRepository,
 )
 
 router = APIRouter()
@@ -31,7 +31,7 @@ async def get_stats(
     groups: GroupRepository = Depends(get_group_repository),
     roles: RoleRepository = Depends(get_role_repository),
     departments: DepartmentRepository = Depends(get_department_repository),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     users_result = await users.search()
     groups_result = await groups.search()
     roles_result = await roles.search()

@@ -5,14 +5,12 @@ Plugin Access Middleware
 Middleware to block access to disabled plugins.
 """
 
-from typing import Dict, Optional
-
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-import structlog
 
 from heracles_api.models.config import PluginConfig
 
@@ -20,7 +18,7 @@ logger = structlog.get_logger(__name__)
 
 
 # Mapping of URL prefixes to plugin names
-PLUGIN_URL_MAPPING: Dict[str, str] = {
+PLUGIN_URL_MAPPING: dict[str, str] = {
     "/api/v1/posix": "posix",
     "/api/v1/sudo": "sudo",
     "/api/v1/ssh": "ssh",
@@ -42,7 +40,7 @@ class PluginAccessMiddleware(BaseHTTPMiddleware):
     def __init__(self, app):
         super().__init__(app)
 
-    def _get_plugin_for_path(self, path: str) -> Optional[str]:
+    def _get_plugin_for_path(self, path: str) -> str | None:
         """
         Get the plugin name for a given request path.
 
@@ -74,9 +72,7 @@ class PluginAccessMiddleware(BaseHTTPMiddleware):
         """
         try:
             async with session_factory() as session:
-                stmt = select(PluginConfig.enabled).where(
-                    PluginConfig.plugin_name == plugin_name
-                )
+                stmt = select(PluginConfig.enabled).where(PluginConfig.plugin_name == plugin_name)
                 result = await session.execute(stmt)
                 enabled = result.scalar_one_or_none()
                 if enabled is None:
@@ -101,9 +97,7 @@ class PluginAccessMiddleware(BaseHTTPMiddleware):
 
         if plugin_name:
             # Get session_factory from app state (set during lifespan)
-            session_factory: Optional[async_sessionmaker] = getattr(
-                request.app.state, "session_factory", None
-            )
+            session_factory: async_sessionmaker | None = getattr(request.app.state, "session_factory", None)
 
             if session_factory is not None:
                 enabled = await self._is_plugin_enabled(plugin_name, session_factory)
@@ -118,7 +112,8 @@ class PluginAccessMiddleware(BaseHTTPMiddleware):
                     return JSONResponse(
                         status_code=403,
                         content={
-                            "detail": f"Plugin '{plugin_name}' is disabled. Enable it in Settings to access this feature."
+                            "detail": f"Plugin '{plugin_name}' is disabled. "
+                            "Enable it in Settings to access this feature.",
                         },
                     )
 

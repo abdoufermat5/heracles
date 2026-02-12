@@ -5,9 +5,9 @@ Plugin Config Repository
 Data access layer for plugin_configs table.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,23 +21,19 @@ class PluginConfigRepository:
         self.session = session
 
     async def get_all(self) -> list[PluginConfig]:
-        stmt = select(PluginConfig).order_by(
-            PluginConfig.priority, PluginConfig.plugin_name
-        )
+        stmt = select(PluginConfig).order_by(PluginConfig.priority, PluginConfig.plugin_name)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def get_by_name(self, plugin_name: str) -> Optional[PluginConfig]:
-        stmt = select(PluginConfig).where(
-            PluginConfig.plugin_name == plugin_name
-        )
+    async def get_by_name(self, plugin_name: str) -> PluginConfig | None:
+        stmt = select(PluginConfig).where(PluginConfig.plugin_name == plugin_name)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
     async def update_config(
         self,
         plugin: PluginConfig,
-        config: Dict[str, Any],
+        config: dict[str, Any],
         changed_by: str,
     ) -> None:
         plugin.config = config
@@ -58,7 +54,7 @@ class PluginConfigRepository:
         self,
         plugin_name: str,
         priority: int,
-        config: Dict[str, Any],
+        config: dict[str, Any],
         version: str,
         description: str,
     ) -> None:
@@ -75,9 +71,7 @@ class PluginConfigRepository:
             set_={
                 "version": stmt.excluded.version,
                 "description": stmt.excluded.description,
-                "config": func.coalesce(
-                    PluginConfig.config, stmt.excluded.config
-                ),
+                "config": func.coalesce(PluginConfig.config, stmt.excluded.config),
             },
         )
         await self.session.execute(stmt)
@@ -88,7 +82,7 @@ class PluginConfigRepository:
         old_value: Any,
         new_value: Any,
         changed_by: str,
-        reason: Optional[str],
+        reason: str | None,
     ) -> None:
         history = ConfigHistory(
             plugin_name=plugin_name,

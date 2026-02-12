@@ -5,15 +5,15 @@ Health Check Endpoints
 Reports health status for LDAP, PostgreSQL, and Redis.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends
 from redis.asyncio import Redis
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from heracles_api.core.dependencies import get_ldap, get_redis
 from heracles_api.core.database import get_db_session
+from heracles_api.core.dependencies import get_ldap, get_redis
 from heracles_api.services import LdapService
 
 router = APIRouter()
@@ -22,10 +22,10 @@ router = APIRouter()
 @router.get("/health")
 async def health_check(
     ldap: LdapService = Depends(get_ldap),
-    redis: Optional[Redis] = Depends(get_redis),
+    redis: Redis | None = Depends(get_redis),
     session: AsyncSession = Depends(get_db_session),
-) -> Dict[str, Any]:
-    services: Dict[str, Dict[str, str]] = {}
+) -> dict[str, Any]:
+    services: dict[str, dict[str, str]] = {}
     overall_ok = True
 
     # LDAP health

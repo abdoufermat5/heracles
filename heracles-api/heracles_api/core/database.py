@@ -5,22 +5,22 @@ Database Connection
 PostgreSQL connection management using SQLAlchemy async engine.
 """
 
-from typing import AsyncGenerator, Optional
+from collections.abc import AsyncGenerator
 
+import structlog
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
-import structlog
 
 from heracles_api.config import settings
 
 logger = structlog.get_logger(__name__)
 
-_engine: Optional[AsyncEngine] = None
-_session_factory: Optional[async_sessionmaker[AsyncSession]] = None
+_engine: AsyncEngine | None = None
+_session_factory: async_sessionmaker[AsyncSession] | None = None
 
 
 async def init_database() -> AsyncEngine:

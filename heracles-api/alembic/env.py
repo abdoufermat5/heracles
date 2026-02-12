@@ -6,9 +6,9 @@ This module configures Alembic for database migrations.
 """
 
 import asyncio
-from logging.config import fileConfig
 import os
 import sys
+from logging.config import fileConfig
 from pathlib import Path
 
 from sqlalchemy import pool
@@ -34,6 +34,7 @@ from heracles_api.models import Base  # noqa: E402
 
 target_metadata = Base.metadata
 
+
 # Get database URL from environment variables
 def get_database_url() -> str:
     """Build database URL from environment variables."""
@@ -44,14 +45,14 @@ def get_database_url() -> str:
         if database_url.startswith("postgresql://"):
             return database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
         return database_url
-    
+
     # Fall back to individual env vars
     host = os.getenv("POSTGRES_HOST", "localhost")
     port = os.getenv("POSTGRES_PORT", "5432")
     database = os.getenv("POSTGRES_DB", "heracles")
     user = os.getenv("POSTGRES_USER", "heracles")
     password = os.getenv("POSTGRES_PASSWORD", "heracles")
-    
+
     return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{database}"
 
 
@@ -93,7 +94,7 @@ async def run_async_migrations() -> None:
     """Run migrations in 'online' mode with async engine."""
     configuration = config.get_section(config.config_ini_section) or {}
     configuration["sqlalchemy.url"] = get_database_url()
-    
+
     connectable = async_engine_from_config(
         configuration,
         prefix="sqlalchemy.",

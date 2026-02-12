@@ -5,8 +5,6 @@ Configuration History
 Audit trail for configuration changes.
 """
 
-from typing import Optional
-
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -26,8 +24,8 @@ class HistoryManager:
         self,
         page: int = 1,
         page_size: int = 50,
-        category: Optional[str] = None,
-        plugin_name: Optional[str] = None,
+        category: str | None = None,
+        plugin_name: str | None = None,
     ) -> ConfigHistoryResponse:
         """Get configuration change history."""
         async with self._session_factory() as session:

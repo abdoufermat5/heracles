@@ -8,11 +8,11 @@ The ACL service bridges the Python API with the Rust ACL engine,
 providing efficient permission checking across the application.
 """
 
-import structlog
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+import structlog
 from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from heracles_api.acl.registry import PermissionRegistry
 from heracles_api.repositories.acl_repository import AclRepository
@@ -41,7 +41,7 @@ class AclService:
     def __init__(
         self,
         session_factory: async_sessionmaker[AsyncSession],
-        redis: Optional[Redis],
+        redis: Redis | None,
         registry: PermissionRegistry,
     ):
         self.session_factory = session_factory
@@ -79,24 +79,28 @@ class AclService:
                     rule["object_type"],
                     rule["attr_groups"],
                 )
-                attr_rules.append(AttrRuleRow(
-                    object_type=rule["object_type"],
-                    action=rule["action"],
-                    rule_type=rule["rule_type"],
-                    attributes=list(attrs),
-                ))
+                attr_rules.append(
+                    AttrRuleRow(
+                        object_type=rule["object_type"],
+                        action=rule["action"],
+                        rule_type=rule["rule_type"],
+                        attributes=list(attrs),
+                    )
+                )
 
-            acl_rows.append(AclRow(
-                policy_name=row["policy_name"],
-                perm_low=row["perm_low"],
-                perm_high=row["perm_high"],
-                scope_dn=row["scope_dn"],
-                scope_type=row["scope_type"],
-                self_only=row["self_only"],
-                deny=row["deny"],
-                priority=row["priority"],
-                attr_rules=attr_rules,
-            ))
+            acl_rows.append(
+                AclRow(
+                    policy_name=row["policy_name"],
+                    perm_low=row["perm_low"],
+                    perm_high=row["perm_high"],
+                    scope_dn=row["scope_dn"],
+                    scope_type=row["scope_type"],
+                    self_only=row["self_only"],
+                    deny=row["deny"],
+                    priority=row["priority"],
+                    attr_rules=attr_rules,
+                )
+            )
 
         # Compile using Rust engine
         user_acl = compile_user_acl(user_dn, acl_rows)
@@ -226,10 +230,10 @@ class AclService:
         self,
         user_dn: str,
         action: str,
-        target_dn: Optional[str],
+        target_dn: str | None,
         permission: str,
         result: bool,
-        details: Optional[dict] = None,
+        details: dict | None = None,
     ) -> None:
         """Log an ACL check to the audit log (non-blocking)."""
         try:

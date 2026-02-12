@@ -14,10 +14,7 @@ class TestLogin:
         mock_user_repository.authenticate.return_value = mock_user_entry
         mock_user_repository.get_groups.return_value = ["users", "developers"]
 
-        response = test_client.post(
-            "/api/v1/auth/login",
-            json={"username": "testuser", "password": "password"}
-        )
+        response = test_client.post("/api/v1/auth/login", json={"username": "testuser", "password": "password"})
 
         assert response.status_code == 200
         data = response.json()
@@ -29,28 +26,19 @@ class TestLogin:
         """Test login with invalid credentials returns 401."""
         mock_user_repository.authenticate.return_value = None
 
-        response = test_client.post(
-            "/api/v1/auth/login",
-            json={"username": "wronguser", "password": "wrongpassword"}
-        )
+        response = test_client.post("/api/v1/auth/login", json={"username": "wronguser", "password": "wrongpassword"})
 
         assert response.status_code == 401
 
     def test_login_missing_username(self, test_client):
         """Test login without username returns validation error."""
-        response = test_client.post(
-            "/api/v1/auth/login",
-            json={"password": "password"}
-        )
+        response = test_client.post("/api/v1/auth/login", json={"password": "password"})
 
         assert response.status_code == 422
 
     def test_login_missing_password(self, test_client):
         """Test login without password returns validation error."""
-        response = test_client.post(
-            "/api/v1/auth/login",
-            json={"username": "testuser"}
-        )
+        response = test_client.post("/api/v1/auth/login", json={"username": "testuser"})
 
         assert response.status_code == 422
 
@@ -94,17 +82,12 @@ class TestGetMe:
 class TestRefreshToken:
     """Tests for POST /api/v1/auth/refresh"""
 
-    def test_refresh_with_valid_token(
-        self, test_client, mock_user_repository, mock_user_entry, mock_auth_service
-    ):
+    def test_refresh_with_valid_token(self, test_client, mock_user_repository, mock_user_entry, mock_auth_service):
         """Test refreshing with valid refresh token."""
         mock_user_repository.find_by_dn.return_value = mock_user_entry
         mock_user_repository.get_groups.return_value = ["users"]
 
-        response = test_client.post(
-            "/api/v1/auth/refresh",
-            json={"refresh_token": "mock-refresh-token"}
-        )
+        response = test_client.post("/api/v1/auth/refresh", json={"refresh_token": "mock-refresh-token"})
 
         assert response.status_code == 200
         data = response.json()

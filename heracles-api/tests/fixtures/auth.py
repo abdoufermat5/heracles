@@ -5,9 +5,10 @@ Authentication Fixtures
 Fixtures for authentication and authorization testing.
 """
 
-import pytest
 from datetime import datetime
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from heracles_api.services.auth_service import TokenPayload, UserSession
 
@@ -31,36 +32,40 @@ def mock_auth_service():
         exp=datetime.now(),
         iat=datetime.now(),
         jti="mock-jti",
-        type="access"
+        type="access",
     )
-    
+
     # Methods that are now async (read from config service)
     service.create_access_token = AsyncMock(return_value=("mock-access-token", "mock-jti"))
     service.create_refresh_token = AsyncMock(return_value=("mock-refresh-token", "mock-refresh-jti"))
-    service.get_cookie_settings = AsyncMock(return_value={
-        "key": "access_token",
-        "httponly": True,
-        "secure": False,
-        "samesite": "lax",
-        "max_age": 3600,
-    })
+    service.get_cookie_settings = AsyncMock(
+        return_value={
+            "key": "access_token",
+            "httponly": True,
+            "secure": False,
+            "samesite": "lax",
+            "max_age": 3600,
+        }
+    )
     service.get_access_token_expire_minutes = AsyncMock(return_value=60)
     service.get_refresh_token_expire_days = AsyncMock(return_value=7)
     service.get_max_concurrent_sessions = AsyncMock(return_value=5)
 
     # Async methods
     service.is_token_revoked = AsyncMock(return_value=False)
-    service.get_session = AsyncMock(return_value=UserSession(
-        user_dn="cn=admin,dc=heracles,dc=local",
-        uid="admin",
-        display_name="Admin User",
-        mail="admin@example.com",
-        groups=["cn=admins,ou=groups,dc=heracles,dc=local"],
-        roles=[],
-        created_at=datetime.now(),
-        last_activity=datetime.now(),
-        token_jti="mock-jti"
-    ))
+    service.get_session = AsyncMock(
+        return_value=UserSession(
+            user_dn="cn=admin,dc=heracles,dc=local",
+            uid="admin",
+            display_name="Admin User",
+            mail="admin@example.com",
+            groups=["cn=admins,ou=groups,dc=heracles,dc=local"],
+            roles=[],
+            created_at=datetime.now(),
+            last_activity=datetime.now(),
+            token_jti="mock-jti",
+        )
+    )
     service.create_session = AsyncMock()
     service.update_session_activity = AsyncMock()
     service.invalidate_session = AsyncMock()
@@ -99,7 +104,7 @@ def admin_session():
         roles=[],
         created_at=datetime.now(),
         last_activity=datetime.now(),
-        token_jti="admin-jti"
+        token_jti="admin-jti",
     )
 
 
@@ -115,5 +120,5 @@ def user_session():
         roles=[],
         created_at=datetime.now(),
         last_activity=datetime.now(),
-        token_jti="user-jti"
+        token_jti="user-jti",
     )

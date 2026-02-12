@@ -5,23 +5,21 @@ Departments Endpoints
 Department management endpoints (CRUD operations).
 """
 
-from typing import Optional
 from urllib.parse import unquote
 
-from fastapi import APIRouter, HTTPException, status, Query
+import structlog
+from fastapi import APIRouter, HTTPException, Query, status
 
 from heracles_api.config import settings
-from heracles_api.core.dependencies import CurrentUser, DeptRepoDep, AclGuardDep
+from heracles_api.core.dependencies import AclGuardDep, CurrentUser, DeptRepoDep
 from heracles_api.schemas import (
     DepartmentCreate,
-    DepartmentUpdate,
-    DepartmentResponse,
     DepartmentListResponse,
+    DepartmentResponse,
     DepartmentTreeResponse,
+    DepartmentUpdate,
 )
 from heracles_api.services import LdapOperationError
-
-import structlog
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
@@ -53,12 +51,12 @@ async def get_department_tree(
 ):
     """
     Get full department hierarchy as a tree.
-    
+
     Requires: department:read
     """
     # ACL check - department:read on base DN
     guard.require(settings.LDAP_BASE_DN, "department:read")
-    
+
     try:
         tree = await dept_repo.get_tree()
         return DepartmentTreeResponse(
@@ -78,17 +76,17 @@ async def list_departments(
     current_user: CurrentUser,
     guard: AclGuardDep,
     dept_repo: DeptRepoDep,
-    parent: Optional[str] = Query(None, description="Parent DN (URL-encoded) to filter direct children"),
-    search: Optional[str] = Query(None, description="Search in ou, description"),
+    parent: str | None = Query(None, description="Parent DN (URL-encoded) to filter direct children"),
+    search: str | None = Query(None, description="Search in ou, description"),
 ):
     """
     List departments with optional filtering.
-    
+
     Requires: department:read
     """
     # ACL check - department:read on base DN
     guard.require(settings.LDAP_BASE_DN, "department:read")
-    
+
     try:
         # Decode parent DN if provided
         parent_dn = unquote(parent) if parent else None
@@ -125,13 +123,13 @@ async def create_department(
     Create a new department.
 
     Also creates container OUs (ou=people, ou=groups, etc.) inside the department.
-    
+
     Requires: department:create
     """
     # ACL check - department:create on parent DN
     target_dn = department.parent_dn if department.parent_dn else settings.LDAP_BASE_DN
     guard.require(target_dn, "department:create")
-    
+
     try:
         entry = await dept_repo.create(department)
 
@@ -177,7 +175,7 @@ async def get_department(
     Get department by DN.
 
     The DN should be URL-encoded.
-    
+
     Requires: department:read
     """
     try:
@@ -191,7 +189,7 @@ async def get_department(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Department not found: {decoded_dn}",
             )
-        
+
         # ACL check - department:read on the specific department
         guard.require(decoded_dn, "department:read")
 
@@ -216,12 +214,12 @@ async def update_department(
 ):
     """
     Update department attributes.
-    
+
     Requires: department:write
     """
     try:
         decoded_dn = unquote(dn)
-        
+
         # Check if department exists first for ACL check
         entry = await dept_repo.find_by_dn(decoded_dn)
         if not entry:
@@ -229,7 +227,7 @@ async def update_department(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Department not found: {decoded_dn}",
             )
-        
+
         # ACL check - department:write on the specific department
         guard.require(decoded_dn, "department:write")
 
@@ -260,12 +258,12 @@ async def delete_department(
     Delete a department.
 
     Use recursive=true to delete all children.
-    
+
     Requires: department:delete
     """
     try:
         decoded_dn = unquote(dn)
-        
+
         # Check if department exists first for ACL check
         entry = await dept_repo.find_by_dn(decoded_dn)
         if not entry:
@@ -273,7 +271,7 @@ async def delete_department(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Department not found: {decoded_dn}",
             )
-        
+
         # ACL check - department:delete on the specific department
         guard.require(decoded_dn, "department:delete")
 

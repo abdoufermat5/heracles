@@ -14,9 +14,9 @@ Architecture:
     API Request → JWT verify → Load UserAcl from Redis → Rust check → Allow/Deny
 """
 
+from heracles_api.acl.guard import AclGuard, AclGuardFactory
 from heracles_api.acl.registry import PermissionRegistry
 from heracles_api.acl.service import AclService
-from heracles_api.acl.guard import AclGuard, AclGuardFactory
 
 # Note: get_acl_guard and AclGuardDep are in core.dependencies to avoid circular imports
 # Import them from there: from heracles_api.core.dependencies import AclGuardDep

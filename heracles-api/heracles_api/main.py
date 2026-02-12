@@ -5,30 +5,30 @@ Heracles API - Main Application Entry Point
 This is the main FastAPI application for Heracles identity management.
 """
 
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
+import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import structlog
 from redis.asyncio import Redis
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
-from heracles_api.config import settings
-from heracles_api.api.v1 import router as api_v1_router
-from heracles_api.core.logging import setup_logging
-from heracles_api.core.database import init_database, close_database, get_session_factory
-from heracles_api.services import init_ldap_service, close_ldap_service, get_ldap_service
-from heracles_api.services.config import init_config_service
-from heracles_api.plugins.loader import load_enabled_plugins, unload_all_plugins
-from heracles_api.middleware.rate_limit import RateLimitMiddleware
-from heracles_api.middleware.plugin_access import PluginAccessMiddleware
-from heracles_api.middleware.acl import AclMiddleware
-from heracles_api.middleware.https import HttpsRedirectMiddleware
-from heracles_api.middleware.csrf import CsrfMiddleware
-from heracles_api.services.audit_service import init_audit_service
-from heracles_api.services.template_service import init_template_service
 from heracles_api import __version__
+from heracles_api.api.v1 import router as api_v1_router
+from heracles_api.config import settings
+from heracles_api.core.database import close_database, get_session_factory, init_database
+from heracles_api.core.logging import setup_logging
+from heracles_api.middleware.acl import AclMiddleware
+from heracles_api.middleware.csrf import CsrfMiddleware
+from heracles_api.middleware.https import HttpsRedirectMiddleware
+from heracles_api.middleware.plugin_access import PluginAccessMiddleware
+from heracles_api.middleware.rate_limit import RateLimitMiddleware
+from heracles_api.plugins.loader import load_enabled_plugins, unload_all_plugins
+from heracles_api.services import close_ldap_service, get_ldap_service, init_ldap_service
+from heracles_api.services.audit_service import init_audit_service
+from heracles_api.services.config import init_config_service
+from heracles_api.services.template_service import init_template_service
 
 logger = structlog.get_logger(__name__)
 
@@ -60,11 +60,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if db_ready:
         try:
             from heracles_api.core.migrations import run_migrations
+
             await run_migrations()
             logger.info("database_migrations_applied")
         except Exception as e:
             logger.error("database_migrations_failed", error=str(e))
-    
+
     # Initialize configuration service (requires database)
     session_factory = None
     if db_ready:
@@ -72,7 +73,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             session_factory = get_session_factory()
             init_config_service(session_factory)
             logger.info("config_service_initialized")
-            
+
             # Store session factory on app state for middleware access
             app.state.session_factory = session_factory
 
@@ -130,13 +131,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
         # Register plugin routes
         from heracles_api.services.config import get_config_service
-        
+
         # Get config service if available
         try:
             config_service = get_config_service()
         except RuntimeError:
             config_service = None
-        
+
         for plugin in loaded_plugins:
             # Register plugin with config service (in-memory and database)
             if config_service:
@@ -150,7 +151,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                         plugin=plugin.info().name,
                         error=str(e),
                     )
-            
+
             for route in plugin.routes():
                 app.include_router(route, prefix="/api/v1")
 
@@ -161,17 +162,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if session_factory is not None:
         try:
             from heracles_api.acl.registry import PermissionRegistry
-            
+
             acl_registry = PermissionRegistry()
-            await acl_registry.load(session_factory, loaded_plugins if 'loaded_plugins' in dir() else [])
+            await acl_registry.load(session_factory, loaded_plugins if "loaded_plugins" in dir() else [])
             app.state.acl_registry = acl_registry
             logger.info("acl_system_initialized", permissions=len(acl_registry._by_name))
-            
+
             # Flush Redis ACL cache so users pick up recompiled policy bitmaps
             if acl_registry._wildcard_policies:
                 try:
-                    from heracles_api.acl.service import AclService
                     from redis.asyncio import Redis as AsyncRedis
+
+                    from heracles_api.acl.service import AclService
+
                     redis = AsyncRedis.from_url(
                         settings.REDIS_URL,
                         decode_responses=False,
@@ -237,6 +240,7 @@ app.add_middleware(AclMiddleware)
 
 # Audit logging (runs after response — logs all POST/PUT/PATCH/DELETE)
 from heracles_api.middleware.audit import AuditMiddleware  # noqa: E402
+
 app.add_middleware(AuditMiddleware)
 
 # CSRF protection

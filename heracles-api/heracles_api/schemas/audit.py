@@ -1,3 +1,4 @@
+# ruff: noqa: N815
 """
 Audit Pydantic Schemas
 ======================
@@ -6,14 +7,14 @@ Request/response models for the audit log API.
 """
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
-
 
 # ---------------------------------------------------------------------------
 # Response Schemas
 # ---------------------------------------------------------------------------
+
 
 class AuditLogEntry(BaseModel):
     """Single audit log entry."""
@@ -21,16 +22,16 @@ class AuditLogEntry(BaseModel):
     id: int
     timestamp: datetime
     actorDn: str = Field(alias="actor_dn")
-    actorName: Optional[str] = Field(None, alias="actor_name")
+    actorName: str | None = Field(None, alias="actor_name")
     action: str
     entityType: str = Field(alias="entity_type")
-    entityId: Optional[str] = Field(None, alias="entity_id")
-    entityName: Optional[str] = Field(None, alias="entity_name")
-    changes: Optional[dict[str, Any]] = None
-    departmentDn: Optional[str] = Field(None, alias="department_dn")
-    ipAddress: Optional[str] = Field(None, alias="ip_address")
+    entityId: str | None = Field(None, alias="entity_id")
+    entityName: str | None = Field(None, alias="entity_name")
+    changes: dict[str, Any] | None = None
+    departmentDn: str | None = Field(None, alias="department_dn")
+    ipAddress: str | None = Field(None, alias="ip_address")
     status: str = "success"
-    errorMessage: Optional[str] = Field(None, alias="error_message")
+    errorMessage: str | None = Field(None, alias="error_message")
 
     class Config:
         from_attributes = True
@@ -54,20 +55,21 @@ class AuditLogListResponse(BaseModel):
 # Query Parameters
 # ---------------------------------------------------------------------------
 
+
 class AuditLogFilters(BaseModel):
     """Filter parameters for audit log queries."""
 
     page: int = Field(1, ge=1)
     page_size: int = Field(50, ge=1, le=200)
-    actor_dn: Optional[str] = None
-    action: Optional[str] = None
-    entity_type: Optional[str] = None
-    entity_id: Optional[str] = None
-    department_dn: Optional[str] = None
-    status: Optional[str] = None
-    from_ts: Optional[datetime] = None
-    to_ts: Optional[datetime] = None
-    search: Optional[str] = None
+    actor_dn: str | None = None
+    action: str | None = None
+    entity_type: str | None = None
+    entity_id: str | None = None
+    department_dn: str | None = None
+    status: str | None = None
+    from_ts: datetime | None = None
+    to_ts: datetime | None = None
+    search: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -75,20 +77,22 @@ class AuditLogFilters(BaseModel):
 # ---------------------------------------------------------------------------
 
 # Fields that should be masked in audit change details
-SENSITIVE_FIELDS = frozenset({
-    "userPassword",
-    "password",
-    "secret_key",
-    "token",
-    "refresh_token",
-    "access_token",
-    "sshPublicKey",
-})
+SENSITIVE_FIELDS = frozenset(
+    {
+        "userPassword",
+        "password",
+        "secret_key",
+        "token",
+        "refresh_token",
+        "access_token",
+        "sshPublicKey",
+    }
+)
 
 
 def mask_sensitive_data(
-    changes: Optional[dict[str, Any]],
-) -> Optional[dict[str, Any]]:
+    changes: dict[str, Any] | None,
+) -> dict[str, Any] | None:
     """Mask sensitive fields in change details before storing."""
     if not changes:
         return changes
@@ -97,9 +101,7 @@ def mask_sensitive_data(
     for key, value in changes.items():
         if key.lower() in {f.lower() for f in SENSITIVE_FIELDS}:
             if isinstance(value, dict):
-                masked[key] = {
-                    k: "***REDACTED***" for k in value
-                }
+                masked[key] = {k: "***REDACTED***" for k in value}
             else:
                 masked[key] = "***REDACTED***"
         else:

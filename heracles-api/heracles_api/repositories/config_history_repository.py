@@ -5,8 +5,6 @@ Config History Repository
 Data access layer for config_history table.
 """
 
-from typing import Optional
-
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,8 +21,8 @@ class ConfigHistoryRepository:
         self,
         page: int,
         page_size: int,
-        category: Optional[str] = None,
-        plugin_name: Optional[str] = None,
+        category: str | None = None,
+        plugin_name: str | None = None,
     ) -> tuple[list[ConfigHistory], int]:
         conditions = []
         if category:

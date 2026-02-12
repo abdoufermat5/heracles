@@ -5,8 +5,9 @@ Role Repository Tests
 Tests for the role repository LDAP operations.
 """
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
 
 from heracles_api.repositories.role_repository import RoleRepository, RoleSearchResult
 from heracles_api.schemas.role import RoleCreate, RoleUpdate
@@ -300,9 +301,7 @@ class TestRoleRepository:
         mock_ldap_service._escape_filter = MagicMock(return_value="sysadmin")
 
         with pytest.raises(LdapOperationError, match="not found"):
-            await role_repository.remove_member(
-                "sysadmin", "uid=jdoe,ou=people,dc=heracles,dc=local"
-            )
+            await role_repository.remove_member("sysadmin", "uid=jdoe,ou=people,dc=heracles,dc=local")
 
     async def test_get_members(self, role_repository, mock_ldap_service):
         """Test getting role members as UIDs."""
@@ -354,9 +353,7 @@ class TestRoleRepository:
         mock_ldap_service.search.return_value = [entry]
         mock_ldap_service._escape_filter = MagicMock(return_value="sysadmin")
 
-        result = await role_repository.is_member(
-            "sysadmin", "uid=other,ou=people,dc=heracles,dc=local"
-        )
+        result = await role_repository.is_member("sysadmin", "uid=other,ou=people,dc=heracles,dc=local")
 
         assert result is False
 

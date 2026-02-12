@@ -6,7 +6,6 @@ Declarative models for all PostgreSQL tables.
 Models match the existing Alembic-managed schema.
 """
 
-from heracles_api.models.base import Base
 from heracles_api.models.acl import (
     AclAssignment,
     AclAttributeGroup,
@@ -16,6 +15,7 @@ from heracles_api.models.acl import (
     AclPolicyAttrRule,
 )
 from heracles_api.models.audit import AuditLog
+from heracles_api.models.base import Base
 from heracles_api.models.config import (
     ConfigCategory,
     ConfigHistory,

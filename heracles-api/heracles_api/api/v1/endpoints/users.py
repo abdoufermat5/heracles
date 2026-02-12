@@ -5,23 +5,20 @@ Users Endpoints
 User management endpoints (CRUD operations).
 """
 
-from typing import Optional
+import structlog
+from fastapi import APIRouter, HTTPException, Query, status
 
-from fastapi import APIRouter, HTTPException, status, Query
-
-from heracles_api.core.dependencies import CurrentUser, UserRepoDep, GroupRepoDep, AclGuardDep, AclRepoDep
+from heracles_api.config import settings
+from heracles_api.core.dependencies import AclGuardDep, AclRepoDep, CurrentUser, GroupRepoDep, UserRepoDep
 from heracles_api.core.password_policy import validate_password_policy
 from heracles_api.schemas import (
-    UserCreate,
-    UserUpdate,
-    UserResponse,
-    UserListResponse,
     SetPasswordRequest,
+    UserCreate,
+    UserListResponse,
+    UserResponse,
+    UserUpdate,
 )
 from heracles_api.services import LdapOperationError
-from heracles_api.config import settings
-
-import structlog
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
@@ -33,6 +30,7 @@ def _entry_to_response(entry, groups: list[str] = None) -> UserResponse:
     photo_raw = entry.get_first("jpegPhoto")
     if photo_raw:
         import base64
+
         if isinstance(photo_raw, bytes):
             photo_b64 = base64.b64encode(photo_raw).decode("ascii")
         else:
@@ -85,35 +83,35 @@ async def list_users(
     user_repo: UserRepoDep,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
-    search: Optional[str] = Query(None, description="Search in uid, cn, mail"),
-    ou: Optional[str] = Query(None, description="Filter by organizational unit"),
-    base: Optional[str] = Query(None, description="Base DN (e.g., department DN) for scoped search"),
+    search: str | None = Query(None, description="Search in uid, cn, mail"),
+    ou: str | None = Query(None, description="Filter by organizational unit"),
+    base: str | None = Query(None, description="Base DN (e.g., department DN) for scoped search"),
 ):
     """
     List all users with pagination.
-    
+
     Requires: user:read
     """
     # ACL check - user:read on the base DN or global
     target_dn = base or f"ou=people,{settings.LDAP_BASE_DN}"
     guard.require(target_dn, "user:read")
-    
+
     try:
         result = await user_repo.search(search_term=search, ou=ou, base_dn=base)
-        
+
         total = result.total
-        
+
         # Apply pagination
         start = (page - 1) * page_size
         end = start + page_size
         page_entries = result.users[start:end]
-        
+
         # Get group memberships for each user
         users = []
         for entry in page_entries:
             groups = await user_repo.get_groups(entry.dn)
             users.append(_entry_to_response(entry, groups))
-        
+
         return UserListResponse(
             users=users,
             total=total,
@@ -121,7 +119,7 @@ async def list_users(
             page_size=page_size,
             has_more=end < total,
         )
-        
+
     except LdapOperationError as e:
         logger.error("list_users_failed", error=str(e))
         raise HTTPException(
@@ -139,30 +137,30 @@ async def get_user(
 ):
     """
     Get user by UID.
-    
+
     Requires: user:read
     """
     try:
         entry = await user_repo.find_by_uid(uid)
-        
+
         if not entry:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"User '{uid}' not found",
             )
-        
+
         # ACL check - user:read on the specific user
         guard.require(entry.dn, "user:read")
-        
+
         if not entry:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"User '{uid}' not found",
             )
-        
+
         groups = await user_repo.get_groups(entry.dn)
         return _entry_to_response(entry, groups)
-        
+
     except LdapOperationError as e:
         logger.error("get_user_failed", uid=uid, error=str(e))
         raise HTTPException(
@@ -181,20 +179,20 @@ async def create_user(
 ):
     """
     Create a new user.
-    
+
     Requires: user:create
     """
     # ACL check - user:create on the target container
     target_dn = user.department_dn or f"ou=people,{settings.LDAP_BASE_DN}"
     guard.require(target_dn, "user:create")
-    
+
     # Check if user already exists
     if await user_repo.exists(user.uid):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"User '{user.uid}' already exists",
         )
-    
+
     # Validate password against policy
     is_valid, errors = await validate_password_policy(user.password)
     if not is_valid:
@@ -205,7 +203,7 @@ async def create_user(
                 "errors": errors,
             },
         )
-    
+
     try:
         entry = await user_repo.create(user, department_dn=user.department_dn)
 
@@ -243,8 +241,9 @@ async def create_user(
         if user.template_id:
             try:
                 import uuid as _uuid
-                from heracles_api.services.template_service import get_template_service
+
                 from heracles_api.plugins.registry import plugin_registry
+                from heracles_api.services.template_service import get_template_service
 
                 tmpl_service = get_template_service()
                 tmpl = await tmpl_service.get_template(_uuid.UUID(user.template_id))
@@ -282,7 +281,7 @@ async def create_user(
                 )
 
         return _entry_to_response(entry, [])
-        
+
     except LdapOperationError as e:
         logger.error("create_user_failed", uid=user.uid, error=str(e))
         raise HTTPException(
@@ -301,7 +300,7 @@ async def update_user(
 ):
     """
     Update user attributes.
-    
+
     Requires: user:write
     """
     # Find user first to get DN
@@ -311,24 +310,24 @@ async def update_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User '{uid}' not found",
         )
-    
+
     # ACL check - user:write on the specific user
     guard.require(entry.dn, "user:write")
-    
+
     try:
         entry = await user_repo.update(uid, updates)
-        
+
         if not entry:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"User '{uid}' not found",
             )
-        
+
         logger.info("user_updated", uid=uid, by=current_user.uid)
-        
+
         groups = await user_repo.get_groups(entry.dn)
         return _entry_to_response(entry, groups)
-        
+
     except LdapOperationError as e:
         logger.error("update_user_failed", uid=uid, error=str(e))
         raise HTTPException(
@@ -347,7 +346,7 @@ async def delete_user(
 ):
     """
     Delete a user.
-    
+
     Requires: user:delete
     """
     # Prevent self-deletion
@@ -356,7 +355,7 @@ async def delete_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot delete your own account",
         )
-    
+
     # Find user
     entry = await user_repo.find_by_uid(uid)
     if not entry:
@@ -364,19 +363,19 @@ async def delete_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User '{uid}' not found",
         )
-    
+
     # ACL check - user:delete on the specific user
     guard.require(entry.dn, "user:delete")
-    
+
     try:
         # Remove user from all groups first
         await group_repo.remove_user_from_all_groups(entry.dn)
-        
+
         # Delete user
         await user_repo.delete(uid)
-        
+
         logger.info("user_deleted", uid=uid, by=current_user.uid)
-        
+
     except LdapOperationError as e:
         logger.error("delete_user_failed", uid=uid, error=str(e))
         raise HTTPException(
@@ -395,7 +394,7 @@ async def set_user_password(
 ):
     """
     Set user password (admin operation).
-    
+
     Requires: user:manage
     """
     entry = await user_repo.find_by_uid(uid)
@@ -404,10 +403,10 @@ async def set_user_password(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User '{uid}' not found",
         )
-    
+
     # ACL check - user:manage on the specific user
     guard.require(entry.dn, "user:manage")
-    
+
     # Validate password against policy
     is_valid, errors = await validate_password_policy(request.password)
     if not is_valid:
@@ -418,12 +417,12 @@ async def set_user_password(
                 "errors": errors,
             },
         )
-    
+
     try:
         await user_repo.set_password(uid, request.password)
-        
+
         logger.info("user_password_set", uid=uid, by=current_user.uid)
-        
+
     except LdapOperationError as e:
         logger.error("set_password_failed", uid=uid, error=str(e))
         raise HTTPException(
@@ -441,7 +440,7 @@ async def lock_user(
 ):
     """
     Lock a user account (prevent login).
-    
+
     Requires: user:manage
     """
     # Prevent self-locking
@@ -450,21 +449,21 @@ async def lock_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot lock your own account",
         )
-    
+
     entry = await user_repo.find_by_uid(uid)
     if not entry:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User '{uid}' not found",
         )
-    
+
     # ACL check - user:manage on the specific user
     guard.require(entry.dn, "user:manage")
-    
+
     try:
         await user_repo.lock(uid)
         logger.info("user_locked", uid=uid, by=current_user.uid)
-        
+
     except LdapOperationError as e:
         logger.error("lock_user_failed", uid=uid, error=str(e))
         raise HTTPException(
@@ -482,7 +481,7 @@ async def unlock_user(
 ):
     """
     Unlock a user account.
-    
+
     Requires: user:manage
     """
     entry = await user_repo.find_by_uid(uid)
@@ -491,14 +490,14 @@ async def unlock_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User '{uid}' not found",
         )
-    
+
     # ACL check - user:manage on the specific user
     guard.require(entry.dn, "user:manage")
-    
+
     try:
         await user_repo.unlock(uid)
         logger.info("user_unlocked", uid=uid, by=current_user.uid)
-        
+
     except LdapOperationError as e:
         logger.error("unlock_user_failed", uid=uid, error=str(e))
         raise HTTPException(
@@ -516,7 +515,7 @@ async def get_user_lock_status(
 ):
     """
     Get user lock status.
-    
+
     Requires: user:read
     """
     entry = await user_repo.find_by_uid(uid)
@@ -525,12 +524,12 @@ async def get_user_lock_status(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User '{uid}' not found",
         )
-    
+
     # ACL check - user:read on the specific user
     guard.require(entry.dn, "user:read")
-    
+
     is_locked = await user_repo.is_locked(uid)
-    
+
     return {"uid": uid, "locked": is_locked}
 
 
@@ -588,6 +587,7 @@ async def upload_user_photo(
 
     try:
         from heracles_api.services import get_ldap_service
+
         ldap = get_ldap_service()
         await ldap.modify(entry.dn, {"jpegPhoto": ("replace", [raw])})
         logger.info("user_photo_updated", uid=uid, by=current_user.uid)
@@ -621,6 +621,7 @@ async def delete_user_photo(
 
     try:
         from heracles_api.services import get_ldap_service
+
         ldap = get_ldap_service()
         await ldap.modify(entry.dn, {"jpegPhoto": ("delete", [])})
         logger.info("user_photo_deleted", uid=uid, by=current_user.uid)

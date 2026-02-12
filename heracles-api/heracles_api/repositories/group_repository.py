@@ -5,18 +5,17 @@ Group Repository
 Data access layer for group LDAP operations.
 """
 
-from typing import Optional, List
 from dataclasses import dataclass
 
-from heracles_api.services.ldap_service import LdapService, LdapEntry, LdapOperationError
-from heracles_api.schemas.group import GroupCreate, GroupUpdate
+import structlog
+
 from heracles_api.config import settings
 from heracles_api.core.ldap_config import (
-    get_groups_rdn,
     get_default_group_objectclasses,
+    get_groups_rdn,
 )
-
-import structlog
+from heracles_api.schemas.group import GroupCreate, GroupUpdate
+from heracles_api.services.ldap_service import LdapEntry, LdapOperationError, LdapService
 
 logger = structlog.get_logger(__name__)
 
@@ -24,28 +23,29 @@ logger = structlog.get_logger(__name__)
 @dataclass
 class GroupSearchResult:
     """Group search result with pagination info."""
-    groups: List[LdapEntry]
+
+    groups: list[LdapEntry]
     total: int
 
 
 class GroupRepository:
     """
     Repository for group LDAP operations.
-    
+
     Provides a clean interface for CRUD operations on groups.
     """
-    
+
     OBJECT_CLASSES = ["groupOfNames"]
     GROUP_ATTRIBUTES = ["cn", "description", "member"]
-    
+
     def __init__(self, ldap: LdapService):
         self.ldap = ldap
         self.base_dn = settings.LDAP_BASE_DN
-    
+
     async def _get_groups_container(self) -> str:
         """
         Get the groups container OU from config.
-        
+
         Returns:
             Groups OU (e.g., 'ou=groups')
         """
@@ -54,8 +54,8 @@ class GroupRepository:
         if not rdn.startswith("ou="):
             return f"ou={rdn}"
         return rdn
-    
-    async def _build_group_dn(self, cn: str, ou: Optional[str] = None, department_dn: Optional[str] = None) -> str:
+
+    async def _build_group_dn(self, cn: str, ou: str | None = None, department_dn: str | None = None) -> str:
         """
         Build group DN from CN.
 
@@ -72,13 +72,13 @@ class GroupRepository:
             groups_container = await self._get_groups_container()
         else:
             groups_container = f"ou={ou}" if not ou.startswith("ou=") else ou
-        
+
         if department_dn:
             # Create under groups container within the department
             # e.g., cn=dev-team,ou=groups,ou=Engineering,dc=heracles,dc=local
             return f"cn={cn},{groups_container},{department_dn}"
         return f"cn={cn},{groups_container},{self.base_dn}"
-    
+
     @staticmethod
     def _extract_uid_from_dn(dn: str) -> str:
         """Extract UID from user DN."""
@@ -86,26 +86,26 @@ class GroupRepository:
             if part.strip().lower().startswith("uid="):
                 return part.split("=", 1)[1]
         return dn
-    
-    def _get_members_list(self, entry: LdapEntry) -> List[str]:
+
+    def _get_members_list(self, entry: LdapEntry) -> list[str]:
         """Get members list from entry, handling single value case."""
         members = entry.get("member", [])
         if isinstance(members, str):
             return [members] if members else []
         return list(members) if members else []
-    
-    async def find_by_cn(self, cn: str) -> Optional[LdapEntry]:
+
+    async def find_by_cn(self, cn: str) -> LdapEntry | None:
         """Find group by CN."""
         entries = await self.ldap.search(
             search_filter=f"(&(objectClass=groupOfNames)(cn={self.ldap._escape_filter(cn)}))",
             attributes=self.GROUP_ATTRIBUTES,
         )
         return entries[0] if entries else None
-    
-    async def find_by_dn(self, dn: str) -> Optional[LdapEntry]:
+
+    async def find_by_dn(self, dn: str) -> LdapEntry | None:
         """Find group by DN."""
         return await self.ldap.get_by_dn(dn, attributes=self.GROUP_ATTRIBUTES)
-    
+
     async def exists(self, cn: str) -> bool:
         """Check if group exists."""
         entries = await self.ldap.search(
@@ -113,12 +113,12 @@ class GroupRepository:
             attributes=["cn"],
         )
         return len(entries) > 0
-    
+
     async def search(
         self,
-        search_term: Optional[str] = None,
-        ou: Optional[str] = None,
-        base_dn: Optional[str] = None,
+        search_term: str | None = None,
+        ou: str | None = None,
+        base_dn: str | None = None,
         limit: int = 0,
     ) -> GroupSearchResult:
         """
@@ -144,7 +144,7 @@ class GroupRepository:
             groups_container = f"ou={ou}" if not ou.startswith("ou=") else ou
         else:
             groups_container = await self._get_groups_container()
-        
+
         if base_dn:
             # Search within department's groups container
             # e.g., ou=groups,ou=Test,dc=heracles,dc=local
@@ -162,13 +162,13 @@ class GroupRepository:
         )
 
         return GroupSearchResult(groups=entries, total=len(entries))
-    
+
     async def create(
         self,
         group: GroupCreate,
-        member_dns: List[str],
+        member_dns: list[str],
         default_member_dn: str,
-        department_dn: Optional[str] = None,
+        department_dn: str | None = None,
     ) -> LdapEntry:
         """
         Create a new group.
@@ -184,189 +184,181 @@ class GroupRepository:
         """
         # Use config-based OU if group.ou not specified
         group_dn = await self._build_group_dn(
-            group.cn, 
-            ou=group.ou if group.ou and group.ou != "groups" else None, 
-            department_dn=department_dn
+            group.cn, ou=group.ou if group.ou and group.ou != "groups" else None, department_dn=department_dn
         )
-        
+
         # groupOfNames requires at least one member
         members = member_dns if member_dns else [default_member_dn]
-        
+
         # Get objectClasses from config
         object_classes = await get_default_group_objectclasses()
-        
+
         attrs = {
             "member": members,
         }
-        
+
         if group.description:
             attrs["description"] = group.description
-        
+
         await self.ldap.add(
             dn=group_dn,
             object_classes=object_classes,
             attributes=attrs,
         )
-        
+
         logger.info("group_created", cn=group.cn, dn=group_dn)
-        
+
         return await self.find_by_dn(group_dn)
-    
-    async def update(self, cn: str, updates: GroupUpdate) -> Optional[LdapEntry]:
+
+    async def update(self, cn: str, updates: GroupUpdate) -> LdapEntry | None:
         """
         Update group attributes.
-        
+
         Args:
             cn: Group CN
             updates: Fields to update
-            
+
         Returns:
             Updated group entry or None if not found
         """
         entry = await self.find_by_cn(cn)
         if not entry:
             return None
-        
+
         changes = {}
-        
+
         if updates.description is not None:
             if updates.description:
                 changes["description"] = ("replace", [updates.description])
             else:
                 changes["description"] = ("delete", [])
-        
+
         if changes:
             await self.ldap.modify(entry.dn, changes)
             logger.info("group_updated", cn=cn, changes=list(changes.keys()))
-        
+
         return await self.find_by_cn(cn)
-    
+
     async def delete(self, cn: str) -> bool:
         """
         Delete a group.
-        
+
         Args:
             cn: Group CN
-            
+
         Returns:
             True if deleted, False if not found
         """
         entry = await self.find_by_cn(cn)
         if not entry:
             return False
-        
+
         await self.ldap.delete(entry.dn)
         logger.info("group_deleted", cn=cn)
-        
+
         return True
-    
+
     async def add_member(self, cn: str, member_dn: str) -> bool:
         """
         Add a member to a group.
-        
+
         Args:
             cn: Group CN
             member_dn: Member DN to add
-            
+
         Returns:
             True if added, False if group not found
-            
+
         Raises:
             LdapOperationError: If member already exists or operation fails
         """
         entry = await self.find_by_cn(cn)
         if not entry:
             return False
-        
+
         # Check if already a member
         existing_members = self._get_members_list(entry)
         if member_dn in existing_members:
             raise LdapOperationError("Member already exists in group")
-        
-        await self.ldap.modify(
-            entry.dn,
-            {"member": ("add", [member_dn])}
-        )
-        
+
+        await self.ldap.modify(entry.dn, {"member": ("add", [member_dn])})
+
         logger.info("group_member_added", cn=cn, member_dn=member_dn)
         return True
-    
+
     async def remove_member(self, cn: str, member_dn: str) -> bool:
         """
         Remove a member from a group.
-        
+
         Args:
             cn: Group CN
             member_dn: Member DN to remove
-            
+
         Returns:
             True if removed, False if group not found
-            
+
         Raises:
             LdapOperationError: If member not found or is last member
         """
         entry = await self.find_by_cn(cn)
         if not entry:
             return False
-        
+
         existing_members = self._get_members_list(entry)
-        
+
         if member_dn not in existing_members:
             raise LdapOperationError("Member not found in group")
-        
+
         if len(existing_members) <= 1:
             raise LdapOperationError("Cannot remove the last member of a group")
-        
-        await self.ldap.modify(
-            entry.dn,
-            {"member": ("delete", [member_dn])}
-        )
-        
+
+        await self.ldap.modify(entry.dn, {"member": ("delete", [member_dn])})
+
         logger.info("group_member_removed", cn=cn, member_dn=member_dn)
         return True
-    
-    async def get_members(self, cn: str) -> List[str]:
+
+    async def get_members(self, cn: str) -> list[str]:
         """
         Get group members as UIDs.
-        
+
         Args:
             cn: Group CN
-            
+
         Returns:
             List of member UIDs
         """
         entry = await self.find_by_cn(cn)
         if not entry:
             return []
-        
+
         members = self._get_members_list(entry)
         return [self._extract_uid_from_dn(dn) for dn in members if dn]
-    
+
     async def is_member(self, cn: str, member_dn: str) -> bool:
         """
         Check if DN is a member of the group.
-        
+
         Args:
             cn: Group CN
             member_dn: Member DN to check
-            
+
         Returns:
             True if member, False otherwise
         """
         entry = await self.find_by_cn(cn)
         if not entry:
             return False
-        
+
         members = self._get_members_list(entry)
         return member_dn in members
-    
-    async def get_user_groups(self, user_dn: str) -> List[LdapEntry]:
+
+    async def get_user_groups(self, user_dn: str) -> list[LdapEntry]:
         """
         Get all groups a user belongs to.
-        
+
         Args:
             user_dn: User DN
-            
+
         Returns:
             List of group entries
         """
@@ -375,34 +367,31 @@ class GroupRepository:
             attributes=self.GROUP_ATTRIBUTES,
         )
         return entries
-    
+
     async def remove_user_from_all_groups(self, user_dn: str) -> int:
         """
         Remove user from all groups.
-        
+
         Args:
             user_dn: User DN to remove
-            
+
         Returns:
             Number of groups the user was removed from
         """
         groups = await self.get_user_groups(user_dn)
         count = 0
-        
+
         for group in groups:
             try:
                 members = self._get_members_list(group)
                 # Don't remove if last member
                 if len(members) > 1:
-                    await self.ldap.modify(
-                        group.dn,
-                        {"member": ("delete", [user_dn])}
-                    )
+                    await self.ldap.modify(group.dn, {"member": ("delete", [user_dn])})
                     count += 1
             except LdapOperationError:
                 pass
-        
+
         if count > 0:
             logger.info("user_removed_from_groups", user_dn=user_dn, count=count)
-        
+
         return count

@@ -28,8 +28,6 @@ Metadata:
   - Available templates for import
 """
 
-from typing import Optional
-
 from fastapi import (
     APIRouter,
     File,
@@ -132,7 +130,7 @@ async def get_available_fields(
 
 @router.get("/templates", response_model=ImportTemplateListResponse)
 async def get_import_templates(
-    department_dn: Optional[str] = Query(None, alias="departmentDn"),
+    department_dn: str | None = Query(None, alias="departmentDn"),
 ) -> ImportTemplateListResponse:
     """
     Get available templates for import.
@@ -141,6 +139,7 @@ async def get_import_templates(
     """
     try:
         from heracles_api.services.template_service import get_template_service
+
         tmpl_service = get_template_service()
         tmpl_list = await tmpl_service.list_templates(department_dn=department_dn)
 
@@ -264,18 +263,18 @@ async def import_csv(
         )
 
     # Resolve template defaults if template_id provided
-    template_defaults: Optional[dict[str, str]] = None
-    template_plugin_activations: Optional[dict] = None
+    template_defaults: dict[str, str] | None = None
+    template_plugin_activations: dict | None = None
     if config.template_id:
         try:
             import uuid as _uuid
+
             from heracles_api.services.template_service import get_template_service
+
             tmpl_service = get_template_service()
             tmpl = await tmpl_service.get_template(_uuid.UUID(config.template_id))
             if tmpl and tmpl.defaults:
-                template_defaults = {
-                    k: str(v) for k, v in tmpl.defaults.items()
-                }
+                template_defaults = {k: str(v) for k, v in tmpl.defaults.items()}
             if tmpl and tmpl.pluginActivations:
                 template_plugin_activations = tmpl.pluginActivations
         except Exception:
@@ -285,17 +284,13 @@ async def import_csv(
     col_mappings = None
     if config.column_mapping:
         col_mappings = [
-            ColumnMapping(csv_column=m.csv_column, ldap_attribute=m.ldap_attribute)
-            for m in config.column_mapping
+            ColumnMapping(csv_column=m.csv_column, ldap_attribute=m.ldap_attribute) for m in config.column_mapping
         ]
 
     # Build fixed values
     fixed_vals = None
     if config.fixed_values:
-        fixed_vals = [
-            FixedValue(attribute=fv.attribute, value=fv.value)
-            for fv in config.fixed_values
-        ]
+        fixed_vals = [FixedValue(attribute=fv.attribute, value=fv.value) for fv in config.fixed_values]
 
     content = await file.read()
     result = await import_users_from_csv(
@@ -317,10 +312,7 @@ async def import_csv(
         created=result.created,
         updated=result.updated,
         skipped=result.skipped,
-        errors=[
-            ImportValidationErrorSchema(row=e.row, field=e.field, message=e.message)
-            for e in result.errors
-        ],
+        errors=[ImportValidationErrorSchema(row=e.row, field=e.field, message=e.message) for e in result.errors],
     )
 
 
@@ -328,12 +320,8 @@ async def import_csv(
 @router.post("/import", response_model=ImportResultResponse)
 async def import_users_legacy(
     file: UploadFile = File(..., description="CSV file to import"),
-    department_dn: Optional[str] = Query(
-        None, alias="departmentDn", description="Target department DN"
-    ),
-    default_password: Optional[str] = Query(
-        None, alias="defaultPassword", description="Default password for new users"
-    ),
+    department_dn: str | None = Query(None, alias="departmentDn", description="Target department DN"),
+    default_password: str | None = Query(None, alias="defaultPassword", description="Default password for new users"),
 ) -> ImportResultResponse:
     """
     Import users from a CSV file (legacy endpoint).
@@ -358,10 +346,7 @@ async def import_users_legacy(
         created=result.created,
         updated=result.updated,
         skipped=result.skipped,
-        errors=[
-            ImportValidationErrorSchema(row=e.row, field=e.field, message=e.message)
-            for e in result.errors
-        ],
+        errors=[ImportValidationErrorSchema(row=e.row, field=e.field, message=e.message) for e in result.errors],
     )
 
 
@@ -373,9 +358,7 @@ async def import_users_legacy(
 @router.post("/import/ldif", response_model=LdifImportResultResponse)
 async def import_ldif(
     file: UploadFile = File(..., description="LDIF file to import"),
-    overwrite: bool = Form(
-        False, description="Overwrite existing entries (like FD's overwrite toggle)"
-    ),
+    overwrite: bool = Form(False, description="Overwrite existing entries (like FD's overwrite toggle)"),
 ) -> LdifImportResultResponse:
     """
     Import entries from an LDIF file.
@@ -387,10 +370,7 @@ async def import_ldif(
     - If overwrite=False, skips existing entries
     - Supports base64-encoded values and continuation lines
     """
-    if not file.filename or not (
-        file.filename.lower().endswith(".ldif")
-        or file.filename.lower().endswith(".ldf")
-    ):
+    if not file.filename or not (file.filename.lower().endswith(".ldif") or file.filename.lower().endswith(".ldf")):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Only .ldif or .ldf files are supported",
@@ -404,10 +384,7 @@ async def import_ldif(
         created=result.created,
         updated=result.updated,
         skipped=result.skipped,
-        errors=[
-            ImportValidationErrorSchema(row=e.row, field=e.field, message=e.message)
-            for e in result.errors
-        ],
+        errors=[ImportValidationErrorSchema(row=e.row, field=e.field, message=e.message) for e in result.errors],
     )
 
 
@@ -437,11 +414,13 @@ async def export_entries(body: ExportRequest) -> PlainTextResponse:
     # Determine defaults based on object_type (if provided)
     if body.object_type == "group":
         from heracles_api.core.ldap_config import get_full_groups_dn
+
         default_base = get_full_groups_dn(settings.LDAP_BASE_DN)
         default_filter = "(objectClass=groupOfNames)"
         type_fields = get_export_fields_for_type("group")
     elif body.object_type == "user":
         from heracles_api.core.ldap_config import get_full_users_dn
+
         default_base = get_full_users_dn(settings.LDAP_BASE_DN)
         default_filter = "(objectClass=inetOrgPerson)"
         type_fields = get_export_fields_for_type("user")

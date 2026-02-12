@@ -8,22 +8,19 @@ Roles use the standard LDAP organizationalRole objectClass
 with roleOccupant attribute for member tracking.
 """
 
-from typing import Optional
-
-from fastapi import APIRouter, HTTPException, status, Query
+import structlog
+from fastapi import APIRouter, HTTPException, Query, status
 
 from heracles_api.config import settings
-from heracles_api.core.dependencies import CurrentUser, UserRepoDep, RoleRepoDep, AclGuardDep
+from heracles_api.core.dependencies import AclGuardDep, CurrentUser, RoleRepoDep, UserRepoDep
 from heracles_api.schemas import (
     RoleCreate,
-    RoleUpdate,
-    RoleResponse,
     RoleListResponse,
     RoleMemberOperation,
+    RoleResponse,
+    RoleUpdate,
 )
 from heracles_api.services import LdapOperationError
-
-import structlog
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
@@ -48,33 +45,33 @@ async def list_roles(
     role_repo: RoleRepoDep,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
-    search: Optional[str] = Query(None, description="Search in cn, description"),
-    base: Optional[str] = Query(None, description="Base DN (e.g., department DN) for scoped search"),
+    search: str | None = Query(None, description="Search in cn, description"),
+    base: str | None = Query(None, description="Base DN (e.g., department DN) for scoped search"),
 ):
     """
     List all roles with pagination.
-    
+
     Requires: role:read
     """
     # ACL check - role:read on ou=roles
     target_dn = f"ou=roles,{settings.LDAP_BASE_DN}"
     guard.require(target_dn, "role:read")
-    
+
     try:
         result = await role_repo.search(search_term=search, base_dn=base)
-        
+
         total = result.total
-        
+
         # Apply pagination
         start = (page - 1) * page_size
         end = start + page_size
         page_entries = result.roles[start:end]
-        
+
         roles = []
         for entry in page_entries:
             members = await role_repo.get_members(entry.get_first("cn", ""))
             roles.append(_entry_to_response(entry, members))
-        
+
         return RoleListResponse(
             roles=roles,
             total=total,
@@ -82,7 +79,7 @@ async def list_roles(
             pageSize=page_size,
             hasMore=end < total,
         )
-        
+
     except LdapOperationError as e:
         logger.error("list_roles_failed", error=str(e))
         raise HTTPException(
@@ -100,24 +97,24 @@ async def get_role(
 ):
     """
     Get role by CN.
-    
+
     Requires: role:read
     """
     try:
         entry = await role_repo.find_by_cn(cn)
-        
+
         if not entry:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Role '{cn}' not found",
             )
-        
+
         # ACL check - role:read on the specific role
         guard.require(entry.dn, "role:read")
-        
+
         members = await role_repo.get_members(cn)
         return _entry_to_response(entry, members)
-        
+
     except LdapOperationError as e:
         logger.error("get_role_failed", cn=cn, error=str(e))
         raise HTTPException(
@@ -136,20 +133,20 @@ async def create_role(
 ):
     """
     Create a new role.
-    
+
     Requires: role:create
     """
     # ACL check - role:create on target OU
     target_dn = role.department_dn if role.department_dn else f"ou=roles,{settings.LDAP_BASE_DN}"
     guard.require(target_dn, "role:create")
-    
+
     # Check if role already exists
     if await role_repo.exists(role.cn):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Role '{role.cn}' already exists",
         )
-    
+
     # Resolve member UIDs to DNs
     member_dns = []
     for uid in role.members:
@@ -161,7 +158,7 @@ async def create_role(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"User '{uid}' not found",
             )
-    
+
     try:
         entry = await role_repo.create(
             role=role,
@@ -170,10 +167,10 @@ async def create_role(
         )
 
         logger.info("role_created", cn=role.cn, department_dn=role.department_dn, by=current_user.uid)
-        
+
         members = role.members if role.members else []
         return _entry_to_response(entry, members)
-        
+
     except LdapOperationError as e:
         logger.error("create_role_failed", cn=role.cn, error=str(e))
         raise HTTPException(
@@ -192,7 +189,7 @@ async def update_role(
 ):
     """
     Update role attributes.
-    
+
     Requires: role:write
     """
     entry = await role_repo.find_by_cn(cn)
@@ -201,18 +198,18 @@ async def update_role(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Role '{cn}' not found",
         )
-    
+
     # ACL check - role:write on the specific role
     guard.require(entry.dn, "role:write")
-    
+
     try:
         entry = await role_repo.update(cn, updates)
-        
+
         logger.info("role_updated", cn=cn, by=current_user.uid)
-        
+
         members = await role_repo.get_members(cn)
         return _entry_to_response(entry, members)
-        
+
     except LdapOperationError as e:
         logger.error("update_role_failed", cn=cn, error=str(e))
         raise HTTPException(
@@ -230,7 +227,7 @@ async def delete_role(
 ):
     """
     Delete a role.
-    
+
     Requires: role:delete
     """
     entry = await role_repo.find_by_cn(cn)
@@ -239,15 +236,15 @@ async def delete_role(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Role '{cn}' not found",
         )
-    
+
     # ACL check - role:delete on the specific role
     guard.require(entry.dn, "role:delete")
-    
+
     try:
         await role_repo.delete(cn)
-        
+
         logger.info("role_deleted", cn=cn, by=current_user.uid)
-        
+
     except LdapOperationError as e:
         logger.error("delete_role_failed", cn=cn, error=str(e))
         raise HTTPException(
@@ -267,7 +264,7 @@ async def add_role_member(
 ):
     """
     Add a member to a role.
-    
+
     Requires: role:manage
     """
     entry = await role_repo.find_by_cn(cn)
@@ -276,10 +273,10 @@ async def add_role_member(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Role '{cn}' not found",
         )
-    
+
     # ACL check - role:manage on the specific role
     guard.require(entry.dn, "role:manage")
-    
+
     # Get user DN
     user = await user_repo.find_by_uid(member.uid)
     if not user:
@@ -287,12 +284,12 @@ async def add_role_member(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User '{member.uid}' not found",
         )
-    
+
     try:
         await role_repo.add_member(cn, user.dn)
-        
+
         logger.info("role_member_added", cn=cn, uid=member.uid, by=current_user.uid)
-        
+
     except LdapOperationError as e:
         if "already exists" in str(e).lower():
             raise HTTPException(
@@ -317,7 +314,7 @@ async def remove_role_member(
 ):
     """
     Remove a member from a role.
-    
+
     Requires: role:manage
     """
     entry = await role_repo.find_by_cn(cn)
@@ -326,10 +323,10 @@ async def remove_role_member(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Role '{cn}' not found",
         )
-    
+
     # ACL check - role:manage on the specific role
     guard.require(entry.dn, "role:manage")
-    
+
     # Get user DN
     user = await user_repo.find_by_uid(uid)
     if not user:
@@ -337,12 +334,12 @@ async def remove_role_member(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User '{uid}' not found",
         )
-    
+
     try:
         await role_repo.remove_member(cn, user.dn)
-        
+
         logger.info("role_member_removed", cn=cn, uid=uid, by=current_user.uid)
-        
+
     except LdapOperationError as e:
         error_msg = str(e).lower()
         if "not found" in error_msg:

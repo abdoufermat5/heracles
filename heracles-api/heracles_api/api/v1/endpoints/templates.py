@@ -6,7 +6,6 @@ CRUD operations for user creation templates.
 """
 
 import uuid
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, status
 
@@ -39,9 +38,7 @@ async def get_plugin_fields(
 
 @router.get("", response_model=TemplateListResponse)
 async def list_templates(
-    department_dn: Optional[str] = Query(
-        None, alias="departmentDn", description="Filter by department DN"
-    ),
+    department_dn: str | None = Query(None, alias="departmentDn", description="Filter by department DN"),
 ) -> TemplateListResponse:
     """List all user templates."""
     svc = get_template_service()

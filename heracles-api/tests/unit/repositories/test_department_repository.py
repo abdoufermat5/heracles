@@ -5,8 +5,9 @@ Department Repository Tests
 Tests for the department repository LDAP operations.
 """
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 from heracles_api.repositories.department_repository import DepartmentRepository, DepartmentSearchResult
 from heracles_api.schemas.department import DepartmentCreate, DepartmentUpdate
@@ -33,7 +34,7 @@ def create_mock_department_entry(
         "hrcDepartmentCategory": "division",
         "objectClass": ["organizationalUnit", "hrcDepartment"],
     }
-    
+
     # Mock get and get_first methods safely
     def get_first(key, default=None):
         val = entry.attributes.get(key)
@@ -42,7 +43,7 @@ def create_mock_department_entry(
         if isinstance(val, list):
             return val[0] if val else default
         return val
-        
+
     entry.get = lambda k, default=None: entry.attributes.get(k, default)
     entry.get_first = get_first
     return entry
@@ -108,11 +109,14 @@ class TestDepartmentRepository:
 
     async def test_create_department(self, department_repository, mock_ldap_service):
         """Test creating a department."""
-        mock_ldap_service.get_by_dn.side_effect = [None, create_mock_department_entry()]  # First checks existence, then returns created
+        mock_ldap_service.get_by_dn.side_effect = [
+            None,
+            create_mock_department_entry(),
+        ]  # First checks existence, then returns created
         mock_ldap_service.search.return_value = []  # No existing containers
 
         create_data = DepartmentCreate(ou="Sales", description="Sales Dept")
-        
+
         result = await department_repository.create(create_data)
 
         mock_ldap_service.add.assert_called()
@@ -124,10 +128,10 @@ class TestDepartmentRepository:
         mock_ldap_service.get_by_dn.return_value = entry
 
         create_data = DepartmentCreate(ou="Engineering")
-        
+
         with pytest.raises(LdapOperationError) as exc:
             await department_repository.create(create_data)
-        
+
         assert "already exists" in str(exc.value)
 
     async def test_update_department(self, department_repository, mock_ldap_service):
@@ -136,7 +140,7 @@ class TestDepartmentRepository:
         mock_ldap_service.get_by_dn.return_value = entry
 
         update_data = DepartmentUpdate(description="New Desc")
-        
+
         result = await department_repository.update(entry.dn, update_data)
 
         mock_ldap_service.modify.assert_called_once()
@@ -157,14 +161,14 @@ class TestDepartmentRepository:
         """Test deleting a department with children (non-recursive) fails."""
         entry = create_mock_department_entry()
         mock_ldap_service.get_by_dn.return_value = entry
-        
+
         child = MagicMock(spec=LdapEntry)
         child.dn = "uid=user1,ou=Eng,dc=h,dc=l"
         mock_ldap_service.search.return_value = [child]
 
         with pytest.raises(LdapOperationError) as exc:
             await department_repository.delete(entry.dn, recursive=False)
-        
+
         assert "children" in str(exc.value)
 
     async def test_get_tree(self, department_repository, mock_ldap_service):

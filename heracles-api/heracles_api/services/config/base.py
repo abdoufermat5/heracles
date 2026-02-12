@@ -5,21 +5,21 @@ Configuration Service
 Core configuration service that orchestrates settings, plugins, and history.
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from heracles_api.plugins.base import Plugin
 from heracles_api.schemas.config import (
     ConfigCategoryResponse,
     ConfigHistoryResponse,
     GlobalConfigResponse,
     PluginConfigResponse,
 )
-from heracles_api.plugins.base import Plugin
-from heracles_api.services.config.settings import SettingsManager
-from heracles_api.services.config.plugins import PluginConfigManager
 from heracles_api.services.config.history import HistoryManager
+from heracles_api.services.config.plugins import PluginConfigManager
+from heracles_api.services.config.settings import SettingsManager
 
 logger = structlog.get_logger(__name__)
 
@@ -43,7 +43,7 @@ class ConfigService:
     ):
         self._session_factory = session_factory
         self._redis = redis_client
-        self._plugin_registry: Dict[str, Plugin] = {}
+        self._plugin_registry: dict[str, Plugin] = {}
 
         # Initialize managers
         self._settings = SettingsManager(session_factory)
@@ -79,7 +79,7 @@ class ConfigService:
             plugins=plugins,
         )
 
-    async def get_categories(self) -> List[ConfigCategoryResponse]:
+    async def get_categories(self) -> list[ConfigCategoryResponse]:
         """Get all configuration categories with their settings."""
         return await self._settings.get_categories()
 
@@ -93,57 +93,51 @@ class ConfigService:
         key: str,
         value: Any,
         changed_by: str,
-        reason: Optional[str] = None,
-    ) -> Tuple[bool, List[str]]:
+        reason: str | None = None,
+    ) -> tuple[bool, list[str]]:
         """Update a configuration setting."""
-        return await self._settings.update_setting(
-            category, key, value, changed_by, reason
-        )
+        return await self._settings.update_setting(category, key, value, changed_by, reason)
 
     async def bulk_update_settings(
         self,
-        settings: Dict[str, Dict[str, Any]],
+        settings: dict[str, dict[str, Any]],
         changed_by: str,
-        reason: Optional[str] = None,
-    ) -> Tuple[int, List[str]]:
+        reason: str | None = None,
+    ) -> tuple[int, list[str]]:
         """Update multiple settings at once."""
-        return await self._settings.bulk_update_settings(
-            settings, changed_by, reason
-        )
+        return await self._settings.bulk_update_settings(settings, changed_by, reason)
 
     # =========================================================================
     # Plugin Configuration
     # =========================================================================
 
-    async def get_all_plugin_configs(self) -> List[PluginConfigResponse]:
+    async def get_all_plugin_configs(self) -> list[PluginConfigResponse]:
         """Get all plugin configurations."""
         return await self._plugins.get_all_plugin_configs()
 
-    async def get_plugin_config(self, plugin_name: str) -> Optional[PluginConfigResponse]:
+    async def get_plugin_config(self, plugin_name: str) -> PluginConfigResponse | None:
         """Get a single plugin's configuration."""
         return await self._plugins.get_plugin_config(plugin_name)
 
     async def update_plugin_config(
         self,
         plugin_name: str,
-        config: Dict[str, Any],
+        config: dict[str, Any],
         changed_by: str,
-        reason: Optional[str] = None,
-    ) -> Tuple[bool, List[str]]:
+        reason: str | None = None,
+    ) -> tuple[bool, list[str]]:
         """Update plugin configuration."""
-        return await self._plugins.update_plugin_config(
-            plugin_name, config, changed_by, reason
-        )
+        return await self._plugins.update_plugin_config(plugin_name, config, changed_by, reason)
 
     async def update_plugin_config_with_migration(
         self,
         plugin_name: str,
-        config: Dict[str, Any],
+        config: dict[str, Any],
         changed_by: str,
-        reason: Optional[str] = None,
+        reason: str | None = None,
         confirmed: bool = False,
         migrate_entries: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Update plugin configuration with RDN migration support."""
         return await self._plugins.update_plugin_config_with_migration(
             plugin_name=plugin_name,
@@ -160,12 +154,10 @@ class ConfigService:
         plugin_name: str,
         enabled: bool,
         changed_by: str,
-        reason: Optional[str] = None,
-    ) -> Tuple[bool, List[str]]:
+        reason: str | None = None,
+    ) -> tuple[bool, list[str]]:
         """Enable or disable a plugin."""
-        return await self._plugins.toggle_plugin(
-            plugin_name, enabled, changed_by, reason
-        )
+        return await self._plugins.toggle_plugin(plugin_name, enabled, changed_by, reason)
 
     async def register_plugin_config(self, plugin: Plugin) -> None:
         """Register a plugin's configuration schema in the database."""
@@ -181,10 +173,8 @@ class ConfigService:
         self,
         page: int = 1,
         page_size: int = 50,
-        category: Optional[str] = None,
-        plugin_name: Optional[str] = None,
+        category: str | None = None,
+        plugin_name: str | None = None,
     ) -> ConfigHistoryResponse:
         """Get configuration change history."""
-        return await self._history.get_history(
-            page, page_size, category, plugin_name
-        )
+        return await self._history.get_history(page, page_size, category, plugin_name)

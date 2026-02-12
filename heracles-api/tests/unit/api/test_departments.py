@@ -54,9 +54,7 @@ class TestGetDepartmentTree:
         assert data["tree"] == []
         assert data["total"] == 0
 
-    def test_get_tree_with_departments(
-        self, test_client, auth_headers, mock_department_repository
-    ):
+    def test_get_tree_with_departments(self, test_client, auth_headers, mock_department_repository):
         """Test getting tree with departments."""
         mock_tree = [
             {
@@ -96,9 +94,7 @@ class TestListDepartments:
 
         assert response.status_code == 401
 
-    def test_list_departments_empty(
-        self, test_client, auth_headers, mock_department_repository
-    ):
+    def test_list_departments_empty(self, test_client, auth_headers, mock_department_repository):
         """Test listing departments when none exist."""
         search_result = MagicMock()
         search_result.departments = []
@@ -112,9 +108,7 @@ class TestListDepartments:
         assert data["total"] == 0
         assert data["departments"] == []
 
-    def test_list_departments_with_results(
-        self, test_client, auth_headers, mock_department_repository
-    ):
+    def test_list_departments_with_results(self, test_client, auth_headers, mock_department_repository):
         """Test listing departments returns results."""
         entry1 = create_mock_department_entry(
             dn="ou=Engineering,dc=heracles,dc=local",
@@ -147,9 +141,7 @@ class TestListDepartments:
         data = response.json()
         assert data["total"] == 2
 
-    def test_list_departments_with_search(
-        self, test_client, auth_headers, mock_department_repository
-    ):
+    def test_list_departments_with_search(self, test_client, auth_headers, mock_department_repository):
         """Test listing departments with search filter."""
         entry = create_mock_department_entry(
             dn="ou=Engineering,dc=heracles,dc=local",
@@ -184,9 +176,7 @@ class TestListDepartments:
 class TestCreateDepartment:
     """Tests for POST /api/v1/departments/"""
 
-    def test_create_department_success(
-        self, test_client, auth_headers, mock_department_repository
-    ):
+    def test_create_department_success(self, test_client, auth_headers, mock_department_repository):
         """Test creating a new department."""
         entry = create_mock_department_entry()
         mock_department_repository.create.return_value = entry
@@ -211,9 +201,7 @@ class TestCreateDepartment:
         assert response.status_code == 201
         mock_department_repository.create.assert_called_once()
 
-    def test_create_department_with_parent(
-        self, test_client, auth_headers, mock_department_repository
-    ):
+    def test_create_department_with_parent(self, test_client, auth_headers, mock_department_repository):
         """Test creating a department with parent."""
         entry = create_mock_department_entry(
             dn="ou=DevOps,ou=Engineering,dc=heracles,dc=local",
@@ -264,9 +252,7 @@ class TestCreateDepartment:
 class TestGetDepartment:
     """Tests for GET /api/v1/departments/{dn}"""
 
-    def test_get_department_success(
-        self, test_client, auth_headers, mock_department_repository
-    ):
+    def test_get_department_success(self, test_client, auth_headers, mock_department_repository):
         """Test getting a department by DN."""
         entry = create_mock_department_entry()
         mock_department_repository.find_by_dn.return_value = entry
@@ -288,9 +274,7 @@ class TestGetDepartment:
 
         assert response.status_code == 200
 
-    def test_get_department_not_found(
-        self, test_client, auth_headers, mock_department_repository
-    ):
+    def test_get_department_not_found(self, test_client, auth_headers, mock_department_repository):
         """Test getting a non-existent department returns 404."""
         mock_department_repository.find_by_dn.return_value = None
 
@@ -313,9 +297,7 @@ class TestGetDepartment:
 class TestUpdateDepartment:
     """Tests for PATCH /api/v1/departments/{dn}"""
 
-    def test_update_department_success(
-        self, test_client, auth_headers, mock_department_repository
-    ):
+    def test_update_department_success(self, test_client, auth_headers, mock_department_repository):
         """Test updating a department."""
         entry = create_mock_department_entry()
         mock_department_repository.find_by_dn.return_value = entry
@@ -340,9 +322,7 @@ class TestUpdateDepartment:
         assert response.status_code == 200
         mock_department_repository.update.assert_called_once()
 
-    def test_update_department_not_found(
-        self, test_client, auth_headers, mock_department_repository
-    ):
+    def test_update_department_not_found(self, test_client, auth_headers, mock_department_repository):
         """Test updating a non-existent department returns 404."""
         mock_department_repository.update.return_value = None
 
@@ -369,9 +349,7 @@ class TestUpdateDepartment:
 class TestDeleteDepartment:
     """Tests for DELETE /api/v1/departments/{dn}"""
 
-    def test_delete_department_success(
-        self, test_client, auth_headers, mock_department_repository
-    ):
+    def test_delete_department_success(self, test_client, auth_headers, mock_department_repository):
         """Test deleting a department."""
         entry = create_mock_department_entry()
         mock_department_repository.find_by_dn.return_value = entry
@@ -386,9 +364,7 @@ class TestDeleteDepartment:
         assert response.status_code == 204
         mock_department_repository.delete.assert_called_once()
 
-    def test_delete_department_not_found(
-        self, test_client, auth_headers, mock_department_repository
-    ):
+    def test_delete_department_not_found(self, test_client, auth_headers, mock_department_repository):
         """Test deleting a non-existent department returns 404."""
         mock_department_repository.find_by_dn.return_value = None
         mock_department_repository.delete.return_value = False
@@ -401,9 +377,7 @@ class TestDeleteDepartment:
 
         assert response.status_code == 404
 
-    def test_delete_department_recursive(
-        self, test_client, auth_headers, mock_department_repository
-    ):
+    def test_delete_department_recursive(self, test_client, auth_headers, mock_department_repository):
         """Test deleting a department recursively."""
         entry = create_mock_department_entry()
         mock_department_repository.find_by_dn.return_value = entry

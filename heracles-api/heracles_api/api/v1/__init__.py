@@ -8,8 +8,20 @@ Main router for API v1 endpoints.
 from fastapi import APIRouter
 
 from heracles_api.api.v1.endpoints import (
-    auth, users, groups, roles, departments, plugins, config,
-    version, acl, health, stats, audit, templates, import_export,
+    acl,
+    audit,
+    auth,
+    config,
+    departments,
+    groups,
+    health,
+    import_export,
+    plugins,
+    roles,
+    stats,
+    templates,
+    users,
+    version,
 )
 
 router = APIRouter()
@@ -33,6 +45,7 @@ router.include_router(stats.router, tags=["Stats"])
 # Include POSIX plugin routes (loaded dynamically if plugin is enabled)
 try:
     from heracles_plugins.posix.routes import router as posix_router
+
     router.include_router(posix_router, tags=["POSIX"])
 except ImportError:
     pass  # POSIX plugin not installed
@@ -40,6 +53,7 @@ except ImportError:
 # Include Systems plugin routes
 try:
     from heracles_plugins.systems.routes import router as systems_router
+
     router.include_router(systems_router, tags=["Systems"])
 except ImportError:
     pass  # Systems plugin not installed

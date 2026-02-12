@@ -6,18 +6,16 @@ Redirects HTTP requests to HTTPS when require_https is enabled.
 """
 
 from datetime import datetime, timedelta
-from typing import Optional
 
+import structlog
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import RedirectResponse
 
-import structlog
-
 logger = structlog.get_logger(__name__)
 
-_cache_value: Optional[bool] = None
-_cache_time: Optional[datetime] = None
+_cache_value: bool | None = None
+_cache_time: datetime | None = None
 _CACHE_TTL = 30
 
 

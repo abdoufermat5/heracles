@@ -10,10 +10,9 @@ Matches or exceeds FusionDirectory's ldapmanager plugin capabilities:
 - CSV/LDIF export with field selection and object type support
 """
 
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, Field, validator
-
 
 # ---------------------------------------------------------------------------
 # Shared / Enums
@@ -61,21 +60,17 @@ class CsvImportConfigRequest(BaseModel):
 
     object_type: ObjectType = Field("user", alias="object_type")
     separator: CsvSeparator = Field(",", alias="separator")
-    template_id: Optional[str] = Field(None, alias="template_id")
-    column_mapping: Optional[list[ColumnMappingSchema]] = Field(
-        None, alias="column_mapping"
-    )
-    fixed_values: Optional[list[FixedValueSchema]] = Field(
-        None, alias="fixed_values"
-    )
-    default_password: Optional[str] = Field(None, alias="default_password")
-    department_dn: Optional[str] = Field(None, alias="department_dn")
-    object_classes: Optional[list[str]] = Field(
+    template_id: str | None = Field(None, alias="template_id")
+    column_mapping: list[ColumnMappingSchema] | None = Field(None, alias="column_mapping")
+    fixed_values: list[FixedValueSchema] | None = Field(None, alias="fixed_values")
+    default_password: str | None = Field(None, alias="default_password")
+    department_dn: str | None = Field(None, alias="department_dn")
+    object_classes: list[str] | None = Field(
         None,
         alias="object_classes",
         description="Custom objectClass list for generic imports (required when object_type='custom')",
     )
-    rdn_attribute: Optional[str] = Field(
+    rdn_attribute: str | None = Field(
         None,
         alias="rdn_attribute",
         description="RDN attribute name for building DN (e.g. 'cn', 'uid'). Required when object_type='custom'.",
@@ -86,9 +81,7 @@ class CsvImportConfigRequest(BaseModel):
 
     @validator("column_mapping", pre=True)
     @classmethod
-    def _normalize_column_mapping(
-        cls, v: object
-    ) -> Optional[list[dict[str, str]]]:
+    def _normalize_column_mapping(cls, v: object) -> list[dict[str, str]] | None:
         """Accept both dict and list formats for column_mapping.
 
         Dict format:  {"uid": "uid", "cn": "cn"}
@@ -97,10 +90,7 @@ class CsvImportConfigRequest(BaseModel):
         if v is None:
             return v
         if isinstance(v, dict):
-            return [
-                {"csv_column": k, "ldap_attribute": val}
-                for k, val in v.items()
-            ]
+            return [{"csv_column": k, "ldap_attribute": val} for k, val in v.items()]
         return v
 
 
@@ -157,8 +147,7 @@ class LdifImportRequest(BaseModel):
 
     overwrite: bool = Field(
         False,
-        description="If true, existing entries will be overwritten. "
-        "If false, existing entries are skipped.",
+        description="If true, existing entries will be overwritten. If false, existing entries are skipped.",
     )
 
     class Config:
@@ -187,21 +176,19 @@ class ExportRequest(BaseModel):
     """Request body for export."""
 
     format: ExportFormat = Field("csv", description="Export format: csv or ldif")
-    object_type: Optional[ObjectType] = Field(
+    object_type: ObjectType | None = Field(
         None,
         alias="object_type",
         description="Object type preset (user, group) or null for raw LDAP export. "
         "When null, department_dn and filter must be provided.",
     )
-    fields: Optional[list[str]] = Field(
-        None, description="Specific fields to include. None = all attributes found."
-    )
-    department_dn: Optional[str] = Field(
+    fields: list[str] | None = Field(None, description="Specific fields to include. None = all attributes found.")
+    department_dn: str | None = Field(
         None,
         alias="department_dn",
         description="Search base DN. Defaults to LDAP base DN when no object_type.",
     )
-    filter: Optional[str] = Field(
+    filter: str | None = Field(
         None,
         description="LDAP search filter. Defaults to (objectClass=*) when no object_type.",
     )
@@ -226,7 +213,7 @@ class PluginFieldInfo(BaseModel):
     name: str
     label: str
     required: bool = False
-    description: Optional[str] = None
+    description: str | None = None
     plugin_name: str = Field(alias="plugin_name")
 
     class Config:
@@ -251,9 +238,7 @@ class AvailableFieldsResponse(BaseModel):
     required_fields: list[str] = Field(alias="required_fields")
     optional_fields: list[str] = Field(alias="optional_fields")
     all_fields: list[str] = Field(alias="all_fields")
-    plugin_fields: list[PluginFieldGroup] = Field(
-        default_factory=list, alias="plugin_fields"
-    )
+    plugin_fields: list[PluginFieldGroup] = Field(default_factory=list, alias="plugin_fields")
 
     class Config:
         populate_by_name = True
@@ -264,8 +249,8 @@ class ImportTemplateInfo(BaseModel):
 
     id: str
     name: str
-    description: Optional[str] = None
-    department_dn: Optional[str] = Field(None, alias="department_dn")
+    description: str | None = None
+    department_dn: str | None = Field(None, alias="department_dn")
 
     class Config:
         populate_by_name = True

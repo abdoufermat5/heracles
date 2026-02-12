@@ -6,7 +6,7 @@ Manages global configuration settings (categories, sections, fields).
 """
 
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -18,13 +18,13 @@ from heracles_api.schemas.config import (
     ConfigFieldType,
     ConfigSectionResponse,
 )
+from heracles_api.services.config.cache import invalidate_config_cache
 from heracles_api.services.config.validators import (
     parse_json_value,
     parse_options,
     parse_validation,
     validate_value,
 )
-from heracles_api.services.config.cache import invalidate_config_cache
 
 logger = structlog.get_logger(__name__)
 
@@ -34,9 +34,9 @@ class SettingsManager:
 
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]):
         self._session_factory = session_factory
-        self._cache: Dict[str, Any] = {}
+        self._cache: dict[str, Any] = {}
         self._cache_ttl = 60  # seconds
-        self._cache_time: Optional[datetime] = None
+        self._cache_time: datetime | None = None
 
     def _is_cache_valid(self) -> bool:
         """Check if cache is still valid."""
@@ -44,7 +44,7 @@ class SettingsManager:
             return False
         return datetime.now() - self._cache_time < timedelta(seconds=self._cache_ttl)
 
-    def _invalidate_cache(self, key: Optional[str] = None) -> None:
+    def _invalidate_cache(self, key: str | None = None) -> None:
         """Invalidate cache."""
         if key:
             self._cache.pop(key, None)
@@ -52,7 +52,7 @@ class SettingsManager:
             self._cache.clear()
         self._cache_time = datetime.now()
 
-    async def get_categories(self) -> List[ConfigCategoryResponse]:
+    async def get_categories(self) -> list[ConfigCategoryResponse]:
         """Get all configuration categories with their settings."""
         async with self._session_factory() as session:
             repo = ConfigRepository(session)
@@ -64,9 +64,9 @@ class SettingsManager:
                 setting_rows = await repo.get_settings_for_category(cat.id)
 
                 # Group settings by section
-                sections: Dict[str, List[ConfigFieldResponse]] = {}
+                sections: dict[str, list[ConfigFieldResponse]] = {}
                 for setting in setting_rows:
-                    section_name = setting.section or 'default'
+                    section_name = setting.section or "default"
 
                     field = ConfigFieldResponse(
                         key=setting.key,
@@ -91,7 +91,7 @@ class SettingsManager:
                 section_list = [
                     ConfigSectionResponse(
                         id=name,
-                        label=name.replace('_', ' ').title() if name != 'default' else 'General',
+                        label=name.replace("_", " ").title() if name != "default" else "General",
                         fields=fields,
                     )
                     for name, fields in sections.items()
@@ -102,15 +102,17 @@ class SettingsManager:
                 for fields_list in sections.values():
                     all_settings.extend(fields_list)
 
-                categories.append(ConfigCategoryResponse(
-                    name=cat.name,
-                    label=cat.label,
-                    description=cat.description,
-                    icon=cat.icon,
-                    sections=section_list,
-                    settings=all_settings,
-                    display_order=cat.display_order,
-                ))
+                categories.append(
+                    ConfigCategoryResponse(
+                        name=cat.name,
+                        label=cat.label,
+                        description=cat.description,
+                        icon=cat.icon,
+                        sections=section_list,
+                        settings=all_settings,
+                        display_order=cat.display_order,
+                    )
+                )
 
             return categories
 
@@ -140,8 +142,8 @@ class SettingsManager:
         key: str,
         value: Any,
         changed_by: str,
-        reason: Optional[str] = None,
-    ) -> Tuple[bool, List[str]]:
+        reason: str | None = None,
+    ) -> tuple[bool, list[str]]:
         """Update a configuration setting."""
         async with self._session_factory() as session:
             repo = ConfigRepository(session)
@@ -151,7 +153,7 @@ class SettingsManager:
             if not setting:
                 return False, [f"Setting {category}.{key} not found"]
 
-            if getattr(setting, 'read_only', False):
+            if getattr(setting, "read_only", False):
                 return False, [f"Setting {category}.{key} is read-only"]
 
             # Validate value
@@ -191,6 +193,7 @@ class SettingsManager:
             if category == "security" and key.startswith("rate_limit"):
                 try:
                     from heracles_api.middleware.rate_limit import invalidate_rate_limit_cache
+
                     invalidate_rate_limit_cache()
                 except ImportError:
                     pass
@@ -206,19 +209,17 @@ class SettingsManager:
 
     async def bulk_update_settings(
         self,
-        settings: Dict[str, Dict[str, Any]],
+        settings: dict[str, dict[str, Any]],
         changed_by: str,
-        reason: Optional[str] = None,
-    ) -> Tuple[int, List[str]]:
+        reason: str | None = None,
+    ) -> tuple[int, list[str]]:
         """Update multiple settings at once."""
         errors = []
         updated = 0
 
         for category, category_settings in settings.items():
             for key, value in category_settings.items():
-                success, setting_errors = await self.update_setting(
-                    category, key, value, changed_by, reason
-                )
+                success, setting_errors = await self.update_setting(category, key, value, changed_by, reason)
                 if success:
                     updated += 1
                 else:

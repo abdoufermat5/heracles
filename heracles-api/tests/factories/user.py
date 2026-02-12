@@ -6,7 +6,6 @@ Factory for creating user test data.
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional
 
 
 @dataclass
@@ -33,14 +32,14 @@ class UserFactory:
     sn: str = "User"
     given_name: str = "Test"
     mail: str = ""
-    telephone: Optional[str] = None
-    title: Optional[str] = None
-    description: Optional[str] = None
-    uid_number: Optional[int] = None
-    gid_number: Optional[int] = None
-    home_directory: Optional[str] = None
-    login_shell: Optional[str] = None
-    object_classes: List[str] = field(default_factory=lambda: ["inetOrgPerson"])
+    telephone: str | None = None
+    title: str | None = None
+    description: str | None = None
+    uid_number: int | None = None
+    gid_number: int | None = None
+    home_directory: str | None = None
+    login_shell: str | None = None
+    object_classes: list[str] = field(default_factory=lambda: ["inetOrgPerson"])
 
     _counter: int = field(default=0, repr=False)
 
@@ -62,7 +61,7 @@ class UserFactory:
         return cls(**defaults)
 
     @classmethod
-    def create_batch(cls, count: int, **kwargs) -> List["UserFactory"]:
+    def create_batch(cls, count: int, **kwargs) -> list["UserFactory"]:
         """Create multiple users."""
         return [cls.create(**kwargs) for _ in range(count)]
 
