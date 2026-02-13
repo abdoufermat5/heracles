@@ -35,9 +35,9 @@ services:
     volumes:
       - ldap_data:/var/lib/ldap
       - ldap_config:/etc/ldap/slapd.d
-      - ${TLS_LDAP_CERT:-./pki/dev/ldap/ldap.heracles.local.crt}:/container/service/slapd/assets/certs/ldap.crt:ro
-      - ${TLS_LDAP_KEY:-./pki/dev/ldap/ldap.heracles.local.key}:/container/service/slapd/assets/certs/ldap.key:ro
-      - ${TLS_CA_CERT:-./pki/dev/ca/heracles-dev-ca.crt}:/container/service/slapd/assets/certs/ca.crt:ro
+      - ${TLS_LDAP_CERT:-./pki/dev/ldap/ldap.heracles.local.crt}:/container/service/slapd/assets/certs/ldap.crt
+      - ${TLS_LDAP_KEY:-./pki/dev/ldap/ldap.heracles.local.key}:/container/service/slapd/assets/certs/ldap.key
+      - ${TLS_CA_CERT:-./pki/dev/ca/heracles-dev-ca.crt}:/container/service/slapd/assets/certs/ca.crt
     ports:
       - "${LDAP_PORT:-389}:389"
       - "${LDAPS_PORT:-636}:636"
@@ -106,7 +106,7 @@ services:
   # Heracles API (Production — gunicorn + uvicorn workers)
   # ===========================================================================
   api:
-    image: ${API_IMAGE:-ghcr.io/abdoufermat5/heracles-api:latest}
+    image: ${API_IMAGE:-ghcr.io/abdoufermat5/heracles-api:0.8.1-rc}
     build:
       context: .
       dockerfile: deploy/docker/api/Dockerfile
@@ -160,16 +160,19 @@ services:
   # Heracles UI (Production — nginx static serving)
   # ===========================================================================
   ui:
-    image: ${UI_IMAGE:-ghcr.io/abdoufermat5/heracles-ui:latest}
+    image: ${UI_IMAGE:-ghcr.io/abdoufermat5/heracles-ui:0.8.1-rc}
     build:
       context: .
       dockerfile: deploy/docker/ui/Dockerfile
     container_name: heracles-ui
     restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
     networks:
       - heracles-net
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:80/"]
       interval: 30s
       timeout: 5s
       retries: 3

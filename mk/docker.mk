@@ -20,6 +20,16 @@ up-infra:
 	@$(COMPOSE) up -d ldap postgres redis phpldapadmin
 	@echo "✅ Infrastructure ready"
 
+# Start production stack (using GHCR images)
+up-prod:
+	@echo "🚀 Starting Heracles (Production Images)..."
+	@$(COMPOSE) -f docker-compose.prod.yml up -d
+	@echo ""
+	@echo "✅ Services running (Production Mode):"
+	@echo "   API:  http://localhost:$(API_PORT)"
+	@echo "   UI:   http://localhost:$(UI_PORT)"
+	@echo "   LDAP: http://localhost:8080 (phpLDAPadmin)"
+
 # Stop all services
 down:
 	@echo "⏹️  Stopping services..."

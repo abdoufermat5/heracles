@@ -24,6 +24,24 @@ demo: up
 	@echo "   VMs: server1 (192.168.56.10), workstation1 (192.168.56.11)"
 	@echo "   SSH: make demo-ssh vm=server1"
 
+# Full demo setup with Production images (GHCR)
+demo-prod: up-prod
+	@echo "Setting up demo environment (Production)..."
+	@sleep 5
+	@./scripts/ldap-bootstrap.sh all
+	@echo "🗄️ Applying database migrations..."
+	@$(COMPOSE) -f docker-compose.prod.yml exec api alembic upgrade head
+	@echo "🌱 Seeding default configuration..."
+	@$(COMPOSE) -f docker-compose.prod.yml exec api python -m heracles_api.core.seed
+	@cd $(DEMO_DIR) && ./scripts/generate-keys.sh 2>/dev/null || true
+	@cd $(DEMO_DIR) && sg libvirt -c "vagrant up"
+	@sleep 10
+	@cd $(DEMO_DIR) && ./scripts/setup-demo-users.sh 2>/dev/null || true
+	@echo ""
+	@echo "Demo (Production) ready!"
+	@echo "   VMs: server1 (192.168.56.10), workstation1 (192.168.56.11)"
+	@echo "   SSH: make demo-ssh vm=server1"
+
 # Start VMs only
 demo-up:
 	@echo "Starting demo VMs..."
