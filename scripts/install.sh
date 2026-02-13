@@ -31,7 +31,7 @@ error()   { echo -e "  ${RED}✗${NC}  $1"; }
 prompt()  { echo -en "  ${BOLD}?${NC}  $1: "; }
 
 generate_secret() { openssl rand -hex 32 2>/dev/null || head -c 64 /dev/urandom | base64 | tr -d '\n/+=' | head -c 64; }
-generate_password() { openssl rand -base64 24 2>/dev/null || head -c 32 /dev/urandom | base64 | tr -d '\n/+=' | head -c 32; }
+generate_password() { openssl rand -hex 24 2>/dev/null || head -c 48 /dev/urandom | xxd -p | tr -d '\n' | head -c 48; }
 
 # ─── Pre-flight checks ───────────────────────────────────────────────────────
 
