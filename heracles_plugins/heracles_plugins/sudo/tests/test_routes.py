@@ -9,7 +9,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 
 from fastapi import FastAPI
-from httpx import AsyncClient
+from httpx import AsyncClient, ASGITransport
 
 from heracles_plugins.sudo.routes import router
 from heracles_plugins.sudo.schemas import (
@@ -105,7 +105,7 @@ class TestListRolesEndpoint:
             has_more=False,
         )
         
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             # Note: In real tests, we'd need to handle auth
             await client.get("/api/v1/sudo/roles")
         
