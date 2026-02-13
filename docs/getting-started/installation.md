@@ -77,7 +77,7 @@ See `deploy/ansible/` for full playbook documentation.
 
 After installation:
 
-1. **Login** — Open `http://localhost:3000` with your admin credentials
+1. **Login** — Open `http://localhost:3000` with your admin credentials (or `https://ui.heracles.local` with TLS)
 2. **Create departments** — Organize your directory hierarchy
 3. **Create templates** — Standardize user creation with templates
 4. **Import users** — Bulk import via CSV from the Import page

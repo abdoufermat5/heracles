@@ -225,7 +225,7 @@ fi
 
 header "Starting All Services"
 
-$COMPOSE_CMD up -d 2>/dev/null || docker compose up -d
+$COMPOSE_CMD --profile full up -d 2>/dev/null || docker compose --profile full up -d
 
 # Wait a moment for all services to start
 sleep 5

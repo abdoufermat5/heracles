@@ -159,6 +159,8 @@ services:
       - api
     networks:
       - heracles-net
+    ports:
+      - "3000:3000"
     command: ["bun", "run", "dev", "--host", "0.0.0.0", "--port", "3000"]
     profiles:
       - full
