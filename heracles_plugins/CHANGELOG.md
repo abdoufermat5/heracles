@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1-rc] - 2026-02-13
+
 ### Changed
 - **Package management**: Migrated from setuptools to **hatchling** build backend (uv-compatible)
 - Updated dev dependency versions (pytest, pytest-asyncio, pytest-cov)
@@ -79,6 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Plugin base classes and interfaces
 - POSIX plugin (partial implementation)
 
-[Unreleased]: https://github.com/abdoufermat5/heracles/compare/heracles-plugins/v0.8.0-beta...HEAD
+[Unreleased]: https://github.com/abdoufermat5/heracles/compare/heracles-plugins/v0.8.1-rc...HEAD
+[0.8.1-rc]: https://github.com/abdoufermat5/heracles/compare/heracles-plugins/v0.8.0-beta...heracles-plugins/v0.8.1-rc
 [0.8.0-beta]: https://github.com/abdoufermat5/heracles/compare/heracles-plugins/v0.1.0-alpha...heracles-plugins/v0.8.0-beta
 [0.1.0-alpha]: https://github.com/abdoufermat5/heracles/releases/tag/heracles-plugins/v0.1.0-alpha

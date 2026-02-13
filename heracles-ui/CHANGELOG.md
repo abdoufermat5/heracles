@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.8.1-rc] - 2026-02-11
+## [0.8.1-rc] - 2026-02-13
 
 ### Added
 - **Phase 4 Complete**: Audit, templates, import/export pages
@@ -83,7 +83,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Lucide React icons
 - Recharts for dashboard charts
 
-[Unreleased]: https://github.com/abdoufermat5/heracles/compare/heracles-ui/v0.8.0-beta...HEAD
+[Unreleased]: https://github.com/abdoufermat5/heracles/compare/heracles-ui/v0.8.1-rc...HEAD
+[0.8.1-rc]: https://github.com/abdoufermat5/heracles/compare/heracles-ui/v0.8.0-beta...heracles-ui/v0.8.1-rc
 [0.8.0-beta]: https://github.com/abdoufermat5/heracles/compare/heracles-ui/v0.5.0-beta...heracles-ui/v0.8.0-beta
 [0.5.0-beta]: https://github.com/abdoufermat5/heracles/compare/heracles-ui/v0.1.0-alpha...heracles-ui/v0.5.0-beta
 [0.1.0-alpha]: https://github.com/abdoufermat5/heracles/releases/tag/heracles-ui/v0.1.0-alpha

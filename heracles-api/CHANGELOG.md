@@ -7,15 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-- **Package management**: Migrated from pip/requirements.txt to **uv** with pyproject.toml
-- Build backend switched from setuptools to hatchling
-- Dockerfile now uses `uv pip install` for all Python package operations
-- CI pipeline uses `astral-sh/setup-uv@v4` for reproducible installs
-- Removed `requirements.txt` and `requirements-dev.txt` (replaced by `pyproject.toml`)
-- Tool config (pytest, ruff, black, mypy) consolidated into `pyproject.toml`
-
-## [0.8.1-rc] - 2026-02-11
+## [0.8.1-rc] - 2026-02-13
 
 ### Added
 - **Phase 4 Complete**: Audit, templates, import/export, production hardening
@@ -31,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `minimum_api_version` field in `PluginInfo` for compatibility checking
 
 ### Changed
+- **Package management**: Migrated from pip/requirements.txt to **uv** with pyproject.toml
+- Build backend switched from setuptools to hatchling
+- Dockerfile now uses `uv pip install` for all Python package operations
+- CI pipeline uses `astral-sh/setup-uv@v4` for reproducible installs
+- Removed `requirements.txt` and `requirements-dev.txt` (replaced by `pyproject.toml`)
+- Tool config (pytest, ruff, black, mypy) consolidated into `pyproject.toml`
 - Split requirements.txt into production and dev dependencies
 - Production Docker image runs as non-root user
 - Added healthcheck to API Dockerfile
@@ -94,7 +92,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - LDAP injection prevention with proper escaping
 - Rate limiting infrastructure
 
-[Unreleased]: https://github.com/abdoufermat5/heracles/compare/heracles-api/v0.8.0-beta...HEAD
+[Unreleased]: https://github.com/abdoufermat5/heracles/compare/heracles-api/v0.8.1-rc...HEAD
+[0.8.1-rc]: https://github.com/abdoufermat5/heracles/compare/heracles-api/v0.8.0-beta...heracles-api/v0.8.1-rc
 [0.8.0-beta]: https://github.com/abdoufermat5/heracles/compare/heracles-api/v0.5.0-beta...heracles-api/v0.8.0-beta
 [0.5.0-beta]: https://github.com/abdoufermat5/heracles/compare/heracles-api/v0.1.0-alpha...heracles-api/v0.5.0-beta
 [0.1.0-alpha]: https://github.com/abdoufermat5/heracles/releases/tag/heracles-api/v0.1.0-alpha

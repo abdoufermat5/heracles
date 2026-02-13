@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1-rc] - 2026-02-13
+
 ### Added
 - Expose `__version__` constant to Python via PyO3 bindings
 
@@ -42,5 +44,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Argon2id configured with OWASP recommended parameters
 - No plaintext password storage
 
-[Unreleased]: https://github.com/abdoufermat5/heracles/compare/heracles-core/v0.1.0...HEAD
+[Unreleased]: https://github.com/abdoufermat5/heracles/compare/heracles-core/v0.8.1-rc...HEAD
+[0.8.1-rc]: https://github.com/abdoufermat5/heracles/compare/heracles-core/v0.1.0...heracles-core/v0.8.1-rc
 [0.1.0]: https://github.com/abdoufermat5/heracles/releases/tag/heracles-core/v0.1.0
