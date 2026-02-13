@@ -10,7 +10,12 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - "heracles-api/v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g. 0.8.1-rc)"
+        required: true
 
 env:
   REGISTRY: ghcr.io
@@ -56,7 +61,13 @@ jobs:
 
       - name: Extract version from tag
         id: version
-        run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            TAG="${GITHUB_REF#refs/tags/heracles-api/v}"
+            echo "version=${TAG}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Docker metadata
         id: meta
@@ -64,9 +75,8 @@ jobs:
         with:
           images: ${{ env[matrix.image_env] }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.version.outputs.version }}
+            type=raw,value=latest,enable=${{ !contains(steps.version.outputs.version, 'rc') && !contains(steps.version.outputs.version, 'beta') && !contains(steps.version.outputs.version, 'alpha') }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -94,7 +104,13 @@ jobs:
 
       - name: Extract version
         id: version
-        run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            TAG="${GITHUB_REF#refs/tags/heracles-api/v}"
+            echo "version=${TAG}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Generate release notes
         id: notes
