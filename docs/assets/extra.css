@@ -1,0 +1,19 @@
+/* Custom Heracles theme overrides */
+
+/* Dark header that lets the purple logo stand out */
+[data-md-color-scheme="default"] .md-header {
+  background-color: #1a1a2e;
+}
+
+[data-md-color-scheme="slate"] .md-header {
+  background-color: #0f0f1a;
+}
+
+/* Matching tabs bar */
+[data-md-color-scheme="default"] .md-tabs {
+  background-color: #16162b;
+}
+
+[data-md-color-scheme="slate"] .md-tabs {
+  background-color: #0a0a15;
+}

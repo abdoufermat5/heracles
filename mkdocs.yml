@@ -1,39 +1,144 @@
-site_name: Heracles Identity Management
+site_name: Heracles — Identity Management
+site_description: Modern LDAP identity management platform built with Rust, FastAPI, and React
 site_url: https://abdoufermat5.github.io/heracles/
 repo_url: https://github.com/abdoufermat5/heracles
 repo_name: abdoufermat5/heracles
+copyright: Copyright &copy; 2025–2026 Heracles Contributors — GPL-2.0
 
 theme:
   name: material
+  logo: assets/logo.png
+  favicon: assets/favicon.png
   features:
     - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.sections
-    - toc.integrate
+    - navigation.expand
+    - navigation.path
+    - navigation.top
+    - navigation.indexes
+    - toc.follow
     - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - search.suggest
+    - search.highlight
+    - search.share
   palette:
-    - scheme: default
-      primary: blue
-      accent: light blue
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: amber
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
-    - scheme: slate
-      primary: blue
-      accent: light blue
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: amber
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+
+extra_css:
+  - assets/extra.css
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/abdoufermat5/heracles
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+  - pymdownx.snippets
+
+plugins:
+  - search
+  - minify:
+      minify_html: true
 
 nav:
   - Home: index.md
-  - Architecture: architecture.md
-  - Identity: identity.md
-  - Infrastructure: infrastructure.md
-  - Security: security.md
-  - Administration: administration.md
 
-markdown_extensions:
-  - admonition
-  - pymdownx.details
+  - Getting Started:
+    - getting-started/index.md
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+    - Configuration: getting-started/configuration.md
 
-  - attr_list
+  - Architecture:
+    - architecture/index.md
+    - Components: architecture/components.md
+    - Data Model: architecture/data-model.md
+
+  - User Guide:
+    - guide/index.md
+    - Users: guide/users.md
+    - Groups: guide/groups.md
+    - Departments: guide/departments.md
+    - DNS: guide/dns.md
+    - DHCP: guide/dhcp.md
+    - Systems: guide/systems.md
+    - Sudo Roles: guide/sudo.md
+    - Access Control: guide/acl.md
+
+  - API Reference:
+    - api/index.md
+    - Authentication: api/authentication.md
+    - Endpoints: api/endpoints.md
+
+  - Security:
+    - security/index.md
+    - Authentication & Tokens: security/auth-tokens.md
+    - LDAP Security: security/ldap.md
+
+  - Administration:
+    - administration/index.md
+    - Audit Logs: administration/audit.md
+    - Backup & Restore: administration/backup.md
+    - Troubleshooting: administration/troubleshooting.md
+
+  - Plugins:
+    - plugins/index.md
+    - Available Plugins: plugins/available.md
+    - Plugin Development: plugins/development.md
+
+  - Development:
+    - development/index.md
+    - Contributing: development/contributing.md
+    - Demo Environment: development/demo.md
