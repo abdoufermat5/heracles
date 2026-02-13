@@ -187,6 +187,12 @@ EOF
   success ".env created"
 fi
 
+# ─── Source .env ─────────────────────────────────────────────────────────────
+# Export all variables so sub-scripts (ldap-bootstrap.sh, etc.) see them.
+set -a
+source .env
+set +a
+
 # ─── Start Services ──────────────────────────────────────────────────────────
 
 header "Starting Infrastructure"
@@ -217,8 +223,8 @@ success "Infrastructure ready"
 header "Bootstrapping LDAP"
 
 if [[ -x scripts/ldap-bootstrap.sh ]]; then
-  bash scripts/ldap-bootstrap.sh init 2>/dev/null && success "LDAP structure initialized" || warn "LDAP bootstrap skipped (may already be initialized)"
-  bash scripts/ldap-bootstrap.sh schemas 2>/dev/null && success "Schemas loaded" || warn "Schema loading skipped"
+  bash scripts/ldap-bootstrap.sh init && success "LDAP structure initialized" || warn "LDAP bootstrap failed — check logs above"
+  bash scripts/ldap-bootstrap.sh schemas && success "Schemas loaded" || warn "Schema loading failed — check logs above"
 else
   warn "ldap-bootstrap.sh not found — skip LDAP bootstrap"
 fi
